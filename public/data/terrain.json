@@ -1,0 +1,299 @@
+{
+  "terrain_types": [
+    {
+      "id": "plains",
+      "name": "Plains",
+      "defense_stars": 1,
+      "is_property": false,
+      "can_capture": false,
+      "income": 0,
+      "can_produce": [],
+      "movement_costs": {
+        "foot": 1,
+        "mech": 1,
+        "tires": 2,
+        "tread": 1,
+        "air": 1,
+        "ship": -1,
+        "trans": -1
+      }
+    },
+    {
+      "id": "forest",
+      "name": "Forest",
+      "defense_stars": 2,
+      "is_property": false,
+      "can_capture": false,
+      "income": 0,
+      "can_produce": [],
+      "movement_costs": {
+        "foot": 1,
+        "mech": 1,
+        "tires": 3,
+        "tread": 2,
+        "air": 1,
+        "ship": -1,
+        "trans": -1
+      }
+    },
+    {
+      "id": "mountain",
+      "name": "Mountain",
+      "defense_stars": 4,
+      "is_property": false,
+      "can_capture": false,
+      "income": 0,
+      "can_produce": [],
+      "movement_costs": {
+        "foot": 2,
+        "mech": 1,
+        "tires": -1,
+        "tread": -1,
+        "air": 1,
+        "ship": -1,
+        "trans": -1
+      }
+    },
+    {
+      "id": "road",
+      "name": "Road",
+      "defense_stars": 0,
+      "is_property": false,
+      "can_capture": false,
+      "income": 0,
+      "can_produce": [],
+      "movement_costs": {
+        "foot": 1,
+        "mech": 1,
+        "tires": 1,
+        "tread": 1,
+        "air": 1,
+        "ship": -1,
+        "trans": -1
+      }
+    },
+    {
+      "id": "city",
+      "name": "City",
+      "defense_stars": 3,
+      "is_property": true,
+      "can_capture": true,
+      "income": 1000,
+      "can_produce": [],
+      "movement_costs": {
+        "foot": 1,
+        "mech": 1,
+        "tires": 1,
+        "tread": 1,
+        "air": 1,
+        "ship": -1,
+        "trans": -1
+      }
+    },
+    {
+      "id": "factory",
+      "name": "Factory",
+      "defense_stars": 3,
+      "is_property": true,
+      "can_capture": true,
+      "income": 1000,
+      "can_produce": [
+        "infantry",
+        "mech",
+        "recon",
+        "apc",
+        "tank",
+        "md_tank",
+        "artillery",
+        "rocket",
+        "anti_air",
+        "missile"
+      ],
+      "movement_costs": {
+        "foot": 1,
+        "mech": 1,
+        "tires": 1,
+        "tread": 1,
+        "air": 1,
+        "ship": -1,
+        "trans": -1
+      }
+    },
+    {
+      "id": "airport",
+      "name": "Airport",
+      "defense_stars": 3,
+      "is_property": true,
+      "can_capture": true,
+      "income": 1000,
+      "can_produce": ["t_copter", "b_copter", "fighter", "bomber", "stealth"],
+      "movement_costs": {
+        "foot": 1,
+        "mech": 1,
+        "tires": 1,
+        "tread": 1,
+        "air": 1,
+        "ship": -1,
+        "trans": -1
+      }
+    },
+    {
+      "id": "hq",
+      "name": "HQ",
+      "defense_stars": 4,
+      "is_property": true,
+      "can_capture": true,
+      "income": 0,
+      "can_produce": [],
+      "movement_costs": {
+        "foot": 1,
+        "mech": 1,
+        "tires": 1,
+        "tread": 1,
+        "air": 1,
+        "ship": -1,
+        "trans": -1
+      }
+    },
+    {
+      "id": "sea",
+      "name": "Sea",
+      "defense_stars": 0,
+      "is_property": false,
+      "can_capture": false,
+      "income": 0,
+      "can_produce": [],
+      "movement_costs": {
+        "foot": -1,
+        "mech": -1,
+        "tires": -1,
+        "tread": -1,
+        "air": 1,
+        "ship": 1,
+        "trans": 1
+      }
+    },
+    {
+      "id": "shoal",
+      "name": "Shoal",
+      "defense_stars": 0,
+      "is_property": false,
+      "can_capture": false,
+      "income": 0,
+      "can_produce": [],
+      "movement_costs": {
+        "foot": 1,
+        "mech": 1,
+        "tires": 1,
+        "tread": 1,
+        "air": 1,
+        "ship": -1,
+        "trans": 1
+      }
+    },
+    {
+      "id": "river",
+      "name": "River",
+      "defense_stars": 0,
+      "is_property": false,
+      "can_capture": false,
+      "income": 0,
+      "can_produce": [],
+      "movement_costs": {
+        "foot": 2,
+        "mech": 1,
+        "tires": -1,
+        "tread": -1,
+        "air": 1,
+        "ship": -1,
+        "trans": -1
+      }
+    },
+    {
+      "id": "port",
+      "name": "Port",
+      "defense_stars": 3,
+      "is_property": true,
+      "can_capture": true,
+      "income": 1000,
+      "can_produce": ["lander", "cruiser", "submarine", "carrier"],
+      "movement_costs": {
+        "foot": 1,
+        "mech": 1,
+        "tires": 1,
+        "tread": 1,
+        "air": 1,
+        "ship": 1,
+        "trans": 1
+      }
+    },
+    {
+      "id": "bridge",
+      "name": "Bridge",
+      "defense_stars": 0,
+      "is_property": false,
+      "can_capture": false,
+      "income": 0,
+      "can_produce": [],
+      "movement_costs": {
+        "foot": 1,
+        "mech": 1,
+        "tires": 1,
+        "tread": 1,
+        "air": 1,
+        "ship": -1,
+        "trans": -1
+      }
+    },
+    {
+      "id": "reef",
+      "name": "Reef",
+      "defense_stars": 1,
+      "is_property": false,
+      "can_capture": false,
+      "income": 0,
+      "can_produce": [],
+      "movement_costs": {
+        "foot": -1,
+        "mech": -1,
+        "tires": -1,
+        "tread": -1,
+        "air": 1,
+        "ship": 2,
+        "trans": 2
+      }
+    },
+    {
+      "id": "temporary_fob",
+      "name": "Temporary FOB",
+      "defense_stars": 2,
+      "is_property": false,
+      "can_capture": false,
+      "income": 0,
+      "can_produce": [],
+      "is_destructible": true,
+      "default_hp": 10,
+      "movement_costs": {
+        "foot": 1,
+        "mech": 1,
+        "tires": 1,
+        "tread": 1,
+        "air": 1,
+        "ship": -1,
+        "trans": -1
+      }
+    }
+  ],
+  "trench_config": {
+    "defense_bonus": 2,
+    "applies_to_tags": ["infantry_class"]
+  },
+  "fob_config": {
+    "build_cost": 5000,
+    "default_hp": 10,
+    "neutral_access": true
+  },
+  "capture_config": {
+    "default_capture_points": 20
+  }
+}

@@ -1,0 +1,112 @@
+"use client";
+// Unit renderer using WarsWorld sprite sheets.
+// Falls back to colored placeholder shapes when sprites unavailable.
+
+import { Container, Graphics, Sprite, Text, TextStyle } from "pixi.js";
+import type { GameState, UnitState } from "../game/types";
+import { TILE_SIZE, TILE_SCALE, getSprite } from "./pixi-app";
+import { UNIT_SPRITES, getArmySheet } from "./sprite-mapping";
+
+const DISPLAY = TILE_SIZE * TILE_SCALE; // 48px per tile on screen
+
+export const TEAM_COLORS: Record<number, number> = {
+  0: 0xcc2222, // red (orange-star)
+  1: 0x2233cc, // blue (blue-moon)
+  2: 0x22aa33, // green (green-earth)
+  3: 0xccaa11, // yellow (yellow-comet)
+};
+
+const TEAM_BORDER_COLORS: Record<number, number> = {
+  0: 0x881111,
+  1: 0x112299,
+  2: 0x117722,
+  3: 0x997700,
+};
+
+const HP_STYLE = new TextStyle({
+  fontSize: 9,
+  fontFamily: "monospace",
+  fontWeight: "bold",
+  fill: 0xffffff,
+});
+
+export class UnitRenderer {
+  private container: Container;
+
+  constructor() {
+    this.container = new Container();
+    this.container.label = "units";
+  }
+
+  getContainer(): Container {
+    return this.container;
+  }
+
+  render(state: GameState): void {
+    this.container.removeChildren();
+
+    for (const unit of Object.values(state.units)) {
+      if (unit.is_loaded) continue; // skip units inside transports
+
+      const px = unit.x * DISPLAY;
+      const py = unit.y * DISPLAY;
+      this.drawUnit(unit, px, py);
+    }
+  }
+
+  private drawUnit(unit: UnitState, px: number, py: number): void {
+    const sheetKey = getArmySheet(unit.owner_id);
+    const frameName = UNIT_SPRITES[unit.unit_type];
+
+    let drewSprite = false;
+
+    if (frameName) {
+      const tex = getSprite(sheetKey, frameName);
+      if (tex) {
+        const sprite = new Sprite(tex);
+        sprite.x = px;
+        sprite.y = py;
+        sprite.width = DISPLAY;
+        sprite.height = DISPLAY;
+
+        // Fade when unit has already acted
+        sprite.alpha = unit.has_acted ? 0.55 : 1.0;
+
+        this.container.addChild(sprite);
+        drewSprite = true;
+      }
+    }
+
+    // Fallback: colored rounded rect
+    if (!drewSprite) {
+      this.drawUnitFallback(unit.owner_id, unit.has_acted, px, py);
+    }
+
+    // HP badge — only shown when HP < 10 (damaged)
+    if (unit.hp < 10) {
+      const badge = new Text({ text: String(unit.hp), style: HP_STYLE });
+      badge.x = px + DISPLAY - 12;
+      badge.y = py + DISPLAY - 13;
+      this.container.addChild(badge);
+    }
+  }
+
+  private drawUnitFallback(ownerId: number, hasActed: boolean, px: number, py: number): void {
+    const fill = TEAM_COLORS[ownerId] ?? 0x888888;
+    const border = TEAM_BORDER_COLORS[ownerId] ?? 0x444444;
+
+    const pad = 6;
+    const size = DISPLAY - pad * 2;
+    const radius = 5;
+
+    const g = new Graphics();
+    g.alpha = hasActed ? 0.55 : 1.0;
+
+    g.roundRect(px + pad, py + pad, size, size, radius);
+    g.fill(fill);
+    g.roundRect(px + pad, py + pad, size, size, radius);
+    g.stroke({ color: border, width: 2 });
+
+    this.container.addChild(g);
+  }
+}
