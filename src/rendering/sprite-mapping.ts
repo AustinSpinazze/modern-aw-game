@@ -101,31 +101,43 @@ export const BUILDING_STATIC_FRAMES: Record<string, string> = {
 // Animation speed for buildings (frames per tick)
 export const BUILDING_ANIMATION_SPEED = 0.04;
 
-// ─── Unit sprite names ──────────────────────────────────────────────────────
-// Units are in army-specific sheets
-// Format: {unitType}-{frame}.png for idle, {unitType}-m{direction}-{frame}.png for moving
+// ─── Unit animation names ────────────────────────────────────────────────────
+// Units are in army-specific sheets with idle and movement animations
+// These names match the animation keys in the spritesheet JSON
 
-export const UNIT_SPRITES: Record<string, string> = {
-  infantry: "infantry-0.png",
-  mech: "mech-0.png",
-  recon: "recon-0.png",
-  apc: "apc-0.png",
-  tank: "tank-0.png",
-  md_tank: "mdTank-0.png", // WarsWorld uses camelCase
-  artillery: "artillery-0.png",
-  rocket: "rocket-0.png",
-  anti_air: "antiAir-0.png",
-  missile: "missile-0.png",
-  t_copter: "transportCopter-0.png",
-  b_copter: "battleCopter-0.png",
-  fighter: "fighter-0.png",
-  bomber: "bomber-0.png",
-  stealth: "stealth-0.png",
-  lander: "lander-0.png",
-  cruiser: "cruiser-0.png",
-  submarine: "sub-0.png", // WarsWorld uses "sub"
-  carrier: "carrier-0.png",
+export const UNIT_ANIMATIONS: Record<string, string> = {
+  infantry: "infantry",
+  mech: "mech",
+  recon: "recon",
+  apc: "apc",
+  tank: "tank",
+  md_tank: "mediumTank", // WarsWorld uses "mediumTank"
+  artillery: "artillery",
+  rocket: "rocket",
+  anti_air: "antiAir",
+  missile: "missile",
+  t_copter: "transportCopter",
+  b_copter: "battleCopter",
+  fighter: "fighter",
+  bomber: "bomber",
+  stealth: "stealth",
+  lander: "lander",
+  cruiser: "cruiser",
+  submarine: "sub", // WarsWorld uses "sub"
+  carrier: "carrier",
 };
+
+// Movement direction animation suffixes
+// Usage: `${UNIT_ANIMATIONS[unitType]}-${UNIT_MOVE_DIRECTIONS[direction]}`
+export const UNIT_MOVE_DIRECTIONS = {
+  down: "mdown",
+  left: "mside", // WarsWorld uses same sprite for left/right, flip for left
+  right: "mside",
+  up: "mup",
+} as const;
+
+// Animation speed for units (frames per tick)
+export const UNIT_ANIMATION_SPEED = 0.08; // Slightly faster than buildings
 
 // ─── Fallback colors ────────────────────────────────────────────────────────
 // Used when sprites can't be loaded

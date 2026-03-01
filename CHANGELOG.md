@@ -4,6 +4,65 @@ This file tracks significant changes made by AI agents (Claude Code, Cursor, etc
 
 ---
 
+## 2026-03-01 (Session 5) — Unit Animations
+
+**Session:** Cursor (Claude Opus 4.5)  
+**Status:** ✅ COMPLETE
+
+### Summary
+Added idle animations to all 19 units using WarsWorld's AnimatedSprite frames.
+
+### Changes
+
+#### `sprite-mapping.ts`
+- Added `UNIT_ANIMATIONS` — maps unit type IDs to WarsWorld animation names
+- Added `UNIT_MOVE_DIRECTIONS` — movement direction suffixes for future use
+- Added `UNIT_ANIMATION_SPEED = 0.08` — slightly faster than buildings
+
+#### `unit-renderer.ts`
+- Updated to use `AnimatedSprite` instead of static `Sprite`
+- Uses `getAnimation(sheetKey, animationName)` for frame arrays
+- Falls back to colored rectangles if animation not found
+
+### Unit Animation Mapping
+| Our ID | WarsWorld Animation |
+|--------|---------------------|
+| infantry | infantry |
+| mech | mech |
+| recon | recon |
+| apc | apc |
+| tank | tank |
+| md_tank | mediumTank |
+| artillery | artillery |
+| rocket | rocket |
+| anti_air | antiAir |
+| missile | missile |
+| t_copter | transportCopter |
+| b_copter | battleCopter |
+| fighter | fighter |
+| bomber | bomber |
+| stealth | stealth |
+| lander | lander |
+| cruiser | cruiser |
+| submarine | sub |
+| carrier | carrier |
+
+### Future: Movement Animations
+WarsWorld has directional movement animations ready:
+- `{unit}-mdown` — moving down
+- `{unit}-mside` — moving left/right (flip sprite for left)
+- `{unit}-mup` — moving up
+
+These can be activated when implementing unit movement visualization.
+
+### Files Changed
+| File | Change |
+|------|--------|
+| `src/rendering/sprite-mapping.ts` | Added `UNIT_ANIMATIONS`, `UNIT_MOVE_DIRECTIONS`, `UNIT_ANIMATION_SPEED` |
+| `src/rendering/unit-renderer.ts` | Use `AnimatedSprite` for units |
+
+---
+
 ## 2026-02-28 (Session 4) — AWBW Tile ID Mapping Fix
 
 **Session:** Cursor (Claude Opus 4.5)  
@@ -411,9 +470,11 @@ Ported game data to match AWBW (Advance Wars By Web) canonical standards and add
 ### Phase 1: Verify WarsWorld Sprites (Current Focus)
 - [x] Migrate to WarsWorld sprite system
 - [x] Fix AWBW tile ID mapping for buildings
+- [x] Add building idle animations
+- [x] Add unit idle animations (all 19 units)
 - [ ] Verify all 15 terrain types render correctly
-- [ ] Verify all 19 units render correctly  
 - [ ] Test unit movement, combat, and turn flow
+- [ ] Add unit movement animations (when moving)
 - [ ] Fix any rendering bugs with terrain auto-tiling
 
 ### Known Sprite Limitations (WarsWorld)

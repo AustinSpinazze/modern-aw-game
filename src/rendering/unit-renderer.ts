@@ -1,11 +1,11 @@
 "use client";
-// Unit renderer using WarsWorld sprite sheets.
-// Falls back to colored placeholder shapes when sprites unavailable.
+// Unit renderer using WarsWorld sprite sheets with animations.
+// Units have idle animations and movement direction animations.
 
-import { Container, Graphics, Sprite, Text, TextStyle } from "pixi.js";
+import { AnimatedSprite, Container, Graphics, Text, TextStyle } from "pixi.js";
 import type { GameState, UnitState } from "../game/types";
-import { TILE_SIZE, TILE_SCALE, getSprite } from "./pixi-app";
-import { UNIT_SPRITES, getArmySheet } from "./sprite-mapping";
+import { TILE_SIZE, TILE_SCALE, getAnimation } from "./pixi-app";
+import { UNIT_ANIMATIONS, UNIT_ANIMATION_SPEED, getArmySheet } from "./sprite-mapping";
 
 const DISPLAY = TILE_SIZE * TILE_SCALE; // 48px per tile on screen
 
@@ -56,14 +56,17 @@ export class UnitRenderer {
 
   private drawUnit(unit: UnitState, px: number, py: number): void {
     const sheetKey = getArmySheet(unit.owner_id);
-    const frameName = UNIT_SPRITES[unit.unit_type];
+    const animationName = UNIT_ANIMATIONS[unit.unit_type];
 
     let drewSprite = false;
 
-    if (frameName) {
-      const tex = getSprite(sheetKey, frameName);
-      if (tex) {
-        const sprite = new Sprite(tex);
+    if (animationName) {
+      const frames = getAnimation(sheetKey, animationName);
+      if (frames && frames.length > 0) {
+        const sprite = new AnimatedSprite(frames);
+        sprite.animationSpeed = UNIT_ANIMATION_SPEED;
+        sprite.play();
+
         sprite.x = px;
         sprite.y = py;
         sprite.width = DISPLAY;
