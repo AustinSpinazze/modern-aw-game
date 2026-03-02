@@ -12,6 +12,123 @@ let resizeObserver: ResizeObserver | null = null;
 // Loaded spritesheets by army/key
 const spritesheets: Record<string, Spritesheet> = {};
 
+// ── Pan / Zoom state ──────────────────────────────────────────────────────────
+// The stage transform = fitMapToStage base * user pan/zoom on top
+let _panOffsetX = 0;
+let _panOffsetY = 0;
+let _userZoom = 1.0;
+
+const MIN_ZOOM = 0.4;
+const MAX_ZOOM = 3.0;
+const ZOOM_STEP = 0.15;
+
+// Called by fitMapToStage — stores the base scale so we can multiply user zoom on top
+let _baseScale = 1;
+let _baseX = 0;
+let _baseY = 0;
+
+function applyStageTransform(): void {
+  if (!app) return;
+  const scale = _baseScale * _userZoom;
+  app.stage.scale.set(scale);
+  app.stage.x = Math.round(_baseX + _panOffsetX);
+  app.stage.y = Math.round(_baseY + _panOffsetY);
+}
+
+export function resetPanZoom(): void {
+  _panOffsetX = 0;
+  _panOffsetY = 0;
+  _userZoom = 1.0;
+  applyStageTransform();
+}
+
+// Pan/zoom event cleanup handle
+let _panCleanup: (() => void) | null = null;
+
+/** Wire pan (right/middle mouse drag) and zoom (wheel) onto the canvas. */
+export function enablePanZoom(canvas: HTMLCanvasElement): void {
+  if (_panCleanup) _panCleanup(); // remove previous listeners
+
+  let dragging = false;
+  let lastX = 0;
+  let lastY = 0;
+
+  const onMouseDown = (e: MouseEvent) => {
+    // Right-click (2) or middle-click (1) to pan
+    if (e.button === 1 || e.button === 2) {
+      dragging = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      e.preventDefault();
+    }
+  };
+
+  const onMouseMove = (e: MouseEvent) => {
+    if (!dragging) return;
+    const dx = e.clientX - lastX;
+    const dy = e.clientY - lastY;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    _panOffsetX += dx;
+    _panOffsetY += dy;
+    applyStageTransform();
+  };
+
+  const onMouseUp = (e: MouseEvent) => {
+    if (e.button === 1 || e.button === 2) dragging = false;
+  };
+
+  const onWheel = (e: WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+    const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, _userZoom + delta));
+
+    // Zoom toward cursor position
+    if (app) {
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      // World point under cursor before zoom
+      const oldScale = _baseScale * _userZoom;
+      const worldX = (mouseX - (_baseX + _panOffsetX)) / oldScale;
+      const worldY = (mouseY - (_baseY + _panOffsetY)) / oldScale;
+
+      _userZoom = newZoom;
+
+      // Adjust pan so the world point stays under cursor
+      const newScale = _baseScale * _userZoom;
+      _panOffsetX = mouseX - _baseX - worldX * newScale;
+      _panOffsetY = mouseY - _baseY - worldY * newScale;
+    } else {
+      _userZoom = newZoom;
+    }
+
+    applyStageTransform();
+  };
+
+  const onContextMenu = (e: Event) => e.preventDefault();
+
+  canvas.addEventListener("mousedown", onMouseDown);
+  window.addEventListener("mousemove", onMouseMove);
+  window.addEventListener("mouseup", onMouseUp);
+  canvas.addEventListener("wheel", onWheel, { passive: false });
+  canvas.addEventListener("contextmenu", onContextMenu);
+
+  _panCleanup = () => {
+    canvas.removeEventListener("mousedown", onMouseDown);
+    window.removeEventListener("mousemove", onMouseMove);
+    window.removeEventListener("mouseup", onMouseUp);
+    canvas.removeEventListener("wheel", onWheel);
+    canvas.removeEventListener("contextmenu", onContextMenu);
+  };
+}
+
+export function disablePanZoom(): void {
+  _panCleanup?.();
+  _panCleanup = null;
+}
+
 // Last known map dimensions (in tiles), used by the resize observer
 let _lastMapW = 0;
 let _lastMapH = 0;
@@ -172,16 +289,20 @@ export function fitMapToStage(mapW: number, mapH: number): void {
 
   const scaleX = canvasW / mapPixelW;
   const scaleY = canvasH / mapPixelH;
-  const scale = Math.min(scaleX, scaleY);
+  _baseScale = Math.min(scaleX, scaleY);
+  _baseX = Math.round((canvasW - mapPixelW * _baseScale) / 2);
+  _baseY = Math.round((canvasH - mapPixelH * _baseScale) / 2);
 
-  app.stage.scale.set(scale);
-  app.stage.x = Math.round((canvasW - mapPixelW * scale) / 2);
-  app.stage.y = Math.round((canvasH - mapPixelH * scale) / 2);
+  applyStageTransform();
 }
 
 export function destroyPixiApp(): void {
+  disablePanZoom();
   resizeObserver?.disconnect();
   resizeObserver = null;
+  _panOffsetX = 0;
+  _panOffsetY = 0;
+  _userZoom = 1.0;
 
   if (app) {
     try {

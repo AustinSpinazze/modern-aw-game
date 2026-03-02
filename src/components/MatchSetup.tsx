@@ -29,6 +29,7 @@ export default function MatchSetup({ onMatchStart }: MatchSetupProps) {
   const [loading, setLoading] = useState(false);
   const [awbwText, setAwbwText] = useState("");
   const [awbwError, setAwbwError] = useState("");
+  const [awbwPreview, setAwbwPreview] = useState<{ width: number; height: number } | null>(null);
   const setGameState = useGameStore((s) => s.setGameState);
 
   const updatePlayerConfig = (index: number, patch: Partial<PlayerConfig>) => {
@@ -142,10 +143,30 @@ export default function MatchSetup({ onMatchStart }: MatchSetupProps) {
             <label className="text-sm text-gray-400 uppercase tracking-wide">Import AWBW Map</label>
             <textarea
               value={awbwText}
-              onChange={(e) => setAwbwText(e.target.value)}
+              onChange={(e) => {
+                const text = e.target.value;
+                setAwbwText(text);
+                setAwbwError("");
+                // Live preview: parse dimensions from the raw text
+                if (text.trim()) {
+                  try {
+                    const mapData = parseAwbwMapText(text);
+                    setAwbwPreview(mapData.width > 0 ? { width: mapData.width, height: mapData.height } : null);
+                  } catch {
+                    setAwbwPreview(null);
+                  }
+                } else {
+                  setAwbwPreview(null);
+                }
+              }}
               placeholder="Paste AWBW map CSV (comma-separated tile IDs, one row per line)"
               className="w-full mt-2 bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white font-mono h-24 resize-y"
             />
+            {awbwPreview && (
+              <p className="text-green-400 text-xs mt-1">
+                Map detected: {awbwPreview.width}×{awbwPreview.height} tiles
+              </p>
+            )}
             {awbwError && (
               <p className="text-red-400 text-xs mt-1">{awbwError}</p>
             )}

@@ -181,6 +181,26 @@ export class HighlightRenderer {
     this.container.addChild(gBorder);
   }
 
+  // Draw a subtle grid over the entire map to help players count tiles
+  drawGrid(mapWidth: number, mapHeight: number): void {
+    const g = new Graphics();
+    const totalW = mapWidth * DISPLAY;
+    const totalH = mapHeight * DISPLAY;
+
+    // Vertical lines
+    for (let x = 0; x <= mapWidth; x++) {
+      g.moveTo(x * DISPLAY, 0);
+      g.lineTo(x * DISPLAY, totalH);
+    }
+    // Horizontal lines
+    for (let y = 0; y <= mapHeight; y++) {
+      g.moveTo(0, y * DISPLAY);
+      g.lineTo(totalW, y * DISPLAY);
+    }
+    g.stroke({ color: 0x000000, alpha: 0.12, width: 1 });
+    this.container.addChild(g);
+  }
+
   private drawOverlay(tiles: Vec2[], color: number, alpha: number): void {
     for (const tile of tiles) {
       const g = new Graphics();

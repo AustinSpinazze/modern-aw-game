@@ -27,8 +27,14 @@ export default function TileInfoPanel() {
       {terrainData && (
         <div className="mb-2">
           <div className="text-white font-medium">{terrainData.name}</div>
-          <div className="text-gray-400 text-xs">
-            {'★'.repeat(terrainData.defense_stars)}{'☆'.repeat(Math.max(0, 4 - terrainData.defense_stars))} Defense
+          <div className="flex items-center gap-1 mt-0.5">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className={`w-2.5 h-2.5 rounded-sm ${i < terrainData.defense_stars ? "bg-yellow-400" : "bg-gray-600"}`}
+              />
+            ))}
+            <span className="text-gray-400 text-xs ml-1">Def</span>
           </div>
           {tile.has_trench && <div className="text-yellow-400 text-xs">⛏ Trench (+2 def)</div>}
           {tile.has_fob && <div className="text-orange-400 text-xs">🏗 FOB (HP: {tile.fob_hp})</div>}

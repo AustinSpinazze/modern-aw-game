@@ -1,7 +1,7 @@
 // Mounts the Pixi.js canvas and wires game input.
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { initPixiApp, destroyPixiApp, getApp } from "../rendering/pixi-app";
+import { initPixiApp, destroyPixiApp, getApp, enablePanZoom, resetPanZoom } from "../rendering/pixi-app";
 import { TerrainRenderer } from "../rendering/terrain-renderer";
 import { UnitRenderer } from "../rendering/unit-renderer";
 import { HighlightRenderer } from "../rendering/highlight-renderer";
@@ -61,8 +61,11 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
 
     let mounted = true;
 
-    initPixiApp(canvasRef.current).then((app) => {
+    const canvas = canvasRef.current;
+    initPixiApp(canvas).then((app) => {
       if (!mounted) return;
+      resetPanZoom();
+      enablePanZoom(canvas);
 
       const terrain = new TerrainRenderer();
       const units = new UnitRenderer();
@@ -301,6 +304,8 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     if (!highlights || !pathOverlay || !cursorOverlay) return;
 
     highlights.clear();
+    // Draw subtle grid lines over the entire map
+    highlights.drawGrid(gameState.map_width, gameState.map_height);
     pathOverlay.clear();
     cursorOverlay.clear();
 

@@ -5,7 +5,10 @@ import { useGameStore } from "../store/game-store";
 import { getTerrainData, getUnitData } from "../game/data-loader";
 import { getTile, getUnitAt } from "../game/game-state";
 import { getAttackableTiles } from "../game/pathfinding";
-import { canAttack } from "../game/combat";
+import { canAttack, calculateDamage } from "../game/combat";
+import { TILE_SIZE, TILE_SCALE } from "../rendering/pixi-app";
+
+const DISPLAY = TILE_SIZE * TILE_SCALE;
 
 export default function ActionMenu() {
   const gameState = useGameStore((s) => s.gameState);
@@ -16,12 +19,8 @@ export default function ActionMenu() {
   const cancelPendingMove = useGameStore((s) => s.cancelPendingMove);
 
   if (!gameState || !selectedUnit) return null;
-
-  // Show menu when there's a pending move (unit picked destination but hasn't confirmed)
   if (!pendingMove) return null;
   if (selectedUnit.has_acted) return null;
-  
-  // Hide menu during animation
   if (isAnimating) return null;
 
   const currentPlayer = gameState.players[gameState.current_player_index];
@@ -30,7 +29,6 @@ export default function ActionMenu() {
   const unitData = getUnitData(selectedUnit.unit_type);
   if (!unitData) return null;
 
-  // Get terrain at pending destination (not current position)
   const tile = getTile(gameState, pendingMove.x, pendingMove.y);
   const terrainData = tile ? getTerrainData(tile.terrain_type) : null;
 
@@ -38,29 +36,51 @@ export default function ActionMenu() {
   const canDigTrench = unitData.special_actions.includes("dig_trench") && terrainData?.can_build_trench && !tile?.has_trench;
   const canBuildFob = unitData.special_actions.includes("build_fob") && terrainData?.can_build_fob && !tile?.has_fob;
 
-  // Find attackable enemies from the pending position
-  const attackableEnemies: Array<{ unitId: number; unitName: string; weaponIndex: number }> = [];
+  // Build a temp attacker at pending position for damage calc
+  const tempAttacker = { ...selectedUnit, x: pendingMove.x, y: pendingMove.y };
+
+  // Find attackable enemies with damage preview
+  type EnemyEntry = {
+    unitId: number;
+    unitName: string;
+    weaponIndex: number;
+    attackDmg: number;   // % damage we'd deal (base, no luck)
+    counterDmg: number;  // % damage we'd receive in counter (0 if no counter)
+  };
+
+  const attackableEnemies: EnemyEntry[] = [];
   if (unitData.weapons.length > 0) {
     for (let wi = 0; wi < unitData.weapons.length; wi++) {
       const attackTiles = getAttackableTiles(gameState, selectedUnit, pendingMove.x, pendingMove.y, wi);
       for (const pos of attackTiles) {
         const target = getUnitAt(gameState, pos.x, pos.y);
-        if (target && target.owner_id !== currentPlayer.id) {
-          // Check if we can actually attack this target
-          // Create a temporary unit at pending position to check attack validity
-          const tempUnit = { ...selectedUnit, x: pendingMove.x, y: pendingMove.y };
-          if (canAttack(tempUnit, target, gameState, wi)) {
-            const targetData = getUnitData(target.unit_type);
-            // Avoid duplicates
-            if (!attackableEnemies.some(e => e.unitId === target.id)) {
-              attackableEnemies.push({
-                unitId: target.id,
-                unitName: targetData?.name ?? target.unit_type,
-                weaponIndex: wi,
-              });
-            }
+        if (!target || target.owner_id === currentPlayer.id) continue;
+        if (!canAttack(tempAttacker, target, gameState, wi)) continue;
+        if (attackableEnemies.some((e) => e.unitId === target.id)) continue;
+
+        const targetData = getUnitData(target.unit_type);
+
+        // Damage preview: use luck=false (pass a fake state with counter=fixed so luck is 0)
+        // calculateDamage uses rollLuck which can be non-zero; we call it and show the base value
+        // We replicate the base calc without luck: base * (hp/10) * (1 - defReduction)
+        const { damage: attackDmg } = calculateDamage(tempAttacker, target, gameState, wi, false);
+
+        // Counter damage estimate (if target can counter)
+        let counterDmg = 0;
+        if (targetData && targetData.weapons.length > 0) {
+          for (let ci = 0; ci < targetData.weapons.length; ci++) {
+            const { damage } = calculateDamage(target, tempAttacker, gameState, ci, true);
+            if (damage > 0) { counterDmg = damage; break; }
           }
         }
+
+        attackableEnemies.push({
+          unitId: target.id,
+          unitName: targetData?.name ?? target.unit_type,
+          weaponIndex: wi,
+          attackDmg,
+          counterDmg,
+        });
       }
     }
   }
@@ -103,10 +123,37 @@ export default function ActionMenu() {
     });
   };
 
+  // Position near the pending move tile.
+  // We need stage info — read from the pixi app's stage via a ref stored in window (or just use a reasonable heuristic).
+  // The sidebar is 224px wide. Each tile is DISPLAY=48px. Stage may be scaled by fitMapToStage.
+  // For simplicity, position just to the right of the tile, or left if near right edge.
+  const SIDEBAR_W = 224;
+  const tileScreenX = SIDEBAR_W + pendingMove.x * DISPLAY;
+  const tileScreenY = pendingMove.y * DISPLAY;
+  const menuW = 180;
+  const menuH = 200; // approximate
+
+  // Prefer right of tile; flip left if near right edge
+  const viewportW = window.innerWidth;
+  let left = tileScreenX + DISPLAY + 4;
+  if (left + menuW > viewportW - 8) {
+    left = tileScreenX - menuW - 4;
+  }
+
+  // Prefer below tile top; shift up if near bottom
+  const viewportH = window.innerHeight;
+  let top = tileScreenY;
+  if (top + menuH > viewportH - 8) {
+    top = viewportH - menuH - 8;
+  }
+  if (top < 8) top = 8;
+
   return (
-    <div className="absolute z-10 bg-gray-900 border border-gray-600 rounded shadow-lg text-sm min-w-28"
-         style={{ bottom: "4rem", right: "1rem" }}>
-      <div className="px-3 py-1.5 text-gray-400 text-xs uppercase border-b border-gray-700">
+    <div
+      className="absolute z-10 bg-gray-900 border border-gray-600 rounded-lg shadow-2xl text-sm overflow-hidden"
+      style={{ left, top, minWidth: menuW }}
+    >
+      <div className="px-3 py-2 text-gray-300 text-xs uppercase tracking-wide font-semibold border-b border-gray-700 bg-gray-800">
         {unitData.name}
       </div>
 
@@ -114,41 +161,60 @@ export default function ActionMenu() {
         <button
           key={`attack-${enemy.unitId}`}
           onClick={() => handleAttack(enemy.unitId, enemy.weaponIndex)}
-          className="w-full text-left px-3 py-2 hover:bg-gray-700 text-red-400"
+          className="w-full text-left px-3 py-2 hover:bg-gray-700 transition-colors border-b border-gray-800/50 last:border-0"
         >
-          Attack {enemy.unitName}
+          <div className="text-red-400 font-medium">⚔ {enemy.unitName}</div>
+          <div className="flex gap-3 text-xs mt-0.5">
+            <span className="text-green-400">Att: {enemy.attackDmg * 10}%</span>
+            {enemy.counterDmg > 0 && (
+              <span className="text-orange-400">Def: {enemy.counterDmg * 10}%</span>
+            )}
+            {enemy.counterDmg === 0 && (
+              <span className="text-gray-500">No counter</span>
+            )}
+          </div>
         </button>
       ))}
 
       {canCapture && (
-        <button onClick={handleCapture}
-          className="w-full text-left px-3 py-2 hover:bg-gray-700 text-yellow-300">
-          Capture
+        <button
+          onClick={handleCapture}
+          className="w-full text-left px-3 py-2 hover:bg-gray-700 transition-colors text-yellow-300 border-b border-gray-800/50"
+        >
+          🏳 Capture
         </button>
       )}
 
       {canDigTrench && (
-        <button onClick={handleDigTrench}
-          className="w-full text-left px-3 py-2 hover:bg-gray-700 text-orange-300">
-          Dig Trench
+        <button
+          onClick={handleDigTrench}
+          className="w-full text-left px-3 py-2 hover:bg-gray-700 transition-colors text-orange-300 border-b border-gray-800/50"
+        >
+          ⛏ Dig Trench
         </button>
       )}
 
       {canBuildFob && (
-        <button onClick={handleBuildFob}
-          className="w-full text-left px-3 py-2 hover:bg-gray-700 text-orange-300">
-          Build FOB (¥5000)
+        <button
+          onClick={handleBuildFob}
+          className="w-full text-left px-3 py-2 hover:bg-gray-700 transition-colors text-orange-300 border-b border-gray-800/50"
+        >
+          🏗 Build FOB (¥5,000)
         </button>
       )}
 
-      <button onClick={handleWait}
-        className="w-full text-left px-3 py-2 hover:bg-gray-700 text-gray-300">
-        Wait
+      <button
+        onClick={handleWait}
+        className="w-full text-left px-3 py-2 hover:bg-gray-700 transition-colors text-gray-300 border-b border-gray-700"
+      >
+        ⏸ Wait
       </button>
 
-      <button onClick={cancelPendingMove}
-        className="w-full text-left px-3 py-2 hover:bg-gray-700 text-gray-500 border-t border-gray-700">
-        Cancel
+      <button
+        onClick={cancelPendingMove}
+        className="w-full text-left px-3 py-2 hover:bg-gray-700 transition-colors text-gray-500"
+      >
+        ✕ Cancel
       </button>
     </div>
   );
