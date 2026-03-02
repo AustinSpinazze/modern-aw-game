@@ -1,4 +1,3 @@
-"use client";
 // Zustand game store: holds GameState and drives the game loop.
 
 import { create } from "zustand";

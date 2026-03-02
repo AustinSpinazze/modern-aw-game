@@ -1,4 +1,3 @@
-"use client";
 // Convenience hook wrapping the game store + common game actions.
 
 import { useGameStore } from "../store/game-store";

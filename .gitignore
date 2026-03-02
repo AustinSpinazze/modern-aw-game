@@ -12,6 +12,12 @@
 
 # testing
 /coverage
+/e2e/results/
+
+# electron
+/dist/
+/dist-electron/
+/dist-electron-build/
 
 # next.js
 /.next/

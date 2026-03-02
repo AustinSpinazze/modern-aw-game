@@ -1,4 +1,3 @@
-"use client";
 // Pixi.js Application singleton + lifecycle.
 // Uses WarsWorld sprite sheets with Pixi.js Spritesheet class.
 
@@ -112,34 +111,49 @@ export async function initPixiApp(canvas: HTMLCanvasElement): Promise<Applicatio
  * Each army has a PNG + JSON pair that defines all frames.
  */
 async function loadSpritesheets(): Promise<void> {
+  // Use relative paths for Electron production (file:// protocol)
+  // In dev mode (Vite), BASE_URL is "/" 
+  // In production (Electron file://), BASE_URL is "./"
+  const basePath = import.meta.env.BASE_URL || "/";
+  console.log("[Sprites] Loading with basePath:", basePath, "Mode:", import.meta.env.MODE);
+  
   const sheets = [
-    { key: "neutral", base: "/sprites/warsworld/neutral" },
-    { key: "orange-star", base: "/sprites/warsworld/orange-star" },
-    { key: "blue-moon", base: "/sprites/warsworld/blue-moon" },
-    { key: "green-earth", base: "/sprites/warsworld/green-earth" },
-    { key: "yellow-comet", base: "/sprites/warsworld/yellow-comet" },
+    { key: "neutral", base: `${basePath}sprites/warsworld/neutral` },
+    { key: "orange-star", base: `${basePath}sprites/warsworld/orange-star` },
+    { key: "blue-moon", base: `${basePath}sprites/warsworld/blue-moon` },
+    { key: "green-earth", base: `${basePath}sprites/warsworld/green-earth` },
+    { key: "yellow-comet", base: `${basePath}sprites/warsworld/yellow-comet` },
   ];
 
-  await Promise.all(
+  const results = await Promise.allSettled(
     sheets.map(async ({ key, base }) => {
-      try {
-        const jsonUrl = `${base}.json`;
-        const pngUrl = `${base}.png`;
+      const jsonUrl = `${base}.json`;
+      const pngUrl = `${base}.png`;
+      console.log(`[Sprites] Loading ${key}:`, jsonUrl);
 
-        const [jsonData, baseTexture] = await Promise.all([
-          fetch(jsonUrl).then((r) => r.json()),
-          Assets.load(pngUrl),
-        ]);
+      const jsonRes = await fetch(jsonUrl);
+      if (!jsonRes.ok) throw new Error(`HTTP ${jsonRes.status} for ${jsonUrl}`);
+      const jsonData = await jsonRes.json();
 
-        const sheet = new Spritesheet(baseTexture, jsonData);
-        await sheet.parse();
+      const baseTexture = await Assets.load(pngUrl);
+      
+      const sheet = new Spritesheet(baseTexture, jsonData);
+      await sheet.parse();
 
-        spritesheets[key] = sheet;
-      } catch (e) {
-        console.warn(`[loadSpritesheets] Could not load spritesheet: ${base}`, e);
-      }
+      spritesheets[key] = sheet;
+      console.log(`[Sprites] ✅ Loaded ${key} with ${Object.keys(sheet.textures).length} textures`);
+      return key;
     })
   );
+
+  // Log any failures
+  results.forEach((result, i) => {
+    if (result.status === "rejected") {
+      console.error(`[Sprites] ❌ Failed to load ${sheets[i].key}:`, result.reason);
+    }
+  });
+  
+  console.log("[Sprites] Loaded sheets:", Object.keys(spritesheets));
 }
 
 /**

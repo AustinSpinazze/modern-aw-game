@@ -1,4 +1,3 @@
-"use client";
 // Unit purchase modal shown when clicking an owned, unoccupied facility.
 
 import { useGameStore } from "../store/game-store";

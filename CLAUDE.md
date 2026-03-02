@@ -122,6 +122,14 @@ Movement cost of `-1` means **impassable** for that move type. Always check `> 0
 
 ---
 
+## Active Refactoring
+
+> ⚠️ **ELECTRON REFACTOR IN PROGRESS** — See [docs/ELECTRON_REFACTOR.md](/docs/ELECTRON_REFACTOR.md) for the migration plan.
+> 
+> Before making changes, check the refactor document for current phase and status.
+
+---
+
 ## Running the Project
 
 ```bash

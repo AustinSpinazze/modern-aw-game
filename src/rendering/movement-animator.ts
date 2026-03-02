@@ -1,4 +1,3 @@
-"use client";
 // Movement animation system - animates units moving along a path.
 // Uses WarsWorld directional sprites with step-synced movement.
 // Units move in discrete steps to match animation frames (no skating).

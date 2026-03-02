@@ -1,4 +1,3 @@
-"use client";
 // Mounts the Pixi.js canvas and wires game input.
 
 import { useEffect, useRef, useState, useCallback } from "react";

@@ -1,4 +1,3 @@
-"use client";
 // Converts canvas pointer events to tile coordinates.
 
 import type { Application } from "pixi.js";

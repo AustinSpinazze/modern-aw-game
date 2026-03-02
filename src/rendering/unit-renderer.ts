@@ -1,4 +1,3 @@
-"use client";
 // Unit renderer using WarsWorld sprite sheets with animations.
 // Units have idle animations and movement direction animations.
 
@@ -35,10 +34,11 @@ const TEAM_BORDER_COLORS: Record<number, number> = {
 };
 
 const HP_STYLE = new TextStyle({
-  fontSize: 9,
+  fontSize: 16, // Larger, more readable HP number
   fontFamily: "monospace",
   fontWeight: "bold",
   fill: 0xffffff,
+  stroke: { color: 0x000000, width: 3 }, // Black outline for visibility
 });
 
 export class UnitRenderer {
@@ -114,8 +114,8 @@ export class UnitRenderer {
     // HP badge — only shown when HP < 10 (damaged)
     if (unit.hp < 10) {
       const badge = new Text({ text: String(unit.hp), style: HP_STYLE });
-      badge.x = px + DISPLAY - 12;
-      badge.y = py + DISPLAY - 13;
+      badge.x = px + DISPLAY - 18; // Adjusted for larger font
+      badge.y = py + DISPLAY - 20;
       this.container.addChild(badge);
     }
   }

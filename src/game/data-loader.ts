@@ -23,9 +23,12 @@ export function isDataLoaded(): boolean {
 export async function loadGameData(): Promise<void> {
   if (isDataLoaded()) return;
 
+  // Use relative paths for Electron production (file:// protocol)
+  // In development (http://), both work the same
+  const basePath = import.meta.env.BASE_URL || "./";
   const [terrainRes, unitsRes] = await Promise.all([
-    fetch("/data/terrain.json"),
-    fetch("/data/units.json"),
+    fetch(`${basePath}data/terrain.json`),
+    fetch(`${basePath}data/units.json`),
   ]);
 
   const terrainJson = await terrainRes.json();

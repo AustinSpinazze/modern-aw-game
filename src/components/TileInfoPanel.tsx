@@ -1,4 +1,3 @@
-"use client";
 // Hovered tile detail panel.
 
 import { useGameStore } from "../store/game-store";

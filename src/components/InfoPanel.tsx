@@ -1,4 +1,3 @@
-"use client";
 // Turn / player / funds sidebar panel.
 
 import { useGameStore } from "../store/game-store";

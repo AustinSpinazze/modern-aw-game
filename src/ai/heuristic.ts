@@ -295,3 +295,50 @@ export class HeuristicAI implements AIProvider {
     return commands;
   }
 }
+
+// Convenience function to run a full heuristic turn synchronously
+// Returns all commands the AI wants to execute
+const heuristicAI = new HeuristicAI();
+
+export function runHeuristicTurn(state: GameState, playerId: number): GameCommand[] {
+  // Run synchronously since heuristic AI doesn't need async
+  const commands: GameCommand[] = [];
+  let currentState = duplicateState(state);
+
+  const units = getUnitsByOwner(currentState, playerId);
+  units.sort((a, b) => {
+    const aCapture = getUnitData(a.unit_type)?.can_capture ?? false;
+    const bCapture = getUnitData(b.unit_type)?.can_capture ?? false;
+    if (aCapture && !bCapture) return -1;
+    if (bCapture && !aCapture) return 1;
+    return a.id - b.id;
+  });
+
+  for (const unit of units) {
+    if (unit.is_loaded) continue;
+    const freshUnit = getUnit(currentState, unit.id);
+    if (!freshUnit || freshUnit.has_acted) continue;
+
+    const unitCmds = (heuristicAI as any).decideUnitActions(freshUnit, currentState, playerId);
+    for (const cmd of unitCmds) {
+      const result = validateCommand(cmd, currentState);
+      if (result.valid) {
+        commands.push(cmd);
+        currentState = applyCommand(currentState, cmd);
+      }
+    }
+  }
+
+  // Purchase units
+  const buyCmds = (heuristicAI as any).decidePurchases(currentState, playerId);
+  for (const cmd of buyCmds) {
+    const result = validateCommand(cmd, currentState);
+    if (result.valid) {
+      commands.push(cmd);
+      currentState = applyCommand(currentState, cmd);
+    }
+  }
+
+  commands.push({ type: "END_TURN", player_id: playerId });
+  return commands;
+}

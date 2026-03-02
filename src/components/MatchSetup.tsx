@@ -1,4 +1,3 @@
-"use client";
 // Pre-game lobby: configure players, map, AI providers.
 
 import { useState } from "react";

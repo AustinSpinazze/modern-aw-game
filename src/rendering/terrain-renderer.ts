@@ -1,4 +1,3 @@
-"use client";
 // Terrain renderer using WarsWorld sprite sheets.
 // Terrain tiles are 16x16 in the sprite sheets, scaled up for display.
 // Buildings use AnimatedSprite for idle animations.

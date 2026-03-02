@@ -1,4 +1,3 @@
-"use client";
 // Persisted settings: API keys, preferences.
 
 import { create } from "zustand";

@@ -1,4 +1,3 @@
-"use client";
 // Selection and overlay highlights.
 
 import { Container, Graphics } from "pixi.js";
@@ -75,8 +74,8 @@ export class HighlightRenderer {
     if (path.length < 2) return;
 
     const half = DISPLAY / 2;
-    const lineWidth = 8 * TILE_SCALE;
-    const borderWidth = 2;
+    const lineWidth = 4 * TILE_SCALE; // Smaller arrow width (was 8)
+    const borderWidth = 1.5;
 
     // Build list of center points for intermediate tiles (skip first AND last)
     const points: { x: number; y: number }[] = [];
