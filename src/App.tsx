@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, Component, type ReactNode } from "react";
+import { useState, useCallback, useEffect, Component, type ReactNode } from "react";
 import MatchSetup from "./components/MatchSetup";
 import GameCanvas from "./components/GameCanvas";
 import InfoPanel from "./components/InfoPanel";
