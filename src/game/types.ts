@@ -53,6 +53,9 @@ export interface GameState {
   command_log: CommandDict[];
   luck_min: number;
   luck_max: number;
+  // Match configuration
+  income_multiplier: number; // multiply each property's income by this (default 1)
+  max_turns: number;         // -1 = unlimited; game ends in a draw when turn_number > max_turns
 }
 
 // Command types as discriminated union

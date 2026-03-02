@@ -12,6 +12,7 @@ import { loadGameData } from "./game/data-loader";
 
 // AI turn runner
 import { runHeuristicTurn } from "./ai/heuristic";
+import { zoomIn, zoomOut, resetPanZoom, getZoomLevel, MIN_ZOOM, MAX_ZOOM } from "./rendering/pixi-app";
 
 // Error boundary to catch render errors
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
@@ -68,6 +69,22 @@ const TEAM_TEXT: Record<number, string> = {
 function AppContent() {
   const [view, setView] = useState<AppView>("setup");
   const [buyMenuTile, setBuyMenuTile] = useState<{ x: number; y: number } | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(1.0);
+
+  const handleZoomIn = useCallback(() => {
+    zoomIn();
+    setZoomLevel(getZoomLevel());
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    zoomOut();
+    setZoomLevel(getZoomLevel());
+  }, []);
+
+  const handleResetZoom = useCallback(() => {
+    resetPanZoom();
+    setZoomLevel(getZoomLevel());
+  }, []);
 
   // Turn transition banner state
   const [bannerText, setBannerText] = useState<string | null>(null);
@@ -172,6 +189,23 @@ function AppContent() {
             store.startMoveAnimation({ type: "WAIT", player_id: player!.id, unit_id: store.selectedUnit.id });
           }
           break;
+
+        case "+":
+        case "=":
+          zoomIn();
+          setZoomLevel(getZoomLevel());
+          break;
+
+        case "-":
+        case "_":
+          zoomOut();
+          setZoomLevel(getZoomLevel());
+          break;
+
+        case "0":
+          resetPanZoom();
+          setZoomLevel(getZoomLevel());
+          break;
       }
     };
 
@@ -238,10 +272,33 @@ function AppContent() {
         <GameCanvas onFacilityClick={handleFacilityClick} />
         <ActionMenu />
 
-        {/* Pan/zoom hint */}
-        <div className="absolute top-2 right-2 z-10 pointer-events-none">
-          <div className="bg-gray-900/60 text-gray-500 text-xs rounded px-2 py-1 backdrop-blur-sm">
-            Scroll to zoom · Right-drag to pan
+        {/* Zoom controls */}
+        <div className="absolute bottom-4 right-4 z-10 flex flex-col items-center gap-1">
+          <button
+            onClick={handleZoomIn}
+            disabled={zoomLevel >= MAX_ZOOM}
+            title="Zoom In (+)"
+            className="w-8 h-8 bg-gray-900/90 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed border border-gray-600 rounded text-white font-bold text-lg leading-none transition-colors flex items-center justify-center backdrop-blur-sm"
+          >
+            +
+          </button>
+          <button
+            onClick={handleResetZoom}
+            title="Reset Zoom (0)"
+            className="w-8 h-8 bg-gray-900/90 hover:bg-gray-700 border border-gray-600 rounded text-gray-400 text-xs font-mono leading-none transition-colors flex items-center justify-center backdrop-blur-sm"
+          >
+            {Math.round(zoomLevel * 100)}%
+          </button>
+          <button
+            onClick={handleZoomOut}
+            disabled={zoomLevel <= MIN_ZOOM}
+            title="Zoom Out (-)"
+            className="w-8 h-8 bg-gray-900/90 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed border border-gray-600 rounded text-white font-bold text-xl leading-none transition-colors flex items-center justify-center backdrop-blur-sm"
+          >
+            −
+          </button>
+          <div className="text-gray-600 text-xs mt-1 text-center leading-tight">
+            scroll<br/>⌘ drag
           </div>
         </div>
 

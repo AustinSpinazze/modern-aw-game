@@ -18,8 +18,8 @@ let _panOffsetX = 0;
 let _panOffsetY = 0;
 let _userZoom = 1.0;
 
-const MIN_ZOOM = 0.4;
-const MAX_ZOOM = 3.0;
+export const MIN_ZOOM = 0.4;
+export const MAX_ZOOM = 3.0;
 const ZOOM_STEP = 0.15;
 
 // Called by fitMapToStage — stores the base scale so we can multiply user zoom on top
@@ -42,6 +42,20 @@ export function resetPanZoom(): void {
   applyStageTransform();
 }
 
+export function zoomIn(): void {
+  _userZoom = Math.min(MAX_ZOOM, _userZoom + ZOOM_STEP);
+  applyStageTransform();
+}
+
+export function zoomOut(): void {
+  _userZoom = Math.max(MIN_ZOOM, _userZoom - ZOOM_STEP);
+  applyStageTransform();
+}
+
+export function getZoomLevel(): number {
+  return _userZoom;
+}
+
 // Pan/zoom event cleanup handle
 let _panCleanup: (() => void) | null = null;
 
@@ -54,11 +68,12 @@ export function enablePanZoom(canvas: HTMLCanvasElement): void {
   let lastY = 0;
 
   const onMouseDown = (e: MouseEvent) => {
-    // Right-click (2) or middle-click (1) to pan
-    if (e.button === 1 || e.button === 2) {
+    // Cmd+drag (macOS) or Ctrl+drag (Windows/Linux) with left button to pan
+    if (e.button === 0 && (e.metaKey || e.ctrlKey)) {
       dragging = true;
       lastX = e.clientX;
       lastY = e.clientY;
+      canvas.style.cursor = "grabbing";
       e.preventDefault();
     }
   };
@@ -75,7 +90,23 @@ export function enablePanZoom(canvas: HTMLCanvasElement): void {
   };
 
   const onMouseUp = (e: MouseEvent) => {
-    if (e.button === 1 || e.button === 2) dragging = false;
+    if (e.button === 0 && dragging) {
+      dragging = false;
+      canvas.style.cursor = "";
+    }
+  };
+
+  // Show grab cursor when Cmd/Ctrl is held over the canvas
+  const onKeyDown = (e: KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && !dragging) {
+      canvas.style.cursor = "grab";
+    }
+  };
+
+  const onKeyUp = (e: KeyboardEvent) => {
+    if (!e.metaKey && !e.ctrlKey && !dragging) {
+      canvas.style.cursor = "";
+    }
   };
 
   const onWheel = (e: WheelEvent) => {
@@ -107,20 +138,21 @@ export function enablePanZoom(canvas: HTMLCanvasElement): void {
     applyStageTransform();
   };
 
-  const onContextMenu = (e: Event) => e.preventDefault();
-
   canvas.addEventListener("mousedown", onMouseDown);
   window.addEventListener("mousemove", onMouseMove);
   window.addEventListener("mouseup", onMouseUp);
   canvas.addEventListener("wheel", onWheel, { passive: false });
-  canvas.addEventListener("contextmenu", onContextMenu);
+  window.addEventListener("keydown", onKeyDown);
+  window.addEventListener("keyup", onKeyUp);
 
   _panCleanup = () => {
+    canvas.style.cursor = "";
     canvas.removeEventListener("mousedown", onMouseDown);
     window.removeEventListener("mousemove", onMouseMove);
     window.removeEventListener("mouseup", onMouseUp);
     canvas.removeEventListener("wheel", onWheel);
-    canvas.removeEventListener("contextmenu", onContextMenu);
+    window.removeEventListener("keydown", onKeyDown);
+    window.removeEventListener("keyup", onKeyUp);
   };
 }
 

@@ -172,8 +172,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     let state = gameState;
 
-    // If there's a pending move and unit hasn't moved yet, apply MOVE first
-    if (pendingMove && !selectedUnit.has_moved) {
+    // If there's a pending move to a different tile and unit hasn't moved yet, apply MOVE first
+    const isInPlace = !pendingMove || (pendingMove.x === selectedUnit.x && pendingMove.y === selectedUnit.y);
+    if (pendingMove && !selectedUnit.has_moved && !isInPlace) {
       const moveCmd = {
         type: "MOVE" as const,
         player_id: currentPlayer.id,

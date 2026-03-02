@@ -137,10 +137,16 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
             return;
           }
 
-          // No pending move yet - check if clicking on a reachable tile
+          // No pending move yet - check if clicking on a reachable tile OR the unit's own tile
           const isReachable = reachableTiles.some((t) => t.x === pos.x && t.y === pos.y);
-          if (isReachable && !selUnit.has_moved) {
+          const isUnitTile = pos.x === selUnit.x && pos.y === selUnit.y;
+          if ((isReachable || isUnitTile) && !selUnit.has_moved) {
             // Set pending move instead of immediately moving
+            setPendingMove(pos);
+            return;
+          }
+          // Unit already moved — clicking its current tile opens the action menu
+          if (isUnitTile && selUnit.has_moved && !selUnit.has_acted) {
             setPendingMove(pos);
             return;
           }
@@ -229,11 +235,17 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
 
   // Start movement animation when isAnimating becomes true (player moves)
   useEffect(() => {
-    if (!isAnimating || !selectedUnit || animationPath.length < 2) return;
-    
+    if (!isAnimating || !selectedUnit) return;
+
     const animator = movementAnimatorRef.current;
     if (!animator) return;
-    
+
+    // No real movement (in-place action like Capture/Wait) — skip animation
+    if (animationPath.length < 2) {
+      onAnimationComplete();
+      return;
+    }
+
     // Start the animation with the path (arrow already cleared)
     animator.animate(
       selectedUnit.unit_type,

@@ -281,6 +281,23 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
 
       state = { ...state, current_player_index: nextIndex, turn_number: newTurn, units: updatedUnits };
       state = applyIncome(state, newPlayerId);
+
+      // Check turn limit — end in a draw (or winner by property count) when exceeded
+      if (state.max_turns > 0 && newTurn > state.max_turns) {
+        // Count properties owned per player to find winner; tie = no winner
+        const propCount: Record<number, number> = {};
+        for (const p of state.players) propCount[p.id] = 0;
+        for (let py = 0; py < state.map_height; py++) {
+          for (let px = 0; px < state.map_width; px++) {
+            const t = state.tiles[py]?.[px];
+            if (t && t.owner_id >= 0) propCount[t.owner_id] = (propCount[t.owner_id] ?? 0) + 1;
+          }
+        }
+        const entries = Object.entries(propCount).filter(([id]) => !state.players.find((p) => p.id === Number(id))?.is_defeated);
+        entries.sort((a, b) => b[1] - a[1]);
+        const winnerId = entries.length >= 2 && entries[0][1] > entries[1][1] ? Number(entries[0][0]) : -1;
+        state = { ...state, phase: "game_over", winner_id: winnerId };
+      }
       break;
     }
   }

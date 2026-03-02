@@ -109,7 +109,9 @@ export default function BuyMenu({ facilityX, facilityY, onClose }: BuyMenuProps)
                     )}
                     {primaryWeapon && (
                       <div className="text-xs">
-                        <span className="text-orange-300 font-medium">{primaryWeapon.name}</span>
+                        <span className="text-orange-300 font-medium">
+                          {(primaryWeapon as any).name ?? primaryWeapon.id.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                        </span>
                         {primaryWeapon.ammo > 0 && (
                           <span className="text-gray-500 ml-1">({primaryWeapon.ammo} ammo)</span>
                         )}
@@ -120,7 +122,9 @@ export default function BuyMenu({ facilityX, facilityY, onClose }: BuyMenuProps)
                     )}
                     {secondaryWeapon && (
                       <div className="text-xs">
-                        <span className="text-yellow-600 font-medium">{secondaryWeapon.name}</span>
+                        <span className="text-yellow-600 font-medium">
+                          {(secondaryWeapon as any).name ?? secondaryWeapon.id.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                        </span>
                         <span className="text-gray-500 ml-1">(∞)</span>
                         <span className="text-gray-400 ml-1">
                           · Rng {secondaryWeapon.min_range}–{secondaryWeapon.max_range}

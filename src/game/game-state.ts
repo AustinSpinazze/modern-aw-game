@@ -61,6 +61,8 @@ export function createGameState(partial?: Partial<GameState>): GameState {
     command_log: [],
     luck_min: 0.0,
     luck_max: 0.10,
+    income_multiplier: 1,
+    max_turns: -1,
     ...partial,
   };
 }
@@ -224,5 +226,8 @@ export function stateFromDict(data: unknown): GameState | null {
   if (typeof s.luck_min !== "number" || typeof s.luck_max !== "number") return null;
   if (typeof s.match_seed !== "number") return null;
   if (!Array.isArray(s.command_log)) return null;
+  // Default new fields for backwards-compatible deserialization
+  if (typeof s.income_multiplier !== "number") s.income_multiplier = 1;
+  if (typeof s.max_turns !== "number") s.max_turns = -1;
   return data as GameState;
 }

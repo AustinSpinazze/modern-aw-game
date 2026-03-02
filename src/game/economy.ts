@@ -22,7 +22,7 @@ export function calculateIncome(state: GameState, playerId: number): number {
 export function applyIncome(state: GameState, playerId: number): GameState {
   const player = getPlayer(state, playerId);
   if (!player) return state;
-  const income = calculateIncome(state, playerId);
+  const income = Math.round(calculateIncome(state, playerId) * (state.income_multiplier ?? 1));
   return updatePlayer(state, playerId, { funds: player.funds + income });
 }
 

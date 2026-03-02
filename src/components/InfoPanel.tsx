@@ -68,6 +68,24 @@ export default function InfoPanel() {
         </button>
       )}
 
+      {/* Match rules summary */}
+      {(gameState.max_turns > 0 || gameState.income_multiplier !== 1 || gameState.luck_max === 0) && (
+        <div className="border-t border-gray-700 pt-2 px-1">
+          <div className="text-gray-500 text-xs uppercase tracking-wide mb-1">Rules</div>
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-400">
+            {gameState.max_turns > 0 && (
+              <span>⏱ {gameState.turn_number}/{gameState.max_turns}</span>
+            )}
+            {gameState.income_multiplier !== 1 && (
+              <span>💰 ×{gameState.income_multiplier}</span>
+            )}
+            {gameState.luck_max === 0 && (
+              <span>🎲 No luck</span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Player roster */}
       <div className="border-t border-gray-700 pt-2">
         <div className="text-gray-500 text-xs uppercase tracking-wide mb-1">Players</div>
