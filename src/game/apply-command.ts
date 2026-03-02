@@ -227,7 +227,12 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
           for (const w of targetData.weapons) {
             if (w.ammo > 0) fullAmmo[w.id] = w.ammo;
           }
-          state = updateUnit(state, cmd.target_id, { ammo: fullAmmo });
+          const patch: Partial<typeof target> = { ammo: fullAmmo };
+          // Restore fuel if the unit tracks it
+          if (target.fuel !== undefined && "fuel" in targetData) {
+            patch.fuel = (targetData as unknown as { fuel: number }).fuel;
+          }
+          state = updateUnit(state, cmd.target_id, patch);
         }
       }
       state = updateUnit(state, cmd.unit_id, { has_acted: true, has_moved: true });

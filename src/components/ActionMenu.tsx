@@ -1,6 +1,6 @@
 "use client";
 // Unit action popup: Move/Attack/Capture/Wait/etc.
-// Shown after selecting a unit that has available actions.
+// Shown after selecting a unit with a pending move destination.
 
 import { useGameStore } from "../store/game-store";
 import { getTerrainData, getUnitData } from "../game/data-loader";
@@ -9,13 +9,14 @@ import { getTile } from "../game/game-state";
 export default function ActionMenu() {
   const gameState = useGameStore((s) => s.gameState);
   const selectedUnit = useGameStore((s) => s.selectedUnit);
-  const submitCommand = useGameStore((s) => s.submitCommand);
-  const resetSelection = useGameStore((s) => s.resetSelection);
+  const pendingMove = useGameStore((s) => s.pendingMove);
+  const confirmMoveAndAction = useGameStore((s) => s.confirmMoveAndAction);
+  const cancelPendingMove = useGameStore((s) => s.cancelPendingMove);
 
   if (!gameState || !selectedUnit) return null;
 
-  // Only show if unit has moved but not yet acted (post-move action menu)
-  if (!selectedUnit.has_moved) return null;
+  // Show menu when there's a pending move (unit picked destination but hasn't confirmed)
+  if (!pendingMove) return null;
   if (selectedUnit.has_acted) return null;
 
   const currentPlayer = gameState.players[gameState.current_player_index];
@@ -24,39 +25,39 @@ export default function ActionMenu() {
   const unitData = getUnitData(selectedUnit.unit_type);
   if (!unitData) return null;
 
-  const tile = getTile(gameState, selectedUnit.x, selectedUnit.y);
+  // Get terrain at pending destination (not current position)
+  const tile = getTile(gameState, pendingMove.x, pendingMove.y);
   const terrainData = tile ? getTerrainData(tile.terrain_type) : null;
 
   const canCapture = unitData.can_capture && terrainData?.can_capture && tile?.owner_id !== currentPlayer.id;
   const canDigTrench = unitData.special_actions.includes("dig_trench") && terrainData?.can_build_trench && !tile?.has_trench;
   const canBuildFob = unitData.special_actions.includes("build_fob") && terrainData?.can_build_fob && !tile?.has_fob;
-  const canSelfDestruct = unitData.special_actions.includes("self_destruct");
 
   const handleCapture = () => {
-    submitCommand({ type: "CAPTURE", player_id: currentPlayer.id, unit_id: selectedUnit.id });
+    confirmMoveAndAction({ type: "CAPTURE", player_id: currentPlayer.id, unit_id: selectedUnit.id });
   };
 
   const handleWait = () => {
-    submitCommand({ type: "WAIT", player_id: currentPlayer.id, unit_id: selectedUnit.id });
+    confirmMoveAndAction({ type: "WAIT", player_id: currentPlayer.id, unit_id: selectedUnit.id });
   };
 
   const handleDigTrench = () => {
-    submitCommand({
+    confirmMoveAndAction({
       type: "DIG_TRENCH",
       player_id: currentPlayer.id,
       unit_id: selectedUnit.id,
-      target_x: selectedUnit.x,
-      target_y: selectedUnit.y,
+      target_x: pendingMove.x,
+      target_y: pendingMove.y,
     });
   };
 
   const handleBuildFob = () => {
-    submitCommand({
+    confirmMoveAndAction({
       type: "BUILD_FOB",
       player_id: currentPlayer.id,
       unit_id: selectedUnit.id,
-      target_x: selectedUnit.x,
-      target_y: selectedUnit.y,
+      target_x: pendingMove.x,
+      target_y: pendingMove.y,
     });
   };
 
@@ -93,7 +94,7 @@ export default function ActionMenu() {
         Wait
       </button>
 
-      <button onClick={resetSelection}
+      <button onClick={cancelPendingMove}
         className="w-full text-left px-3 py-2 hover:bg-gray-700 text-gray-500 border-t border-gray-700">
         Cancel
       </button>

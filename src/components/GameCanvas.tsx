@@ -21,6 +21,8 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
   const terrainRendererRef = useRef<TerrainRenderer | null>(null);
   const unitRendererRef = useRef<UnitRenderer | null>(null);
   const highlightRendererRef = useRef<HighlightRenderer | null>(null);
+  const pathOverlayRef = useRef<HighlightRenderer | null>(null); // For path arrows
+  const cursorOverlayRef = useRef<HighlightRenderer | null>(null); // For targeting cursor (always on top)
   const inputHandlerRef = useRef<InputHandler | null>(null);
   const onFacilityClickRef = useRef(onFacilityClick);
   onFacilityClickRef.current = onFacilityClick;
@@ -33,8 +35,13 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     selectedUnit,
     reachableTiles,
     attackableTiles,
+    hoveredTile,
+    hoverPath,
+    pendingMove,
+    pendingPath,
     selectUnit,
     setHoveredTile,
+    setPendingMove,
     submitCommand,
     resetSelection,
   } = useGameStore();
@@ -51,14 +58,21 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
       const terrain = new TerrainRenderer();
       const units = new UnitRenderer();
       const highlights = new HighlightRenderer();
+      const pathOverlay = new HighlightRenderer(); // For path arrows
+      const cursorOverlay = new HighlightRenderer(); // For targeting cursor
 
+      // Render order: terrain -> highlights -> units -> path overlay -> cursor (on top)
       app.stage.addChild(terrain.getContainer());
       app.stage.addChild(highlights.getContainer());
       app.stage.addChild(units.getContainer());
+      app.stage.addChild(pathOverlay.getContainer());
+      app.stage.addChild(cursorOverlay.getContainer()); // Cursor always on very top
 
       terrainRendererRef.current = terrain;
       unitRendererRef.current = units;
       highlightRendererRef.current = highlights;
+      pathOverlayRef.current = pathOverlay;
+      cursorOverlayRef.current = cursorOverlay;
 
       // Wire input
       const handleTileClick = (pos: Vec2) => {
@@ -69,9 +83,13 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
           selectedUnit: selUnit,
           reachableTiles,
           attackableTiles,
+          pendingMove,
+          setPendingMove,
+          confirmMoveAndAction,
           submitCommand,
           selectUnit,
           resetSelection,
+          cancelPendingMove,
         } = useGameStore.getState();
 
         const currentPlayer = state.players[state.current_player_index];
@@ -80,18 +98,38 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
         const clickedUnit = getUnitAt(state, pos.x, pos.y);
 
         if (selUnit) {
-          const isReachable = reachableTiles.some((t) => t.x === pos.x && t.y === pos.y);
-          if (isReachable && !selUnit.has_moved) {
-            submitCommand({
-              type: "MOVE",
-              player_id: currentPlayer.id,
-              unit_id: selUnit.id,
-              dest_x: pos.x,
-              dest_y: pos.y,
-            });
+          // If we have a pending move, check for attack at pending position
+          if (pendingMove) {
+            const isAttackable = attackableTiles.some((t) => t.x === pos.x && t.y === pos.y);
+            if (isAttackable && clickedUnit && clickedUnit.owner_id !== currentPlayer.id) {
+              // Confirm move + attack
+              confirmMoveAndAction({
+                type: "ATTACK",
+                player_id: currentPlayer.id,
+                attacker_id: selUnit.id,
+                target_id: clickedUnit.id,
+                weapon_index: 0,
+              });
+              return;
+            }
+            // Clicking elsewhere cancels pending move and deselects
+            cancelPendingMove();
+            resetSelection();
+            if (clickedUnit && clickedUnit.owner_id === currentPlayer.id && !clickedUnit.is_loaded) {
+              selectUnit(clickedUnit);
+            }
             return;
           }
 
+          // No pending move yet - check if clicking on a reachable tile
+          const isReachable = reachableTiles.some((t) => t.x === pos.x && t.y === pos.y);
+          if (isReachable && !selUnit.has_moved) {
+            // Set pending move instead of immediately moving
+            setPendingMove(pos);
+            return;
+          }
+
+          // Check for direct attack from current position (no move)
           const isAttackable = attackableTiles.some((t) => t.x === pos.x && t.y === pos.y);
           if (
             isAttackable &&
@@ -157,12 +195,17 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
 
     inputHandlerRef.current?.setMapSize(gameState.map_width, gameState.map_height);
     terrainRendererRef.current?.render(gameState);
+    // Units stay in place until action is confirmed - no ghost preview
     unitRendererRef.current?.render(gameState);
 
     const highlights = highlightRendererRef.current;
-    if (!highlights) return;
+    const pathOverlay = pathOverlayRef.current;
+    const cursorOverlay = cursorOverlayRef.current;
+    if (!highlights || !pathOverlay || !cursorOverlay) return;
 
     highlights.clear();
+    pathOverlay.clear();
+    cursorOverlay.clear();
 
     if (selectedUnit) {
       highlights.drawSelected([{ x: selectedUnit.x, y: selectedUnit.y }]);
@@ -173,7 +216,18 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     if (attackableTiles.length > 0) {
       highlights.drawAttackable(attackableTiles);
     }
-  }, [pixiReady, gameState, selectedUnit, reachableTiles, attackableTiles]);
+
+    // Draw path arrow - use pendingPath if clicked, otherwise use hoverPath
+    const pathToShow = pendingPath.length > 1 ? pendingPath : hoverPath;
+    if (pathToShow.length > 1) {
+      pathOverlay.drawPath(pathToShow);
+    }
+
+    // Always draw targeting cursor at hovered tile
+    if (hoveredTile) {
+      cursorOverlay.drawTargetCursor(hoveredTile.x, hoveredTile.y);
+    }
+  }, [pixiReady, gameState, selectedUnit, reachableTiles, attackableTiles, hoveredTile, hoverPath, pendingMove, pendingPath]);
 
   return (
     <canvas

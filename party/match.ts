@@ -33,10 +33,15 @@ export default class MatchRoom implements Party.Server {
   constructor(readonly room: Party.Room) {}
 
   async onStart() {
-    // Restore persisted state if any
+    // Restore persisted state if any, with validation
     const stored = await this.room.storage.get<string>("gameState");
     if (stored) {
-      this.gameState = JSON.parse(stored) as GameState;
+      try {
+        const parsed = stateFromDict(JSON.parse(stored));
+        if (parsed) this.gameState = parsed;
+      } catch {
+        // Corrupted storage — start fresh
+      }
     }
   }
 
@@ -48,6 +53,14 @@ export default class MatchRoom implements Party.Server {
     // Send current state to the new joiner
     if (this.gameState) {
       conn.send(JSON.stringify({ type: "state_update", gameState: this.gameState }));
+    }
+  }
+
+  async onClose(conn: Party.Connection) {
+    if (conn.id === this.hostConnectionId) {
+      // Reassign host to the next connected peer
+      const connections = [...this.room.getConnections()];
+      this.hostConnectionId = connections[0]?.id ?? null;
     }
   }
 
@@ -87,10 +100,12 @@ export default class MatchRoom implements Party.Server {
       this.gameState = applyCommand(this.gameState, cmd);
       await this.persistAndBroadcast();
 
-      // If next player is AI, trigger AI turn via API route
-      const nextPlayer = this.gameState.players[this.gameState.current_player_index];
-      if (nextPlayer && nextPlayer.controller_type !== "human") {
-        this.triggerAiTurn(nextPlayer.id, nextPlayer.controller_type);
+      // If next player is AI and game is still active, trigger AI turn
+      if (this.gameState.phase !== "game_over") {
+        const nextPlayer = this.gameState.players[this.gameState.current_player_index];
+        if (nextPlayer && nextPlayer.controller_type !== "human") {
+          this.triggerAiTurn(nextPlayer.id, nextPlayer.controller_type);
+        }
       }
     }
   }

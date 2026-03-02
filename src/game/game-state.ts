@@ -213,10 +213,16 @@ export function stateFromDict(data: unknown): GameState | null {
   if (typeof s.match_id !== "string") return null;
   if (typeof s.map_width !== "number" || typeof s.map_height !== "number") return null;
   if (!Array.isArray(s.players) || s.players.length === 0) return null;
-  if (typeof s.tiles !== "object" || s.tiles === null) return null;
+  if (!Array.isArray(s.tiles)) return null;
   if (typeof s.units !== "object" || s.units === null) return null;
   if (typeof s.current_player_index !== "number") return null;
   if (typeof s.turn_number !== "number") return null;
+  if (typeof s.attack_counter !== "number") return null;
   if (typeof s.phase !== "string") return null;
+  if (typeof s.winner_id !== "number") return null;
+  if (typeof s.next_unit_id !== "number") return null;
+  if (typeof s.luck_min !== "number" || typeof s.luck_max !== "number") return null;
+  if (typeof s.match_seed !== "number") return null;
+  if (!Array.isArray(s.command_log)) return null;
   return data as GameState;
 }

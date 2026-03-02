@@ -257,9 +257,9 @@ export class HeuristicAI implements AIProvider {
 
     let funds = player.funds;
 
-    for (let y = 0; y < state.map_height; y++) {
+    outer: for (let y = 0; y < state.map_height; y++) {
       for (let x = 0; x < state.map_width; x++) {
-        if (funds < 1000) break;
+        if (funds < 1000) break outer;
         const tile = getTile(state, x, y);
         if (!tile || tile.owner_id !== playerId) continue;
         const terrainData = getTerrainData(tile.terrain_type);

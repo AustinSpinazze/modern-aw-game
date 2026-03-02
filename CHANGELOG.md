@@ -4,6 +4,238 @@ This file tracks significant changes made by AI agents (Claude Code, Cursor, etc
 
 ---
 
+## 2026-03-01 (Session 6) — Movement Path Arrow & Pending Move Fix
+
+**Session:** Cursor (Claude Opus 4.5)  
+**Status:** ✅ COMPLETE
+
+### Summary
+Fixed gameplay issues to match AWBW behavior:
+1. **Movement bug** — Units were getting stuck if you clicked off instead of confirming "Wait"
+2. **Path arrow** — Added visual path indicator that follows mouse like AWBW
+3. **Z-order fix** — Path arrow now renders on top of terrain (mountains, buildings)
+
+### Problem 1: Movement Bug
+Previously, clicking a destination tile immediately executed the MOVE command. If the player then clicked elsewhere (not on Wait/Attack), the unit would be stuck at the new position with `has_moved=true` but `has_acted=false`, and there was no way to undo.
+
+### Problem 2: Path Arrow Not Following Mouse
+The path arrow was only shown after clicking a destination. AWBW shows the path dynamically as you hover over reachable tiles.
+
+### Problem 3: Path Cut Off by Terrain
+The path arrow was rendering behind mountains, buildings, and other tall terrain elements.
+
+### Solution
+
+**Pending Move Pattern:**
+- Clicking a destination sets a **pending move** instead of immediately executing
+- Move is only applied when player confirms an action (Wait, Attack, Capture)
+- Cancel button properly returns unit to original state
+
+**Hover Path Preview:**
+- Added `hoverPath` state that updates as mouse moves over reachable tiles
+- Path arrow follows cursor in real-time before clicking
+- After clicking, `pendingPath` shows the confirmed path
+
+**Z-Order Fix:**
+- Created separate `pathOverlay` container that renders on top of everything
+- Render order: terrain → highlights → units → path overlay
+
+### Changes
+
+#### `game-store.ts`
+- Added `hoverPath: Vec2[]` — path preview while hovering (before click)
+- Added `pendingPath: Vec2[]` — confirmed path (after click)
+- Updated `setHoveredTile()` to compute path when hovering over reachable tiles
+- Added `confirmMoveAndAction(cmd)` — applies MOVE + action atomically
+- Added `cancelPendingMove()` — restores selection without moving
+
+#### `GameCanvas.tsx`
+- Added `pathOverlayRef` — separate highlight layer for path arrows on top
+- Render order: terrain → highlights → units → pathOverlay
+- Path shows `hoverPath` during hover, `pendingPath` after click
+- Ghost unit only appears after clicking (not during hover)
+
+#### `ActionMenu.tsx`
+- Shows when there's a `pendingMove` (after clicking destination)
+- Uses `confirmMoveAndAction()` to apply move + action together
+- Cancel calls `cancelPendingMove()` to restore selection
+
+#### `highlight-renderer.ts`
+- Added `drawPath(path: Vec2[])` — draws yellow arrow with corners
+- Added `drawPendingDest(pos)` — green highlight on pending destination
+
+#### `unit-renderer.ts`
+- Ghost preview only shows after clicking destination (pendingMove set)
+
+### AWBW-Like Behavior
+1. Click unit → shows reachable tiles (blue)
+2. Hover over reachable tile → path arrow follows mouse
+3. Click destination → ghost unit appears, action menu shows
+4. Confirm action → unit moves and acts
+5. Cancel → unit stays at original position
+
+---
+
+## 2026-03-01 (Session 6b) — Path Arrow & UI Polish
+
+**Session:** Cursor (Claude Opus 4.5)  
+**Status:** ✅ COMPLETE
+
+### Summary
+Fixed several visual and gameplay issues with path arrows and unit rendering.
+
+### Issues Fixed
+
+1. **Arrow malformed/cut off** — Rewrote path drawing to use smooth connected lines instead of separate rectangles
+2. **Arrow covering unit** — Path now starts from edge of unit's tile, not center (doesn't overlap unit sprite)
+3. **Attack squares showing prematurely** — Red attack range only shows after clicking destination, not during initial selection
+4. **Units faded when not their turn** — Units now only fade if they belong to the current player AND have already acted
+
+### Changes
+
+#### `highlight-renderer.ts`
+- Completely rewrote `drawPath()` to use `Graphics.lineTo()` for smooth connected lines
+- Path starts from SECOND tile in path (edge of unit's tile), not covering the unit
+- Added proper border/outline by drawing thicker line underneath
+- Simplified arrowhead drawing
+- Uses rounded caps and joins for cleaner appearance
+
+#### `unit-renderer.ts`
+- Added `currentPlayerId` tracking
+- Units only fade if: `unit.owner_id === currentPlayerId && unit.has_acted`
+- Enemy units always render at full opacity
+
+#### `game-store.ts`
+- `selectUnit()` no longer shows attack tiles immediately
+- `cancelPendingMove()` no longer shows attack tiles
+- Attack squares only appear after clicking a destination (`setPendingMove`)
+
+---
+
+## 2026-03-01 (Session 6c) — Visual Polish & AWBW Parity
+
+**Session:** Cursor (Claude Opus 4.5)  
+**Status:** ✅ COMPLETE
+
+### Summary
+Multiple visual improvements to match AWBW appearance.
+
+### Issues Fixed
+
+1. **Units transparent instead of darker** — Now uses tint (0x666666) instead of alpha for acted units, like WarsWorld
+2. **Attack squares showing with no enemies** — Only shows red attack tiles if there are actual enemy units in range
+3. **Arrow triangle had bottom border** — Removed stroke from arrowhead for cleaner look
+4. **Green destination highlight** — Replaced with AWBW-style dashed white cursor
+5. **Reachable tiles hard to see** — Made brighter (0x88ccff, alpha 0.55) like AWBW
+
+### Changes
+
+#### `unit-renderer.ts`
+- Added `ACTED_TINT = 0x666666` constant for darkening acted units
+- Uses `sprite.tint` instead of `sprite.alpha` for acted units (darker shade, not transparent)
+- Added `TEAM_COLORS_ACTED` for fallback rendering
+- Units only darken if: owned by current player AND have acted
+
+#### `highlight-renderer.ts`
+- `drawReachable()` now uses brighter blue (0x88ccff, alpha 0.55)
+- Replaced `drawPendingDest()` with AWBW-style dashed cursor
+- `drawCursor()` draws dashed white border like AWBW
+- Arrowhead no longer has a stroke (cleaner connection to path)
+- Path automatically draws cursor at destination
+
+#### `game-store.ts`
+- `setPendingMove()` now filters attack tiles to only include tiles with enemy units
+- No attack range shown when there are no enemies to attack
+
+#### `GameCanvas.tsx`
+- Removed `drawPendingDest()` call (cursor is drawn by path arrow now)
+
+---
+
+## 2026-03-01 (Session 6d) — Arrow & Cursor Polish
+
+**Session:** Cursor (Claude Opus 4.5)  
+**Status:** ✅ COMPLETE
+
+### Summary
+Fine-tuned path arrow and targeting cursor to match AWBW appearance.
+
+### Issues Fixed
+
+1. **Arrow triangle border** — Now has border on outer edges only (not on base where it connects to line)
+2. **Targeting cursor style** — Changed to AWBW-style corner brackets (L-shaped corners)
+3. **Cursor always visible** — Targeting cursor now shows constantly when hovering, not just during unit moves
+4. **Line straight, not rounded** — Changed from `cap: "round"` to `cap: "butt"` for straight ends
+5. **Line doesn't overlap unit** — Path now starts from edge of FIRST path tile, not from unit's tile edge
+
+### Changes
+
+#### `highlight-renderer.ts`
+- Renamed `drawCursor()` to `drawTargetCursor()` — AWBW-style corner brackets (4 L-shaped yellow corners)
+- `drawPath()` uses `cap: "butt"` and `join: "miter"` for straight lines
+- Path starts from first path tile's edge (not unit tile) to avoid overlapping unit
+- `drawArrowhead()` now draws border only on outer edges (tip to left, tip to right), not on base
+- Arrowhead uses separate fill and stroke calls to control which edges have borders
+
+#### `GameCanvas.tsx`
+- Added `cursorOverlayRef` — separate layer for targeting cursor (always on top)
+- Added `hoveredTile` to store subscriptions
+- Cursor overlay always renders targeting cursor at `hoveredTile` position
+- Render order: terrain → highlights → units → pathOverlay → cursorOverlay
+
+---
+
+## 2026-03-01 (Session 6e) — Path & Unit Polish
+
+**Session:** Cursor (Claude Opus 4.5)  
+**Status:** ✅ COMPLETE
+
+### Summary
+Fixed path arrow overlap issues and removed ghost unit preview.
+
+### Issues Fixed
+
+1. **Path overlapping destination unit** — Path now ends at edge of destination tile, not center
+2. **Ghost unit preview removed** — Unit stays in place until action is confirmed (no ghost)
+
+### Changes
+
+#### `highlight-renderer.ts`
+- Path now ends at EDGE of destination tile (not center)
+- Prevents arrow from overlapping the unit at destination
+- Arrowhead positioned at tile edge
+
+#### `unit-renderer.ts`
+- Removed ghost/pending move preview entirely
+- Units always render at their current game state position
+- Cleaned up unused `PendingMoveInfo` interface and ghost-related code
+
+#### `GameCanvas.tsx`
+- Simplified unit render call (no pendingMove parameter)
+
+---
+
+## 2026-03-01 — Roadmap Document Created
+
+**Session:** Cursor (Claude Opus 4.5)
+
+### Summary
+Created comprehensive project roadmap at `docs/ROADMAP.md` covering:
+- Completed features
+- Planned features (movement animations, AI, etc.)
+- Electron migration plan for local-first desktop app
+- UX polish items
+- Priority matrix
+- Rough timeline
+
+### Key Decisions
+- **Electron migration** planned to avoid backend complexity
+- **AI API keys** will be stored locally (not on server)
+- **Web version** kept for online multiplayer only
+- **Desktop version** for AI games + local play
+
+---
+
 ## 2026-03-01 (Session 5) — Unit Animations
 
 **Session:** Cursor (Claude Opus 4.5)  
