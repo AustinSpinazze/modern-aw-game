@@ -54,7 +54,7 @@ export class UnitRenderer {
     return this.container;
   }
 
-  render(state: GameState): void {
+  render(state: GameState, animatingUnitId?: number): void {
     this.container.removeChildren();
     
     // Track current player to only darken their units that have acted
@@ -63,6 +63,9 @@ export class UnitRenderer {
 
     for (const unit of Object.values(state.units)) {
       if (unit.is_loaded) continue; // skip units inside transports
+      
+      // Skip the unit being animated (it's rendered by MovementAnimator)
+      if (unit.id === animatingUnitId) continue;
 
       // Always draw unit at its current position
       // Unit only moves after action is confirmed

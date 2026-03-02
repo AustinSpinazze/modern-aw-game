@@ -1,6 +1,35 @@
 // AWBW map import: converts AWBW tile ID grids into GameState objects.
 // Tile ID reference: Based on WarsWorld's map-importer-utilities.ts
 // https://github.com/WarsWorld/WarsWorld/blob/main/src/server/tools/map-importer-utilities.ts
+//
+// ═══════════════════════════════════════════════════════════════════════════════
+// IMPORTANT: AWBW TILE ID QUIRKS (for future AI sessions)
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// 1. AWBW supports MANY custom factions beyond the original 4 (OS, BM, GE, YC).
+//    Community-created factions like Grey Sky, Black Hole, Amber Blaze, etc. have
+//    their own tile ID ranges. We only have 4 spritesheets, so ALL factions get
+//    remapped sequentially to players 0-3.
+//
+// 2. Building ID ranges and their orders are INCONSISTENT across AWBW:
+//    - Standard factions (34-100): Each faction has 5 buildings
+//      - Orange Star (38-42): city, factory, airport, port, hq
+//      - Blue Moon (43-47): city, factory, airport, port, hq
+//      - Grey Sky (86-90): city, factory, airport, port, hq
+//    - Extended range (117-126): factory, airport, city, hq, port (DIFFERENT ORDER!)
+//    - Extended range (149+): airport, city, factory, port, hq (ANOTHER ORDER!)
+//
+// 3. If maps render buildings incorrectly (e.g., port instead of HQ), check:
+//    - Which tile IDs are in the map CSV
+//    - What building order that ID range uses
+//    - Adjust the buildingTypes array in mapAwbwTile() accordingly
+//
+// 4. We enforce a MAX 4 PLAYER limit. Maps with 5+ factions throw an error.
+//
+// 5. Neutral buildings (owner -1) use the "neutral" spritesheet.
+//    Owned buildings (owner 0-3) use faction-specific animated spritesheets.
+//
+// ═══════════════════════════════════════════════════════════════════════════════
 
 import type { GameState } from "./types";
 import { createGameState, createPlayer, createUnit, createTile, addUnit } from "./game-state";
@@ -195,10 +224,22 @@ function mapAwbwTile(id: number): TileResult {
   if (mapped) return mapped;
 
   // Handle extended player building ranges (149+)
-  // These follow patterns for players 10-15
-  if (id >= 149 && id <= 194) {
-    // Complex mapping for additional players - treat as neutral cities for simplicity
-    return { terrain: "city", owner: -1 };
+  // AWBW has many custom factions with various sprite IDs
+  // Based on observed patterns: offset 1=city, 2=factory, 3=port, 4=hq
+  // Each player has 5 buildings in sequence
+  if (id >= 149) {
+    const offset = id - 149;
+    const playerOffset = Math.floor(offset / 5); // Which extended player (0, 1, 2, ...)
+    const buildingType = offset % 5; // Which building type (0-4)
+    const owner = 10 + playerOffset; // Player 10, 11, 12, etc.
+    
+    // AWBW extended player building order (observed from map exports)
+    // 149=airport, 150=city, 151=factory, 152=port, 153=hq, then repeats for next player
+    const buildingTypes = ["airport", "city", "factory", "port", "hq"];
+    return { 
+      terrain: buildingTypes[buildingType] || "city", 
+      owner 
+    };
   }
 
   // Fallback: unknown tile → plains
@@ -321,9 +362,19 @@ export function importAwbwMap(data: AwbwMapData): GameState {
   // Create players for each detected army
   const sortedArmies = Array.from(armiesPresent).sort((a, b) => a - b);
 
-  // Map AWBW army indices to our player indices (0, 1, 2, ...)
+  // Check for max player limit - we only support up to 4 players
+  if (sortedArmies.length > 4) {
+    throw new Error(
+      `This map has ${sortedArmies.length} factions but we currently only support maps with up to 4 players. ` +
+      `Please choose a different map or edit it to have 4 or fewer factions.`
+    );
+  }
+
+  // Always remap AWBW armies to our player indices (0-3) sequentially
+  // AWBW has many custom factions beyond the original 4, so we don't try to preserve colors
+  // Player 0 = Orange Star (red), 1 = Blue Moon (blue), 2 = Green Earth (green), 3 = Yellow Comet (yellow)
   const armyToPlayer = new Map<number, number>();
-  sortedArmies.forEach((army, idx) => {
+  sortedArmies.slice(0, 4).forEach((army, idx) => {
     armyToPlayer.set(army, idx);
   });
 
@@ -332,10 +383,15 @@ export function importAwbwMap(data: AwbwMapData): GameState {
     for (let x = 0; x < data.width; x++) {
       const tile = tiles[y][x];
       if (tile.owner_id >= 0) {
-        tiles[y][x] = { ...tile, owner_id: armyToPlayer.get(tile.owner_id) ?? -1 };
+        const mappedOwner = armyToPlayer.get(tile.owner_id);
+        tiles[y][x] = { ...tile, owner_id: mappedOwner !== undefined ? mappedOwner : tile.owner_id };
       }
     }
   }
+
+  // Log import info
+  console.log(`[AWBW Import] Detected ${sortedArmies.length} faction(s):`, sortedArmies);
+  console.log(`[AWBW Import] Mapping to players:`, Object.fromEntries(armyToPlayer));
 
   let state = createGameState({
     match_id: `awbw_import_${Date.now()}`,
@@ -345,11 +401,12 @@ export function importAwbwMap(data: AwbwMapData): GameState {
     tiles,
   });
 
-  // Add players
-  const players = sortedArmies.map((_, idx) =>
+  // Add players - use original army indices to preserve colors
+  // Player 0 is always human, others are AI
+  const players = sortedArmies.map((army, idx) =>
     createPlayer({
-      id: idx,
-      team: idx,
+      id: armyToPlayer.get(army) ?? army,
+      team: armyToPlayer.get(army) ?? army,
       funds: 0,
       controller_type: idx === 0 ? "human" : "heuristic",
     })

@@ -41,6 +41,16 @@ Turn-based tactics game (Advance Wars-inspired) built with Next.js 16 App Router
 - Roads/rivers use bitmask auto-tiling (see `ROAD_SPRITE_MAP`, `RIVER_SPRITE_MAP`)
 - Buildings use `AnimatedSprite` for owned buildings, static `Sprite` for neutral
 
+### AWBW Map Import (`src/game/awbw-import.ts`)
+- **Max 4 players supported.** Maps with 5+ factions throw an error.
+- **All factions remap to players 0-3 sequentially**, regardless of AWBW faction type (Grey Sky, Black Hole, Amber Blaze, etc.)
+- **QUIRK: Building order varies by tile ID range!**
+  - Standard factions (34-100): `city, factory, airport, port, hq`
+  - Extended range (117-126): `factory, airport, city, hq, port`
+  - Extended range (149+): `airport, city, factory, port, hq`
+- If buildings render wrong (port instead of HQ), check which ID range the map uses and adjust `buildingTypes` array in `mapAwbwTile()`
+- See detailed comments at top of `awbw-import.ts` for full documentation
+
 ### React Components
 - Components that use Zustand store, browser APIs, or Pixi.js need `"use client"` directive.
 - Page components in `app/` are Server Components by default — only add `"use client"` when needed.

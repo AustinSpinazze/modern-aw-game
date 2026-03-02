@@ -77,20 +77,30 @@ export async function initPixiApp(canvas: HTMLCanvasElement): Promise<Applicatio
     antialias: false,
     resolution: window.devicePixelRatio || 1,
     autoDensity: true,
+    roundPixels: true, // Prevent sub-pixel rendering artifacts
   });
 
   // Keep the renderer sized to the container
   const container = canvas.parentElement;
   if (container) {
-    resizeObserver = new ResizeObserver(() => {
-      if (app) {
+    const doResize = () => {
+      if (app && container.clientWidth > 0 && container.clientHeight > 0) {
         app.renderer.resize(container.clientWidth, container.clientHeight);
         if (_lastMapW > 0 && _lastMapH > 0) {
           fitMapToStage(_lastMapW, _lastMapH);
         }
       }
-    });
+    };
+
+    resizeObserver = new ResizeObserver(doResize);
     resizeObserver.observe(container);
+
+    // Trigger initial resize after DOM settles
+    requestAnimationFrame(() => {
+      doResize();
+      // Double-check after a short delay for layout shifts
+      setTimeout(doResize, 100);
+    });
   }
 
   await loadSpritesheets();

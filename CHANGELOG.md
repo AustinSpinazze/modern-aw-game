@@ -4,6 +4,140 @@ This file tracks significant changes made by AI agents (Claude Code, Cursor, etc
 
 ---
 
+## 2026-03-02 (Session 9) — AWBW Import Fixes
+
+**Session:** Cursor (Claude Opus 4.5)  
+**Status:** ✅ COMPLETE
+
+### Summary
+Fixed multiple issues with AWBW map imports:
+1. Custom/extended faction buildings weren't rendering with colors
+2. Tile sprites were showing alignment artifacts on smaller maps
+3. Extended player buildings (IDs 149+) had wrong building types
+
+### Issues Fixed
+
+1. **Custom Faction Support** — AWBW allows community-created custom factions beyond the original 4. Maps using factions like Grey Sky (army 5), Amber Blaze (army 10), etc. were rendering as neutral grey.
+
+   **Fix:** All AWBW factions now remap sequentially to our 4 supported players:
+   - First faction in map → Player 0 (Orange Star/red)
+   - Second faction → Player 1 (Blue Moon/blue)
+   - Third faction → Player 2 (Green Earth/green)
+   - Fourth faction → Player 3 (Yellow Comet/yellow)
+   - Maps with 5+ factions → Error with clear message
+
+2. **Sub-Pixel Rendering** — Added `roundPixels: true` to Pixi.js to prevent tile alignment artifacts.
+
+3. **Extended Building IDs (149+)** — AWBW's extended faction buildings (IDs 149+) were being treated as neutral cities. Fixed to properly detect owner and building type.
+
+### IMPORTANT: AWBW Tile ID Quirks
+
+**Building order varies by ID range:**
+- Standard factions (34-100): `city, factory, airport, port, hq`
+- Extended range (117-126): `factory, airport, city, hq, port` ← DIFFERENT!
+- Extended range (149+): `airport, city, factory, port, hq` ← ANOTHER ORDER!
+
+If buildings render wrong (e.g., port instead of HQ), check which tile ID range the map uses and adjust the `buildingTypes` array in `mapAwbwTile()`.
+
+### Changes
+
+#### `src/game/awbw-import.ts`
+- Added comprehensive documentation comment block explaining AWBW quirks
+- All AWBW armies now remap sequentially to players 0-3
+- Extended building IDs (149+) now properly detect owner and building type
+- Added validation: throws error if map has more than 4 factions
+- Building order for 149+ range: `["airport", "city", "factory", "port", "hq"]`
+
+#### `src/rendering/pixi-app.ts`
+- Added `roundPixels: true` to `app.init()` to prevent sub-pixel rendering artifacts
+
+---
+
+## 2026-03-02 (Session 7) — Movement Animations
+
+**Session:** Cursor (Claude Opus 4.5)  
+**Status:** ✅ COMPLETE
+
+### Summary
+Added unit movement animations that play when a move action is confirmed. Units now visually walk/drive/fly along the path instead of teleporting. **Animations work for both player AND AI/enemy units.**
+
+### Features Added
+1. **Movement Animator** — New `MovementAnimator` class that handles tweened movement along a path
+2. **Directional Sprites** — Units use direction-specific animations (mup, mdown, mside) during movement
+3. **Animation Flow** — Action confirms trigger animation → on complete → apply game state
+4. **Sprite Flipping** — Left movement flips the mside sprite horizontally
+5. **Animation-Synced Movement** — Walk/drive cycle completes once per tile (no skating effect)
+6. **Command Queue** — AI/enemy commands are queued and animated one at a time
+
+### Technical Details
+
+**Animation System:**
+- Speed: ~12 frames per tile at 60fps (5 tiles/second)
+- Animation frames sync perfectly with movement (one walk cycle = one tile)
+- Direction sprites: `infantry-mup`, `infantry-mdown`, `infantry-mside`, etc.
+- Formula: `animationSpeed = animation_frames / game_frames_per_tile`
+
+**State Flow (Player):**
+1. User clicks action (Wait/Capture/etc.)
+2. `startMoveAnimation(actionCmd)` sets `isAnimating=true`, stores `pendingAction`
+3. `MovementAnimator.animate()` begins visual animation
+4. Unit is hidden from `UnitRenderer` during animation
+5. Animation completes → `onAnimationComplete()` → apply game state
+
+**State Flow (AI/Enemy):**
+1. AI returns array of `GameCommand[]`
+2. `queueCommands(commands)` builds queue with paths for MOVE commands
+3. `processNextCommand()` pops next command
+4. If MOVE: animate → apply → continue. Otherwise: apply with small delay
+5. Queue empty → `processingQueue=false` → AI turn complete
+
+### Changes
+
+#### New File: `src/rendering/movement-animator.ts`
+- `MovementAnimator` class with Pixi.js Container
+- `animate(unitType, ownerId, path, onComplete)` — starts animation
+- `update()` — called every frame by ticker
+- `isAnimating()` — check if animation in progress
+- Uses `AnimatedSprite` with directional movement frames
+- **Fixed:** Animation synced to movement (no skating effect)
+
+#### `src/store/game-store.ts`
+- Added `isAnimating: boolean` state
+- Added `pendingAction: GameCommand | null` state  
+- Added `startMoveAnimation(actionCmd)` — triggers animation
+- Added `onAnimationComplete()` — executes pending action
+- **NEW:** Added `commandQueue: QueuedCommand[]` for AI commands
+- **NEW:** Added `processingQueue: boolean` to track queue state
+- **NEW:** Added `queueCommands(commands)` — queues AI commands with paths
+- **NEW:** Added `processNextCommand()` — pops and returns next queued command
+- **NEW:** Added `onQueuedAnimationComplete()` — signals animation done
+
+#### `src/components/GameCanvas.tsx`
+- Added `MovementAnimator` to render layer (above units)
+- Added animation ticker loop
+- Added effect to start animation when `isAnimating` becomes true
+- Passes `animatingUnitId` to UnitRenderer to hide moving unit
+- **NEW:** Added `queueAnimatingUnitId` state for AI unit animations
+- **NEW:** Added effect to process command queue with animations
+
+#### `app/match/[matchId]/page.tsx`
+- **CHANGED:** AI commands now queued via `queueCommands()` instead of direct apply
+- Added effect to reset AI running state when queue processing completes
+
+#### `src/components/ActionMenu.tsx`
+- Changed handlers to call `startMoveAnimation()` instead of `confirmMoveAndAction()`
+- Hidden during animation (`isAnimating` check)
+
+#### `src/rendering/unit-renderer.ts`
+- Added `animatingUnitId` parameter to `render()`
+- Skips rendering the unit being animated
+
+### Roadmap Updated
+- Updated `docs/ROADMAP.md` priority matrix
+- Electron migration prioritized before Audio (per user request)
+
+---
+
 ## 2026-03-01 (Session 6) — Movement Path Arrow & Pending Move Fix
 
 **Session:** Cursor (Claude Opus 4.5)  

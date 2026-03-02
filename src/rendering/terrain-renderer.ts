@@ -3,7 +3,7 @@
 // Terrain tiles are 16x16 in the sprite sheets, scaled up for display.
 // Buildings use AnimatedSprite for idle animations.
 
-import { AnimatedSprite, Container, Graphics, Sprite } from "pixi.js";
+import { AnimatedSprite, Container, Graphics, Sprite, Text, TextStyle } from "pixi.js";
 import type { GameState, TileState } from "../game/types";
 import { getTile } from "../game/game-state";
 import { TILE_SIZE, TILE_SCALE, getSprite, getAnimation, fitMapToStage } from "./pixi-app";
@@ -18,6 +18,9 @@ import {
   FALLBACK_COLORS,
   getArmySheet,
 } from "./sprite-mapping";
+
+// Max capture points for a building
+const MAX_CAPTURE_POINTS = 20;
 
 const DISPLAY = TILE_SIZE * TILE_SCALE; // 48px per tile on screen
 
@@ -97,25 +100,46 @@ const TRANSPARENT_TERRAIN = new Set(["mountain", "forest"]);
 
 export class TerrainRenderer {
   private container: Container;
+  private captureOverlay: Container; // Renders on top of units
 
   constructor() {
     this.container = new Container();
     this.container.label = "terrain";
+    this.captureOverlay = new Container();
+    this.captureOverlay.label = "capture-overlay";
   }
 
   getContainer(): Container {
     return this.container;
   }
 
+  getCaptureOverlay(): Container {
+    return this.captureOverlay;
+  }
+
   render(state: GameState): void {
     this.container.removeChildren();
+    this.captureOverlay.removeChildren();
 
+    // First pass: draw terrain and buildings
     for (let y = 0; y < state.map_height; y++) {
       for (let x = 0; x < state.map_width; x++) {
         const tile = getTile(state, x, y)!;
         const px = x * DISPLAY;
         const py = y * DISPLAY;
         this.drawTile(state, tile, x, y, px, py);
+      }
+    }
+
+    // Second pass: draw capture indicators (on separate overlay, above units)
+    for (let y = 0; y < state.map_height; y++) {
+      for (let x = 0; x < state.map_width; x++) {
+        const tile = getTile(state, x, y)!;
+        if (isBuilding(tile.terrain_type) && tile.capture_points < MAX_CAPTURE_POINTS) {
+          const px = x * DISPLAY;
+          const py = y * DISPLAY;
+          this.drawCaptureIndicator(tile.capture_points, px, py);
+        }
       }
     }
 
@@ -301,6 +325,39 @@ export class TerrainRenderer {
     g.rect(px + 4, py + 4, DISPLAY - 8, DISPLAY - 8);
     g.fill(baseColor);
     g.stroke({ color: borderColor, width: 3 });
-    this.container.addChild(g);
+  }
+
+  /**
+   * Draw capture indicator on a building being captured.
+   * Shows a small "C" badge in the bottom-left corner (AWBW style).
+   * Drawn on captureOverlay so it appears above units.
+   */
+  private drawCaptureIndicator(capturePoints: number, px: number, py: number): void {
+    const g = new Graphics();
+    
+    // Small square badge in bottom-left corner
+    const badgeSize = 14;
+    const badgeX = px + 2;
+    const badgeY = py + DISPLAY - badgeSize - 2;
+
+    // Badge background (orange/yellow square)
+    g.rect(badgeX, badgeY, badgeSize, badgeSize);
+    g.fill(0xffaa00);
+    g.rect(badgeX, badgeY, badgeSize, badgeSize);
+    g.stroke({ color: 0x000000, width: 1.5 });
+
+    this.captureOverlay.addChild(g);
+
+    // "C" letter for capture
+    const textStyle = new TextStyle({
+      fontSize: 10,
+      fontFamily: "Arial",
+      fontWeight: "bold",
+      fill: 0x000000,
+    });
+    const text = new Text({ text: "C", style: textStyle });
+    text.x = badgeX + 3;
+    text.y = badgeY + 1;
+    this.captureOverlay.addChild(text);
   }
 }

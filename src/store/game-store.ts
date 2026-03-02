@@ -8,6 +8,14 @@ import { validateCommand } from "../game/validators";
 import { applyCommand } from "../game/apply-command";
 import { getReachableTiles, getAttackableTiles, findPath } from "../game/pathfinding";
 
+// For external command animations (AI/enemy)
+export interface QueuedCommand {
+  command: GameCommand;
+  unitType?: string;
+  ownerId?: number;
+  path?: Vec2[];
+}
+
 interface GameStore {
   // State
   gameState: GameState | null;
@@ -17,17 +25,31 @@ interface GameStore {
   hoveredTile: Vec2 | null;
   hoverPath: Vec2[]; // path preview while hovering (before click)
   pendingMove: Vec2 | null; // destination after click, before action confirmed
-  pendingPath: Vec2[]; // path from unit to pendingMove (after click)
+  pendingPath: Vec2[]; // path from unit to pendingMove (after click) - for rendering arrow
+  animationPath: Vec2[]; // path used for actual animation (preserved after arrow cleared)
+  isAnimating: boolean; // true while a movement animation is playing
+  pendingAction: GameCommand | null; // action to execute after animation
+  
+  // Command queue for external commands (AI/enemy)
+  commandQueue: QueuedCommand[];
+  processingQueue: boolean;
 
   // Actions
   setGameState: (state: GameState) => void;
   selectUnit: (unit: UnitState | null) => void;
   setHoveredTile: (pos: Vec2 | null) => void;
   setPendingMove: (dest: Vec2 | null) => void;
+  startMoveAnimation: (actionCmd: GameCommand) => void; // starts animation, stores pending action
+  onAnimationComplete: () => void; // called when animation finishes
   confirmMoveAndAction: (actionCmd: GameCommand) => { success: boolean; error?: string };
   submitCommand: (cmd: GameCommand) => { success: boolean; error?: string };
   resetSelection: () => void;
   cancelPendingMove: () => void;
+  
+  // Queue system for AI/external commands
+  queueCommands: (commands: GameCommand[]) => void;
+  processNextCommand: () => QueuedCommand | null;
+  onQueuedAnimationComplete: () => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -39,6 +61,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   hoverPath: [],
   pendingMove: null,
   pendingPath: [],
+  animationPath: [],
+  isAnimating: false,
+  pendingAction: null,
+  commandQueue: [],
+  processingQueue: false,
 
   setGameState: (state) => set({ gameState: state }),
 
@@ -110,6 +137,32 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
   },
 
+  // Start movement animation before executing the action
+  startMoveAnimation: (actionCmd) => {
+    const { pendingPath } = get();
+    // Copy path to animationPath for the animator, clear visual overlays
+    set({ 
+      isAnimating: true, 
+      pendingAction: actionCmd, 
+      animationPath: pendingPath, // Animator uses this
+      pendingPath: [], // Clear arrow immediately
+      hoverPath: [], 
+      attackableTiles: [],
+      reachableTiles: [],
+    });
+  },
+
+  // Called when animation completes - executes the pending action
+  onAnimationComplete: () => {
+    const { pendingAction } = get();
+    set({ isAnimating: false });
+    
+    if (pendingAction) {
+      // Now execute the actual move + action
+      get().confirmMoveAndAction(pendingAction);
+    }
+  },
+
   // Confirm the pending move and execute an action (WAIT, ATTACK, CAPTURE, etc.)
   confirmMoveAndAction: (actionCmd) => {
     const { gameState, selectedUnit, pendingMove } = get();
@@ -150,7 +203,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       attackableTiles: [], 
       pendingMove: null, 
       pendingPath: [],
+      animationPath: [],
       hoverPath: [],
+      pendingAction: null,
     });
 
     return { success: true };
@@ -181,7 +236,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     attackableTiles: [],
     pendingMove: null,
     pendingPath: [],
+    animationPath: [],
     hoverPath: [],
+    isAnimating: false,
+    pendingAction: null,
   }),
 
   cancelPendingMove: () => {
@@ -199,5 +257,55 @@ export const useGameStore = create<GameStore>((set, get) => ({
       reachableTiles: reachable,
       attackableTiles: [], // Don't show attack squares until destination is clicked
     });
+  },
+
+  // Queue commands from AI/external sources for animated playback
+  queueCommands: (commands) => {
+    const { gameState } = get();
+    if (!gameState) return;
+
+    // Build queued commands with animation data for MOVE commands
+    const queued: QueuedCommand[] = commands.map((cmd) => {
+      if (cmd.type === "MOVE") {
+        const unit = getUnit(gameState, cmd.unit_id);
+        if (unit) {
+          const path = findPath(gameState, unit, cmd.dest_x, cmd.dest_y);
+          return {
+            command: cmd,
+            unitType: unit.unit_type,
+            ownerId: unit.owner_id,
+            path: path.length > 0 ? path : [{ x: unit.x, y: unit.y }, { x: cmd.dest_x, y: cmd.dest_y }],
+          };
+        }
+      }
+      return { command: cmd };
+    });
+
+    set({ commandQueue: queued, processingQueue: true });
+  },
+
+  // Get the next command to process (called by GameCanvas animation system)
+  processNextCommand: () => {
+    const { commandQueue, processingQueue, gameState } = get();
+    if (!processingQueue || commandQueue.length === 0 || !gameState) {
+      set({ processingQueue: false, commandQueue: [], isAnimating: false });
+      return null;
+    }
+
+    const [next, ...rest] = commandQueue;
+    const hasAnimation = !!(next.path && next.path.length > 1);
+    set({ commandQueue: rest, isAnimating: hasAnimation });
+    return next;
+  },
+
+  // Called when a queued animation completes - applies the command and continues
+  onQueuedAnimationComplete: () => {
+    const { commandQueue } = get();
+    // Check if there are more commands - if not, also stop processing
+    if (commandQueue.length === 0) {
+      set({ isAnimating: false, processingQueue: false });
+    } else {
+      set({ isAnimating: false });
+    }
   },
 }));

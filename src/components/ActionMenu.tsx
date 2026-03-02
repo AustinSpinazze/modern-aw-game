@@ -10,7 +10,8 @@ export default function ActionMenu() {
   const gameState = useGameStore((s) => s.gameState);
   const selectedUnit = useGameStore((s) => s.selectedUnit);
   const pendingMove = useGameStore((s) => s.pendingMove);
-  const confirmMoveAndAction = useGameStore((s) => s.confirmMoveAndAction);
+  const isAnimating = useGameStore((s) => s.isAnimating);
+  const startMoveAnimation = useGameStore((s) => s.startMoveAnimation);
   const cancelPendingMove = useGameStore((s) => s.cancelPendingMove);
 
   if (!gameState || !selectedUnit) return null;
@@ -18,6 +19,9 @@ export default function ActionMenu() {
   // Show menu when there's a pending move (unit picked destination but hasn't confirmed)
   if (!pendingMove) return null;
   if (selectedUnit.has_acted) return null;
+  
+  // Hide menu during animation
+  if (isAnimating) return null;
 
   const currentPlayer = gameState.players[gameState.current_player_index];
   if (!currentPlayer || selectedUnit.owner_id !== currentPlayer.id) return null;
@@ -34,15 +38,15 @@ export default function ActionMenu() {
   const canBuildFob = unitData.special_actions.includes("build_fob") && terrainData?.can_build_fob && !tile?.has_fob;
 
   const handleCapture = () => {
-    confirmMoveAndAction({ type: "CAPTURE", player_id: currentPlayer.id, unit_id: selectedUnit.id });
+    startMoveAnimation({ type: "CAPTURE", player_id: currentPlayer.id, unit_id: selectedUnit.id });
   };
 
   const handleWait = () => {
-    confirmMoveAndAction({ type: "WAIT", player_id: currentPlayer.id, unit_id: selectedUnit.id });
+    startMoveAnimation({ type: "WAIT", player_id: currentPlayer.id, unit_id: selectedUnit.id });
   };
 
   const handleDigTrench = () => {
-    confirmMoveAndAction({
+    startMoveAnimation({
       type: "DIG_TRENCH",
       player_id: currentPlayer.id,
       unit_id: selectedUnit.id,
@@ -52,7 +56,7 @@ export default function ActionMenu() {
   };
 
   const handleBuildFob = () => {
-    confirmMoveAndAction({
+    startMoveAnimation({
       type: "BUILD_FOB",
       player_id: currentPlayer.id,
       unit_id: selectedUnit.id,

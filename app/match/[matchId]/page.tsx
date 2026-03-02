@@ -34,6 +34,9 @@ export default function MatchPage() {
 
   const { gameState, submitCommand, canBuyAt } = useGame();
   const setGameState = useGameStore((s) => s.setGameState);
+  const processingQueue = useGameStore((s) => s.processingQueue);
+
+  const queueCommands = useGameStore((s) => s.queueCommands);
 
   // AI turn runner — uses ref for guard to avoid stale closure / dep churn
   const runAiTurn = useCallback(async (state: GameState) => {
@@ -53,24 +56,15 @@ export default function MatchPage() {
 
       const commands = await provider.requestTurn(state, currentPlayer.id);
 
-      // Apply each command
-      let s = state;
-      for (const cmd of commands) {
-        const result = validateCommand(cmd, s);
-        if (result.valid) {
-          s = applyCommand(s, cmd);
-          // Small delay for visual effect
-          await new Promise((r) => setTimeout(r, 100));
-          setGameState({ ...s });
-        }
-      }
+      // Queue commands for animated playback
+      queueCommands(commands);
     } catch (err) {
       console.error("AI turn error:", err);
-    } finally {
       aiRunningRef.current = false;
       setAiRunning(false);
     }
-  }, [setGameState]);
+    // Note: aiRunning state is cleared when queue processing completes
+  }, [queueCommands]);
 
   // Watch for AI turns
   useEffect(() => {
@@ -82,6 +76,14 @@ export default function MatchPage() {
     const timer = setTimeout(() => runAiTurn(gameState), 500);
     return () => clearTimeout(timer);
   }, [gameState?.current_player_index, gameState?.turn_number, runAiTurn]);
+
+  // Reset AI running state when queue processing completes
+  useEffect(() => {
+    if (!processingQueue && aiRunningRef.current) {
+      aiRunningRef.current = false;
+      setAiRunning(false);
+    }
+  }, [processingQueue]);
 
   if (!matchStarted) {
     return <MatchSetup onMatchStart={() => setMatchStarted(true)} />;

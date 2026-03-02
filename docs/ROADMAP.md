@@ -1,6 +1,6 @@
 # Modern AW — Project Roadmap
 
-Last Updated: 2026-03-01
+Last Updated: 2026-03-02
 
 ---
 
@@ -54,6 +54,7 @@ A modern Advance Wars-inspired turn-based strategy game that:
 - [x] Pending move pattern (unit stays in place until action confirmed)
 - [x] Attack range only shows when enemies present
 - [x] Units darken (tint) when acted, not transparent
+- [x] Movement animations (units walk/drive along path)
 
 ### Map Import
 - [x] AWBW map text import (CSV tile IDs)
@@ -67,21 +68,27 @@ A modern Advance Wars-inspired turn-based strategy game that:
 
 ## 🚧 In Progress / Next Up
 
-### Movement Animations (High Priority)
-- [ ] Tween units along path when move confirmed
-- [ ] Use directional sprites (`-mup`, `-mdown`, `-mside`)
-- [ ] Smooth tile-by-tile animation sequence
-- [ ] Camera follow during movement (if map is larger than viewport)
+### Electron Desktop App Migration (High Priority)
+- [ ] Set up Electron + React (electron-vite or similar)
+- [ ] Move game logic to main/renderer process
+- [ ] Local save/load game state to JSON files
+- [ ] Settings stored in electron-store
+- [ ] AI API key management (encrypted local storage)
+
+### AI Opponents
+- [ ] Local AI using OpenAI/Anthropic APIs
+- [ ] API key input in settings (stored locally in Electron)
+- [ ] Multiple difficulty levels / AI personalities
+- [ ] Basic heuristic AI fallback (no API needed)
 
 ### Combat Animations
 - [ ] Attack animation (unit shakes/flashes)
 - [ ] Damage numbers or health bar feedback
 - [ ] Unit destruction animation
 
-### Audio
-- [ ] Background music
-- [ ] SFX: unit selection, movement, attack, capture
-- [ ] Victory/defeat jingles
+### Camera / Large Maps
+- [ ] Camera follow during movement (if map is larger than viewport)
+- [ ] Map panning with mouse/keyboard
 
 ---
 
@@ -228,17 +235,19 @@ A modern Advance Wars-inspired turn-based strategy game that:
 
 ## 📊 Priority Matrix
 
-| Feature | Impact | Effort | Priority |
-|---------|--------|--------|----------|
-| Movement animations | High | Medium | 🔴 High |
-| Electron migration | High | High | 🔴 High |
-| AI opponents | High | Medium | 🔴 High |
-| Combat animations | Medium | Low | 🟡 Medium |
-| Audio/SFX | Medium | Low | 🟡 Medium |
-| Transport mechanics | Medium | Medium | 🟡 Medium |
-| Save/Load | High | Low | 🟡 Medium |
-| Map editor | Medium | High | 🟢 Low |
-| Campaign mode | High | Very High | 🟢 Low |
+| Feature | Impact | Effort | Priority | Order |
+|---------|--------|--------|----------|-------|
+| ~~Movement animations~~ | ~~High~~ | ~~Medium~~ | ✅ Done | - |
+| Electron migration | High | High | 🔴 High | 1 |
+| AI opponents | High | Medium | 🔴 High | 2 |
+| Save/Load | High | Low | 🟡 Medium | 3 |
+| Combat animations | Medium | Low | 🟡 Medium | 4 |
+| Transport mechanics | Medium | Medium | 🟡 Medium | 5 |
+| Audio/SFX | Medium | Low | 🟡 Medium | 6 |
+| Map editor | Medium | High | 🟢 Low | 7 |
+| Campaign mode | High | Very High | 🟢 Low | 8 |
+
+> **Note:** Electron migration comes before Audio because it enables local AI play with secure API key storage.
 
 ---
 

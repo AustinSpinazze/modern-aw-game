@@ -1,11 +1,12 @@
 "use client";
 // Mounts the Pixi.js canvas and wires game input.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { initPixiApp, destroyPixiApp, getApp } from "../rendering/pixi-app";
 import { TerrainRenderer } from "../rendering/terrain-renderer";
 import { UnitRenderer } from "../rendering/unit-renderer";
 import { HighlightRenderer } from "../rendering/highlight-renderer";
+import { MovementAnimator } from "../rendering/movement-animator";
 import { InputHandler } from "../rendering/input-handler";
 import { useGameStore } from "../store/game-store";
 import type { Vec2 } from "../game/types";
@@ -23,6 +24,7 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
   const highlightRendererRef = useRef<HighlightRenderer | null>(null);
   const pathOverlayRef = useRef<HighlightRenderer | null>(null); // For path arrows
   const cursorOverlayRef = useRef<HighlightRenderer | null>(null); // For targeting cursor (always on top)
+  const movementAnimatorRef = useRef<MovementAnimator | null>(null); // For unit movement
   const inputHandlerRef = useRef<InputHandler | null>(null);
   const onFacilityClickRef = useRef(onFacilityClick);
   onFacilityClickRef.current = onFacilityClick;
@@ -39,11 +41,19 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     hoverPath,
     pendingMove,
     pendingPath,
+    animationPath,
+    isAnimating,
     selectUnit,
     setHoveredTile,
     setPendingMove,
     submitCommand,
     resetSelection,
+    onAnimationComplete,
+    // Command queue for AI/external
+    commandQueue,
+    processingQueue,
+    processNextCommand,
+    onQueuedAnimationComplete,
   } = useGameStore();
 
   // Init Pixi once on mount
@@ -60,11 +70,14 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
       const highlights = new HighlightRenderer();
       const pathOverlay = new HighlightRenderer(); // For path arrows
       const cursorOverlay = new HighlightRenderer(); // For targeting cursor
+      const movementAnimator = new MovementAnimator();
 
-      // Render order: terrain -> highlights -> units -> path overlay -> cursor (on top)
+      // Render order: terrain -> highlights -> units -> capture overlay -> movement anim -> path overlay -> cursor (on top)
       app.stage.addChild(terrain.getContainer());
       app.stage.addChild(highlights.getContainer());
       app.stage.addChild(units.getContainer());
+      app.stage.addChild(terrain.getCaptureOverlay()); // Capture indicators above units
+      app.stage.addChild(movementAnimator.getContainer()); // Moving unit on top of static units
       app.stage.addChild(pathOverlay.getContainer());
       app.stage.addChild(cursorOverlay.getContainer()); // Cursor always on very top
 
@@ -73,6 +86,7 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
       highlightRendererRef.current = highlights;
       pathOverlayRef.current = pathOverlay;
       cursorOverlayRef.current = cursorOverlay;
+      movementAnimatorRef.current = movementAnimator;
 
       // Wire input
       const handleTileClick = (pos: Vec2) => {
@@ -134,6 +148,7 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
           if (
             isAttackable &&
             clickedUnit &&
+            currentPlayer && // defensive check
             clickedUnit.owner_id !== currentPlayer.id &&
             !selUnit.has_acted
           ) {
@@ -148,13 +163,13 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
           }
 
           resetSelection();
-          if (clickedUnit && clickedUnit.owner_id === currentPlayer.id && !clickedUnit.is_loaded) {
+          if (clickedUnit && currentPlayer && clickedUnit.owner_id === currentPlayer.id && !clickedUnit.is_loaded) {
             selectUnit(clickedUnit);
           }
         } else {
-          if (clickedUnit && clickedUnit.owner_id === currentPlayer.id && !clickedUnit.is_loaded) {
+          if (clickedUnit && currentPlayer && clickedUnit.owner_id === currentPlayer.id && !clickedUnit.is_loaded) {
             selectUnit(clickedUnit);
-          } else if (!clickedUnit) {
+          } else if (!clickedUnit && currentPlayer) {
             // Check if clicking on an owned facility to open buy menu
             const tile = getTile(state, pos.x, pos.y);
             if (tile && tile.owner_id === currentPlayer.id) {
@@ -186,6 +201,87 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     };
   }, []);
 
+  // Animation update loop
+  useEffect(() => {
+    if (!pixiReady) return;
+    
+    const app = getApp();
+    if (!app) return;
+
+    const ticker = app.ticker;
+    const onTick = () => {
+      const animator = movementAnimatorRef.current;
+      if (animator?.isAnimating()) {
+        animator.update();
+      }
+    };
+
+    ticker.add(onTick);
+    return () => {
+      ticker.remove(onTick);
+    };
+  }, [pixiReady]);
+
+  // Track animating unit for queue processing
+  const [queueAnimatingUnitId, setQueueAnimatingUnitId] = useState<number | undefined>(undefined);
+
+  // Start movement animation when isAnimating becomes true (player moves)
+  useEffect(() => {
+    if (!isAnimating || !selectedUnit || animationPath.length < 2) return;
+    
+    const animator = movementAnimatorRef.current;
+    if (!animator) return;
+    
+    // Start the animation with the path (arrow already cleared)
+    animator.animate(
+      selectedUnit.unit_type,
+      selectedUnit.owner_id,
+      animationPath,
+      () => {
+        // Animation complete - trigger the actual game state update
+        onAnimationComplete();
+      }
+    );
+  }, [isAnimating, selectedUnit, animationPath, onAnimationComplete]);
+
+  // Track queue processing state locally to ensure re-renders
+  const [queueTrigger, setQueueTrigger] = useState(0);
+
+  // Process command queue (AI/enemy turns)
+  useEffect(() => {
+    if (!pixiReady || !processingQueue) return;
+    if (isAnimating) return; // Wait for current animation to finish
+    
+    const animator = movementAnimatorRef.current;
+    if (!animator || animator.isAnimating()) return;
+
+    const queued = processNextCommand();
+    if (!queued) return;
+
+    const { command, unitType, ownerId, path } = queued;
+
+    // If this is a MOVE command with a path, animate it
+    if (command.type === "MOVE" && path && path.length > 1 && unitType && ownerId !== undefined) {
+      setQueueAnimatingUnitId(command.unit_id);
+      animator.animate(unitType, ownerId, path, () => {
+        // Animation done - apply the command
+        submitCommand(command);
+        setQueueAnimatingUnitId(undefined);
+        onQueuedAnimationComplete();
+        // Trigger next command processing
+        setQueueTrigger((t) => t + 1);
+      });
+    } else {
+      // Non-move command - just apply it with a small delay for visual effect
+      setTimeout(() => {
+        submitCommand(command);
+        onQueuedAnimationComplete();
+        // Trigger next command processing
+        setQueueTrigger((t) => t + 1);
+      }, 100);
+    }
+  }, [pixiReady, processingQueue, isAnimating, commandQueue, queueTrigger, processNextCommand, submitCommand, onQueuedAnimationComplete]);
+
   // Re-render whenever game state OR pixi readiness changes.
   // pixiReady in the dep array is the key fix: when Pixi finishes initialising
   // after gameState is already set, this effect fires and draws the board.
@@ -195,8 +291,10 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
 
     inputHandlerRef.current?.setMapSize(gameState.map_width, gameState.map_height);
     terrainRendererRef.current?.render(gameState);
-    // Units stay in place until action is confirmed - no ghost preview
-    unitRendererRef.current?.render(gameState);
+    // Pass the animating unit ID so we can hide it during movement animation
+    // Could be player's unit (selectedUnit) or AI's unit (queueAnimatingUnitId)
+    const animatingUnitId = queueAnimatingUnitId ?? (isAnimating && selectedUnit ? selectedUnit.id : undefined);
+    unitRendererRef.current?.render(gameState, animatingUnitId);
 
     const highlights = highlightRendererRef.current;
     const pathOverlay = pathOverlayRef.current;
@@ -227,7 +325,7 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     if (hoveredTile) {
       cursorOverlay.drawTargetCursor(hoveredTile.x, hoveredTile.y);
     }
-  }, [pixiReady, gameState, selectedUnit, reachableTiles, attackableTiles, hoveredTile, hoverPath, pendingMove, pendingPath]);
+  }, [pixiReady, gameState, selectedUnit, reachableTiles, attackableTiles, hoveredTile, hoverPath, pendingMove, pendingPath, isAnimating, queueAnimatingUnitId]);
 
   return (
     <canvas

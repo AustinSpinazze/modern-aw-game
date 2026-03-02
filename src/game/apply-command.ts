@@ -17,6 +17,15 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
 
   switch (cmd.type) {
     case "MOVE": {
+      const unit = getUnit(state, cmd.unit_id)!;
+      const oldTile = getTile(state, unit.x, unit.y);
+      
+      // Reset capture progress on the tile the unit is leaving
+      // (In AW, moving away from a building resets capture progress)
+      if (oldTile && oldTile.capture_points < 20) {
+        state = updateTile(state, unit.x, unit.y, { capture_points: 20 });
+      }
+
       state = updateUnit(state, cmd.unit_id, {
         x: cmd.dest_x,
         y: cmd.dest_y,

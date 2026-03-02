@@ -38,9 +38,20 @@ export default function TileInfoPanel() {
               Owner: <span className="text-yellow-300">
                 {tile.owner_id === -1 ? "Neutral" : `Player ${tile.owner_id + 1}`}
               </span>
-              {tile.capture_points < 20 && (
-                <span className="text-orange-300 ml-1">({tile.capture_points} CP)</span>
-              )}
+            </div>
+          )}
+          {terrainData.is_property && tile.capture_points < 20 && (
+            <div className="mt-1">
+              <div className="text-xs text-orange-400 font-medium">⚔ Being Captured</div>
+              <div className="flex items-center gap-2 mt-0.5">
+                <div className="flex-1 h-2 bg-gray-700 rounded overflow-hidden">
+                  <div 
+                    className="h-full bg-orange-400 transition-all"
+                    style={{ width: `${((20 - tile.capture_points) / 20) * 100}%` }}
+                  />
+                </div>
+                <span className="text-orange-300 text-xs">{20 - tile.capture_points}/20</span>
+              </div>
             </div>
           )}
         </div>
