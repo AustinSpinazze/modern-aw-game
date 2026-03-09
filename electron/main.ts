@@ -53,6 +53,23 @@ function createWindow() {
   });
 }
 
+// ─── Save Directory ──────────────────────────────────────────────────────────
+
+const SAVES_DIR = path.join(app.getPath("userData"), "saves");
+
+function ensureSavesDir(): void {
+  if (!fs.existsSync(SAVES_DIR)) {
+    fs.mkdirSync(SAVES_DIR, { recursive: true });
+  }
+}
+
+interface SaveMetadata {
+  name: string;
+  savedAt: string;
+  turnNumber: number;
+  playerCount: number;
+}
+
 // ─── Config Storage ─────────────────────────────────────────────────────────
 
 function loadConfig(): Record<string, unknown> {
@@ -106,15 +123,113 @@ ipcMain.handle("secure:decrypt", (_event, encrypted: string) => {
   return encrypted;
 });
 
+// ─── Game Save / Load ────────────────────────────────────────────────────────
+
+ipcMain.handle("save:game", (_event, name: string, data: unknown): boolean => {
+  try {
+    ensureSavesDir();
+    const filePath = path.join(SAVES_DIR, `${name}.json`);
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    return true;
+  } catch (e) {
+    console.error("Failed to save game:", e);
+    return false;
+  }
+});
+
+ipcMain.handle("load:game", (_event, name: string): unknown => {
+  try {
+    const filePath = path.join(SAVES_DIR, `${name}.json`);
+    if (!fs.existsSync(filePath)) return null;
+    return JSON.parse(fs.readFileSync(filePath, "utf-8"));
+  } catch (e) {
+    console.error("Failed to load game:", e);
+    return null;
+  }
+});
+
+ipcMain.handle("list:saves", (): SaveMetadata[] => {
+  try {
+    ensureSavesDir();
+    return fs
+      .readdirSync(SAVES_DIR)
+      .filter((f) => f.endsWith(".json"))
+      .flatMap((f) => {
+        try {
+          const raw = JSON.parse(fs.readFileSync(path.join(SAVES_DIR, f), "utf-8")) as Record<
+            string,
+            unknown
+          >;
+          return [
+            {
+              name: f.replace(".json", ""),
+              savedAt: (raw.savedAt as string) ?? new Date().toISOString(),
+              turnNumber: (raw.turnNumber as number) ?? 0,
+              playerCount: (raw.playerCount as number) ?? 0,
+            },
+          ];
+        } catch {
+          return [];
+        }
+      });
+  } catch (e) {
+    console.error("Failed to list saves:", e);
+    return [];
+  }
+});
+
+ipcMain.handle("delete:save", (_event, name: string): boolean => {
+  try {
+    const filePath = path.join(SAVES_DIR, `${name}.json`);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+});
+
+// ─── Encrypted API Key Storage ───────────────────────────────────────────────
+
+ipcMain.handle("apikey:save", (_event, name: string, key: string): boolean => {
+  try {
+    const config = loadConfig();
+    const storageKey = `apikey_${name}`;
+    if (key && safeStorage.isEncryptionAvailable()) {
+      config[storageKey] = safeStorage.encryptString(key).toString("base64");
+    } else {
+      config[storageKey] = key;
+    }
+    saveConfig(config);
+    return true;
+  } catch (e) {
+    console.error("Failed to save API key:", e);
+    return false;
+  }
+});
+
+ipcMain.handle("apikey:load", (_event, name: string): string => {
+  try {
+    const config = loadConfig();
+    const stored = config[`apikey_${name}`] as string | undefined;
+    if (!stored) return "";
+    if (safeStorage.isEncryptionAvailable()) {
+      try {
+        return safeStorage.decryptString(Buffer.from(stored, "base64"));
+      } catch {
+        return stored; // stored as plain text (e.g. encryption wasn't available when saved)
+      }
+    }
+    return stored;
+  } catch (e) {
+    console.error("Failed to load API key:", e);
+    return "";
+  }
+});
+
 // AI request handler (will be expanded in Phase 5)
 ipcMain.handle(
   "ai:run",
-  async (
-    _event,
-    provider: string,
-    state: unknown,
-    apiKey?: string
-  ): Promise<unknown[]> => {
+  async (_event, provider: string, state: unknown, apiKey?: string): Promise<unknown[]> => {
     // For now, just return empty array
     // Will be implemented in Phase 5
     console.log(`AI request: provider=${provider}, hasKey=${!!apiKey}`);

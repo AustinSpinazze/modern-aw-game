@@ -37,12 +37,12 @@ export default function InfoPanel() {
       {/* Current player highlight block */}
       <div className={`rounded-lg border p-2.5 ${bgClass}`}>
         <div className="flex items-baseline justify-between mb-1">
-          <div className={`font-bold text-base ${colorClass}`}>
-            Player {currentPlayer.id + 1}
-          </div>
+          <div className={`font-bold text-base ${colorClass}`}>Player {currentPlayer.id + 1}</div>
           <div className="text-gray-500 text-xs">Turn {gameState.turn_number}</div>
         </div>
-        <div className="text-gray-400 text-xs capitalize mb-1.5">{currentPlayer.controller_type}</div>
+        <div className="text-gray-400 text-xs capitalize mb-1.5">
+          {currentPlayer.controller_type}
+        </div>
         <div className="text-yellow-300 font-mono font-bold text-lg">
           ¥{currentPlayer.funds.toLocaleString()}
         </div>
@@ -64,24 +64,26 @@ export default function InfoPanel() {
           className="w-full bg-green-700 hover:bg-green-600 active:bg-green-800 text-white font-bold py-2.5 px-4 rounded-lg transition-colors flex items-center justify-between"
         >
           <span>End Turn</span>
-          <span className="text-green-300 text-xs font-normal opacity-75 border border-green-600 rounded px-1">E</span>
+          <span className="text-green-300 text-xs font-normal opacity-75 border border-green-600 rounded px-1">
+            E
+          </span>
         </button>
       )}
 
       {/* Match rules summary */}
-      {(gameState.max_turns > 0 || gameState.income_multiplier !== 1 || gameState.luck_max === 0) && (
+      {(gameState.max_turns > 0 ||
+        gameState.income_multiplier !== 1 ||
+        gameState.luck_max === 0) && (
         <div className="border-t border-gray-700 pt-2 px-1">
           <div className="text-gray-500 text-xs uppercase tracking-wide mb-1">Rules</div>
           <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-400">
             {gameState.max_turns > 0 && (
-              <span>⏱ {gameState.turn_number}/{gameState.max_turns}</span>
+              <span>
+                ⏱ {gameState.turn_number}/{gameState.max_turns}
+              </span>
             )}
-            {gameState.income_multiplier !== 1 && (
-              <span>💰 ×{gameState.income_multiplier}</span>
-            )}
-            {gameState.luck_max === 0 && (
-              <span>🎲 No luck</span>
-            )}
+            {gameState.income_multiplier !== 1 && <span>💰 ×{gameState.income_multiplier}</span>}
+            {gameState.luck_max === 0 && <span>🎲 No luck</span>}
           </div>
         </div>
       )}
@@ -98,7 +100,9 @@ export default function InfoPanel() {
           >
             <span className={`font-medium ${teamColors[p.team] ?? "text-white"}`}>
               P{p.id + 1}
-              {p.id === currentPlayer.id && <span className="text-gray-500 font-normal ml-1">◀</span>}
+              {p.id === currentPlayer.id && (
+                <span className="text-gray-500 font-normal ml-1">◀</span>
+              )}
             </span>
             <span className="text-yellow-300 font-mono">¥{p.funds.toLocaleString()}</span>
           </div>

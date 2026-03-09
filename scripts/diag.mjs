@@ -30,7 +30,13 @@ const diagResult = await page.evaluate(() => {
 console.log("Canvas info:", JSON.stringify(diagResult));
 console.log("Relevant logs:");
 for (const l of logs) {
-  if (l.includes("createSubTexture") || l.includes("DIAG") || l.includes("PAGE_ERROR") || l.includes("warn") || l.includes("Could not")) {
+  if (
+    l.includes("createSubTexture") ||
+    l.includes("DIAG") ||
+    l.includes("PAGE_ERROR") ||
+    l.includes("warn") ||
+    l.includes("Could not")
+  ) {
     console.log("  |", l);
   }
 }

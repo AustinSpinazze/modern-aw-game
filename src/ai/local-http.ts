@@ -22,7 +22,7 @@ export class LocalHttpAI implements AIProvider {
 
     if (!res.ok) throw new Error(`Local HTTP AI error: ${res.status}`);
 
-    const data = await res.json() as { commands: GameCommand[] };
+    const data = (await res.json()) as { commands: GameCommand[] };
     return data.commands;
   }
 }

@@ -14,15 +14,18 @@ const MAX_ENTRIES = 8;
 
 type CommandDict = Record<string, unknown>;
 
-function formatCommand(cmd: CommandDict, players: { id: number; team: number }[]): { text: string; playerTeam: number } | null {
-  const playerId = cmd.player_id as number ?? -1;
+function formatCommand(
+  cmd: CommandDict,
+  players: { id: number; team: number }[]
+): { text: string; playerTeam: number } | null {
+  const playerId = (cmd.player_id as number) ?? -1;
   const player = players.find((p) => p.id === playerId);
   const team = player?.team ?? 0;
   const pName = `P${playerId + 1}`;
 
   switch (cmd.type as string) {
     case "MOVE": {
-      const unitType = cmd.unit_type as string ?? "";
+      const unitType = (cmd.unit_type as string) ?? "";
       const unitName = unitType ? (getUnitData(unitType)?.name ?? unitType) : "Unit";
       return { text: `${pName} moved ${unitName}`, playerTeam: team };
     }
@@ -31,7 +34,7 @@ function formatCommand(cmd: CommandDict, players: { id: number; team: number }[]
     case "CAPTURE":
       return { text: `${pName} capturing…`, playerTeam: team };
     case "BUY_UNIT": {
-      const unitType = cmd.unit_type as string ?? "";
+      const unitType = (cmd.unit_type as string) ?? "";
       const unitName = getUnitData(unitType)?.name ?? unitType;
       return { text: `${pName} deployed ${unitName}`, playerTeam: team };
     }

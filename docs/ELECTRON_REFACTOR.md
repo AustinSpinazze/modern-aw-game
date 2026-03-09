@@ -1,14 +1,15 @@
 # Electron Refactor Plan
 
 > **Living Document** — Update this as work progresses. Other AI agents should read this before making changes.
-> 
-> **Last Updated:** 2026-03-02  
-> **Current Phase:** Phase 1 - Project Setup  
-> **Status:** 🟢 Complete
+>
+> **Last Updated:** 2026-03-09  
+> **Current Phase:** Phase 5 - Local AI Integration  
+> **Status:** 🟡 In Progress
 
 ---
 
 ## Table of Contents
+
 1. [Goals & Motivation](#goals--motivation)
 2. [Current Architecture](#current-architecture)
 3. [Target Architecture](#target-architecture)
@@ -27,12 +28,14 @@
 ## Goals & Motivation
 
 ### Why Electron?
+
 1. **No backend needed** — Avoid server hosting costs and complexity
 2. **Local API keys** — Users store their own AI API keys locally (no security concerns)
 3. **Offline play** — Heuristic AI works without internet
 4. **Simpler deployment** — Distribute as standalone app
 
 ### What We Keep
+
 - ✅ All game logic (`src/game/`)
 - ✅ Pixi.js rendering (`src/rendering/`)
 - ✅ React UI components (`src/components/`)
@@ -41,6 +44,7 @@
 - ✅ AWBW map import
 
 ### What We Remove/Change
+
 - ❌ Next.js framework → Vite + React
 - ❌ Server-side API routes → Electron main process
 - ❌ Partykit multiplayer → Local-only (for now)
@@ -101,14 +105,14 @@ modern-aw-web/                 # Same repo, refactored in place
 
 ## Migration Phases
 
-| Phase | Description | Status | Notes |
-|-------|-------------|--------|-------|
-| 1 | Project Setup | 🟢 Complete | Vite + Electron working! |
-| 2 | Extract Core Game | 🟢 Complete | Full game renders + AI turns! |
-| 3 | React UI Migration | 🟢 Complete | All components working |
-| 4 | Electron Integration | 🟡 In Progress | IPC framework ready |
-| 5 | Local AI Integration | 🔴 Not Started | API key storage |
-| 6 | Cleanup & Polish | 🔴 Not Started | Testing, packaging |
+| Phase | Description          | Status         | Notes                                      |
+| ----- | -------------------- | -------------- | ------------------------------------------ |
+| 1     | Project Setup        | 🟢 Complete    | Vite + Electron working!                   |
+| 2     | Extract Core Game    | 🟢 Complete    | Full game renders + AI turns!              |
+| 3     | React UI Migration   | 🟢 Complete    | All components working                     |
+| 4     | Electron Integration | 🟢 Complete    | Save/load, encrypted API keys, settings UI |
+| 5     | Local AI Integration | 🟡 In Progress | IPC bridge ready, AI providers need wiring |
+| 6     | Cleanup & Polish     | 🔴 Not Started | Testing, packaging                         |
 
 ---
 
@@ -117,6 +121,7 @@ modern-aw-web/                 # Same repo, refactored in place
 **Goal:** Create new Electron + Vite + React project with proper tooling.
 
 ### Tasks
+
 - [x] ~~Create new directory~~ (Refactoring in place instead)
 - [x] Install dependencies via pnpm
 - [x] Create `vite.config.ts` with Electron plugins
@@ -131,6 +136,7 @@ modern-aw-web/                 # Same repo, refactored in place
 - [x] Verify Electron API bridge works (preload) ✅
 
 ### Files to Create
+
 ```
 electron/main.ts
 electron/preload.ts
@@ -144,6 +150,7 @@ postcss.config.js
 ```
 
 ### Success Criteria
+
 - [ ] `npm run dev` launches Electron window
 - [ ] React renders in window
 - [ ] Tailwind styles work
@@ -156,6 +163,7 @@ postcss.config.js
 **Goal:** Copy all pure game logic and verify it works.
 
 ### Tasks
+
 - [ ] Copy `src/game/` directory (unchanged)
 - [ ] Copy `src/store/` directory
 - [ ] Copy `public/data/` directory
@@ -166,6 +174,7 @@ postcss.config.js
 - [ ] Verify all TypeScript types compile
 
 ### Files to Copy
+
 ```
 src/game/*.ts           # All game logic
 src/store/*.ts          # Zustand stores
@@ -174,9 +183,11 @@ public/sprites/warsworld/*  # Sprite assets
 ```
 
 ### Modifications Needed
+
 - `data-loader.ts` — Change from `fetch('/data/...')` to bundled import or Electron file read
 
 ### Success Criteria
+
 - [ ] Can create a GameState
 - [ ] Can apply MOVE, ATTACK, END_TURN commands
 - [ ] Zustand store works
@@ -189,6 +200,7 @@ public/sprites/warsworld/*  # Sprite assets
 **Goal:** Migrate all React components and Pixi.js rendering.
 
 ### Tasks
+
 - [ ] Copy `src/components/` directory
 - [ ] Copy `src/rendering/` directory
 - [ ] Copy `src/hooks/` directory
@@ -200,6 +212,7 @@ public/sprites/warsworld/*  # Sprite assets
 - [ ] Create pages: Home, Match, Settings
 
 ### Components to Migrate
+
 ```
 src/components/GameCanvas.tsx    # Main game display
 src/components/ActionMenu.tsx    # Unit action popup
@@ -209,9 +222,10 @@ src/components/EndTurnButton.tsx # Turn control
 ```
 
 ### Routing Setup
+
 ```tsx
 // src/App.tsx
-import { HashRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from "react-router-dom";
 
 <HashRouter>
   <Routes>
@@ -219,10 +233,11 @@ import { HashRouter, Routes, Route } from 'react-router-dom';
     <Route path="/match" element={<Match />} />
     <Route path="/settings" element={<Settings />} />
   </Routes>
-</HashRouter>
+</HashRouter>;
 ```
 
 ### Success Criteria
+
 - [ ] All components render without errors
 - [ ] Pixi.js canvas displays terrain and units
 - [ ] Can click tiles and see highlights
@@ -236,6 +251,7 @@ import { HashRouter, Routes, Route } from 'react-router-dom';
 **Goal:** Set up Electron main process and IPC communication.
 
 ### Tasks
+
 - [ ] Create `electron/ipc-handlers.ts` for AI API calls
 - [ ] Set up secure context bridge in preload script
 - [ ] Create IPC channels:
@@ -248,13 +264,14 @@ import { HashRouter, Routes, Route } from 'react-router-dom';
 - [ ] Update AI providers to call via IPC instead of fetch
 
 ### IPC Structure
+
 ```typescript
 // electron/preload.ts
-contextBridge.exposeInMainWorld('electronAPI', {
-  runAI: (provider: string, state: GameState, apiKey?: string) => 
-    ipcRenderer.invoke('ai:run', provider, state, apiKey),
-  getConfig: (key: string) => ipcRenderer.invoke('config:get', key),
-  setConfig: (key: string, value: any) => ipcRenderer.invoke('config:set', key, value),
+contextBridge.exposeInMainWorld("electronAPI", {
+  runAI: (provider: string, state: GameState, apiKey?: string) =>
+    ipcRenderer.invoke("ai:run", provider, state, apiKey),
+  getConfig: (key: string) => ipcRenderer.invoke("config:get", key),
+  setConfig: (key: string, value: any) => ipcRenderer.invoke("config:set", key, value),
 });
 
 // src/ai/electron-provider.ts
@@ -264,6 +281,7 @@ export async function runAI(provider: string, state: GameState): Promise<GameCom
 ```
 
 ### Success Criteria
+
 - [ ] Heuristic AI works via IPC
 - [ ] Can store/retrieve API keys securely
 - [ ] Anthropic AI works with user-provided key
@@ -276,6 +294,7 @@ export async function runAI(provider: string, state: GameState): Promise<GameCom
 **Goal:** Ensure AI providers work with locally-stored API keys.
 
 ### Tasks
+
 - [ ] Create Settings page for API key management
 - [ ] Store keys in Electron's safeStorage (encrypted)
 - [ ] Add key validation (test API call)
@@ -284,6 +303,7 @@ export async function runAI(provider: string, state: GameState): Promise<GameCom
 - [ ] Update match setup to show available AI providers based on configured keys
 
 ### Settings UI
+
 ```
 ┌─────────────────────────────────────────┐
 │ AI Provider Settings                    │
@@ -299,6 +319,7 @@ export async function runAI(provider: string, state: GameState): Promise<GameCom
 ```
 
 ### Success Criteria
+
 - [ ] Can save API keys that persist across app restarts
 - [ ] Keys are stored securely (not in plain text)
 - [ ] Can test API connection from settings
@@ -311,6 +332,7 @@ export async function runAI(provider: string, state: GameState): Promise<GameCom
 **Goal:** Final testing, packaging, and cleanup.
 
 ### Tasks
+
 - [ ] Remove all unused files from migration
 - [ ] Run full TypeScript check (`tsc --noEmit`)
 - [ ] Test all game features:
@@ -328,6 +350,7 @@ export async function runAI(provider: string, state: GameState): Promise<GameCom
 - [ ] Write user documentation
 
 ### Packaging Config
+
 ```json
 // electron-builder.json
 {
@@ -346,6 +369,7 @@ export async function runAI(provider: string, state: GameState): Promise<GameCom
 ```
 
 ### Success Criteria
+
 - [ ] All game features work
 - [ ] App packages successfully
 - [ ] Packaged app runs on clean system
@@ -398,16 +422,19 @@ export async function runAI(provider: string, state: GameState): Promise<GameCom
    - Use `vite-plugin-electron/simple` for easier configuration
    - The `onstart` hook auto-launches Electron in dev mode
 
-1. **electron-squirrel-startup is Windows-only**
+4. **electron-squirrel-startup is Windows-only**
    - The module is only needed for Windows NSIS installers
    - Wrap the require in try/catch to avoid errors on macOS/Linux/development
+
    ```typescript
    try {
      if (require("electron-squirrel-startup")) app.quit();
-   } catch { /* Module not available */ }
+   } catch {
+     /* Module not available */
+   }
    ```
 
-2. **pnpm requires explicit build script approval for Electron**
+5. **pnpm requires explicit build script approval for Electron**
    - Add to `package.json`:
      ```json
      "pnpm": {
@@ -445,11 +472,13 @@ export async function runAI(provider: string, state: GameState): Promise<GameCom
 > **Add dated entries as work progresses**
 
 ### 2026-03-02
+
 - Created this planning document
 - Outlined 6 phases for migration
 - Documented current and target architecture
 
 ### 2026-03-02 (Phase 1 Complete! 🎉)
+
 - Installed Electron, Vite, and related dependencies via pnpm
 - Created `vite.config.ts` with vite-plugin-electron/simple
 - Created `electron/main.ts` (main process with IPC handlers)
@@ -466,6 +495,7 @@ export async function runAI(provider: string, state: GameState): Promise<GameCom
 - **Run command:** `pnpm dev`
 
 ### 2026-03-02 (Phase 2+3 Complete! 🎉🎉)
+
 - Updated `src/App.tsx` to include full game flow (Setup → Game)
 - Fixed data loader to use relative paths (`import.meta.env.BASE_URL`)
 - Fixed sprite loader to use relative paths for Electron file:// protocol

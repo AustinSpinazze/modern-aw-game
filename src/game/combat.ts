@@ -15,7 +15,8 @@ export function calculateDamage(
   _isCounter = false
 ): { damage: number; luckRoll: number } {
   const attackerData = getUnitData(attacker.unit_type);
-  if (!attackerData || weaponIndex >= attackerData.weapons.length) return { damage: 0, luckRoll: 0 };
+  if (!attackerData || weaponIndex >= attackerData.weapons.length)
+    return { damage: 0, luckRoll: 0 };
 
   const weapon = attackerData.weapons[weaponIndex];
   const baseDamage = weapon.damage_table[defender.unit_type] ?? 0;
@@ -44,7 +45,7 @@ export function calculateDamage(
   }
 
   const totalDefenseStars = defenseStars + trenchBonus;
-  const defenseReduction = totalDefenseStars * 0.10;
+  const defenseReduction = totalDefenseStars * 0.1;
   scaledDamage = scaledDamage * (1.0 - defenseReduction);
 
   // Luck roll
@@ -208,7 +209,7 @@ export function executeSelfDestruct(
     defenseStars = getTerrainData(terrainType)?.defense_stars ?? 0;
   }
 
-  const defenseReduction = defenseStars * 0.10;
+  const defenseReduction = defenseStars * 0.1;
   let scaledDamage = baseDamage * (1.0 - defenseReduction);
 
   let state = incrementAttackCounter(stateIn);
@@ -231,7 +232,7 @@ export function executeSelfDestruct(
 export function damageFob(
   attacker: UnitState,
   tile: TileState,
-  stateIn: GameState,
+  stateIn: GameState
 ): { damage: number; state: GameState } {
   const attackerData = getUnitData(attacker.unit_type);
   if (!attackerData || attackerData.weapons.length === 0) return { damage: 0, state: stateIn };

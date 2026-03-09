@@ -99,10 +99,7 @@ async function runQuickCheck(): Promise<CheckResult> {
     result.checks.push({
       name: "No Console Errors",
       passed: consoleErrors.length === 0,
-      details:
-        consoleErrors.length > 0
-          ? consoleErrors.join("; ")
-          : "No errors",
+      details: consoleErrors.length > 0 ? consoleErrors.join("; ") : "No errors",
     });
 
     // Take screenshot

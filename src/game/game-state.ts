@@ -17,7 +17,9 @@ export function createPlayer(partial: Partial<PlayerState> & { id: number }): Pl
   };
 }
 
-export function createUnit(partial: Partial<UnitState> & { id: number; unit_type: string; owner_id: number }): UnitState {
+export function createUnit(
+  partial: Partial<UnitState> & { id: number; unit_type: string; owner_id: number }
+): UnitState {
   return {
     x: 0,
     y: 0,
@@ -60,7 +62,7 @@ export function createGameState(partial?: Partial<GameState>): GameState {
     next_unit_id: 1,
     command_log: [],
     luck_min: 0.0,
-    luck_max: 0.10,
+    luck_max: 0.1,
     income_multiplier: 1,
     max_turns: -1,
     ...partial,
@@ -134,7 +136,12 @@ export function setTile(state: GameState, x: number, y: number, tile: TileState)
   return { ...state, tiles: newTiles };
 }
 
-export function updateTile(state: GameState, x: number, y: number, patch: Partial<TileState>): GameState {
+export function updateTile(
+  state: GameState,
+  x: number,
+  y: number,
+  patch: Partial<TileState>
+): GameState {
   const tile = getTile(state, x, y);
   if (!tile) return state;
   return setTile(state, x, y, { ...tile, ...patch });
@@ -155,7 +162,11 @@ export function updateUnit(state: GameState, unitId: number, patch: Partial<Unit
   return { ...state, units: { ...state.units, [unitId]: { ...unit, ...patch } } };
 }
 
-export function updatePlayer(state: GameState, playerId: number, patch: Partial<PlayerState>): GameState {
+export function updatePlayer(
+  state: GameState,
+  playerId: number,
+  patch: Partial<PlayerState>
+): GameState {
   const players = state.players.map((p) => (p.id === playerId ? { ...p, ...patch } : p));
   return { ...state, players };
 }

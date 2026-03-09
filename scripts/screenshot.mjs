@@ -10,9 +10,10 @@ import { writeFileSync } from "fs";
 const args = process.argv.slice(2);
 const OUT = args[0] ?? "scripts/map-screenshot.png";
 const zoomIdx = args.indexOf("--zoom");
-const ZOOM = zoomIdx >= 0
-  ? { x: +args[zoomIdx+1], y: +args[zoomIdx+2], w: +args[zoomIdx+3], h: +args[zoomIdx+4] }
-  : null;
+const ZOOM =
+  zoomIdx >= 0
+    ? { x: +args[zoomIdx + 1], y: +args[zoomIdx + 2], w: +args[zoomIdx + 3], h: +args[zoomIdx + 4] }
+    : null;
 
 const URL = "http://localhost:3000/match/local";
 
@@ -36,6 +37,8 @@ const screenshotOpts = ZOOM
 
 const buf = await page.screenshot(screenshotOpts);
 writeFileSync(OUT, buf);
-console.log(`Screenshot saved → ${OUT}${ZOOM ? ` (clipped to ${ZOOM.w}×${ZOOM.h} at ${ZOOM.x},${ZOOM.y})` : ""}`);
+console.log(
+  `Screenshot saved → ${OUT}${ZOOM ? ` (clipped to ${ZOOM.w}×${ZOOM.h} at ${ZOOM.x},${ZOOM.y})` : ""}`
+);
 
 await browser.close();

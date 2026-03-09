@@ -232,13 +232,13 @@ function mapAwbwTile(id: number): TileResult {
     const playerOffset = Math.floor(offset / 5); // Which extended player (0, 1, 2, ...)
     const buildingType = offset % 5; // Which building type (0-4)
     const owner = 10 + playerOffset; // Player 10, 11, 12, etc.
-    
+
     // AWBW extended player building order (observed from map exports)
     // 149=airport, 150=city, 151=factory, 152=port, 153=hq, then repeats for next player
     const buildingTypes = ["airport", "city", "factory", "port", "hq"];
-    return { 
-      terrain: buildingTypes[buildingType] || "city", 
-      owner 
+    return {
+      terrain: buildingTypes[buildingType] || "city",
+      owner,
     };
   }
 
@@ -366,7 +366,7 @@ export function importAwbwMap(data: AwbwMapData): GameState {
   if (sortedArmies.length > 4) {
     throw new Error(
       `This map has ${sortedArmies.length} factions but we currently only support maps with up to 4 players. ` +
-      `Please choose a different map or edit it to have 4 or fewer factions.`
+        `Please choose a different map or edit it to have 4 or fewer factions.`
     );
   }
 
@@ -384,7 +384,10 @@ export function importAwbwMap(data: AwbwMapData): GameState {
       const tile = tiles[y][x];
       if (tile.owner_id >= 0) {
         const mappedOwner = armyToPlayer.get(tile.owner_id);
-        tiles[y][x] = { ...tile, owner_id: mappedOwner !== undefined ? mappedOwner : tile.owner_id };
+        tiles[y][x] = {
+          ...tile,
+          owner_id: mappedOwner !== undefined ? mappedOwner : tile.owner_id,
+        };
       }
     }
   }

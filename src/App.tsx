@@ -7,16 +7,29 @@ import TileInfoPanel from "./components/TileInfoPanel";
 import ActionMenu from "./components/ActionMenu";
 import BuyMenu from "./components/BuyMenu";
 import ActionLog from "./components/ActionLog";
+import SettingsModal from "./components/SettingsModal";
 import { useGameStore } from "./store/game-store";
 import { useGame } from "./hooks/useGame";
+import { useConfigStore } from "./store/config-store";
 import { loadGameData } from "./game/data-loader";
+import type { GameState } from "./game/types";
 
 // AI turn runner
 import { runHeuristicTurn } from "./ai/heuristic";
-import { zoomIn, zoomOut, resetPanZoom, getZoomLevel, MIN_ZOOM, MAX_ZOOM } from "./rendering/pixi-app";
+import {
+  zoomIn,
+  zoomOut,
+  resetPanZoom,
+  getZoomLevel,
+  MIN_ZOOM,
+  MAX_ZOOM,
+} from "./rendering/pixi-app";
 
 // Error boundary to catch render errors
-class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
+class ErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
   constructor(props: { children: ReactNode }) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -67,11 +80,21 @@ const TEAM_TEXT: Record<number, string> = {
   3: "text-yellow-300",
 };
 
+interface SavedGameFile {
+  version: number;
+  savedAt: string;
+  turnNumber: number;
+  playerCount: number;
+  state: GameState;
+}
+
 function AppContent() {
   const [view, setView] = useState<AppView>("setup");
   const [buyMenuTile, setBuyMenuTile] = useState<{ x: number; y: number } | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1.0);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
 
   const handleZoomIn = useCallback(() => {
     zoomIn();
@@ -98,6 +121,12 @@ function AppContent() {
 
   const prevPlayerIndexRef = useRef<number>(-1);
   const prevPhaseRef = useRef<string>("");
+  const prevTurnNumberRef = useRef<number>(-1);
+
+  // ── Sync encrypted API keys from Electron on startup ───────────────────
+  useEffect(() => {
+    useConfigStore.getState().syncFromElectron().catch(console.error);
+  }, []);
 
   // ── Turn transition banner ──────────────────────────────────────────────
   useEffect(() => {
@@ -131,6 +160,22 @@ function AppContent() {
     prevPhaseRef.current = newPhase;
   }, [gameState, view]);
 
+  // ── Auto-save after each turn end ──────────────────────────────────────
+  useEffect(() => {
+    if (!gameState || view !== "game" || !window.electronAPI) return;
+    if (gameState.turn_number === prevTurnNumberRef.current) return;
+    prevTurnNumberRef.current = gameState.turn_number;
+
+    const saveData: SavedGameFile = {
+      version: 1,
+      savedAt: new Date().toISOString(),
+      turnNumber: gameState.turn_number,
+      playerCount: gameState.players.length,
+      state: gameState,
+    };
+    window.electronAPI.saveGame("autosave", saveData).catch(console.error);
+  }, [gameState, view]);
+
   // ── Handle AI turns ────────────────────────────────────────────────────
   useEffect(() => {
     if (!gameState || gameState.phase !== "action") return;
@@ -157,7 +202,11 @@ function AppContent() {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't fire if typing in an input
-      if ((e.target as HTMLElement).tagName === "INPUT" || (e.target as HTMLElement).tagName === "TEXTAREA") return;
+      if (
+        (e.target as HTMLElement).tagName === "INPUT" ||
+        (e.target as HTMLElement).tagName === "TEXTAREA"
+      )
+        return;
 
       const store = useGameStore.getState();
       const state = store.gameState;
@@ -188,7 +237,11 @@ function AppContent() {
         case "W":
           // Wait with selected unit that has a pending move
           if (isHumanTurn && store.selectedUnit && store.pendingMove && !store.isAnimating) {
-            store.startMoveAnimation({ type: "WAIT", player_id: player!.id, unit_id: store.selectedUnit.id });
+            store.startMoveAnimation({
+              type: "WAIT",
+              player_id: player!.id,
+              unit_id: store.selectedUnit.id,
+            });
           }
           break;
 
@@ -218,8 +271,23 @@ function AppContent() {
   const handleMatchStart = useCallback(() => {
     prevPlayerIndexRef.current = -1;
     prevPhaseRef.current = "";
+    prevTurnNumberRef.current = -1;
     setView("game");
   }, []);
+
+  const handleQuickSave = useCallback(async () => {
+    if (!gameState || !window.electronAPI) return;
+    const saveData: SavedGameFile = {
+      version: 1,
+      savedAt: new Date().toISOString(),
+      turnNumber: gameState.turn_number,
+      playerCount: gameState.players.length,
+      state: gameState,
+    };
+    const ok = await window.electronAPI.saveGame("quicksave", saveData);
+    setSaveFeedback(ok ? "Saved!" : "Save failed");
+    setTimeout(() => setSaveFeedback(null), 2000);
+  }, [gameState]);
 
   const handleFacilityClick = useCallback((x: number, y: number) => {
     setBuyMenuTile({ x, y });
@@ -245,7 +313,12 @@ function AppContent() {
   }, []);
 
   if (view === "setup") {
-    return <MatchSetup onMatchStart={handleMatchStart} />;
+    return (
+      <>
+        <MatchSetup onMatchStart={handleMatchStart} onOpenSettings={() => setShowSettings(true)} />
+        {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      </>
+    );
   }
 
   const isAiTurn = currentPlayer?.controller_type !== "human";
@@ -265,7 +338,21 @@ function AppContent() {
           <div className="flex-1" />
           <ActionLog />
         </div>
-        <div className="p-3 border-t border-gray-700">
+        <div className="p-3 border-t border-gray-700 space-y-2">
+          {window.electronAPI && (
+            <button
+              onClick={handleQuickSave}
+              className="w-full bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm py-2 rounded transition-colors relative"
+            >
+              {saveFeedback ?? "Save Game"}
+            </button>
+          )}
+          <button
+            onClick={() => setShowSettings(true)}
+            className="w-full bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm py-2 rounded transition-colors"
+          >
+            Settings
+          </button>
           <button
             onClick={() => setShowExitConfirm(true)}
             className="w-full bg-gray-700 hover:bg-red-900 hover:text-red-300 text-gray-300 text-sm py-2 rounded transition-colors"
@@ -306,7 +393,8 @@ function AppContent() {
             −
           </button>
           <div className="text-gray-600 text-xs mt-1 text-center leading-tight">
-            scroll<br/>⌘ drag
+            scroll
+            <br />⌘ drag
           </div>
         </div>
 
@@ -323,12 +411,11 @@ function AppContent() {
 
       {/* Buy menu modal */}
       {buyMenuTile && (
-        <BuyMenu
-          facilityX={buyMenuTile.x}
-          facilityY={buyMenuTile.y}
-          onClose={handleCloseBuyMenu}
-        />
+        <BuyMenu facilityX={buyMenuTile.x} facilityY={buyMenuTile.y} onClose={handleCloseBuyMenu} />
       )}
+
+      {/* Settings modal */}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
 
       {/* Exit confirmation modal */}
       {showExitConfirm && (
@@ -361,8 +448,12 @@ function AppContent() {
             bannerVisible ? "opacity-100" : "opacity-0"
           }`}
         >
-          <div className={`border-2 rounded-2xl px-10 py-6 text-center shadow-2xl backdrop-blur-sm ${TEAM_BANNER_BG[bannerTeam] ?? "bg-gray-900/90 border-gray-500"}`}>
-            <div className={`text-3xl font-black tracking-wide ${TEAM_TEXT[bannerTeam] ?? "text-white"}`}>
+          <div
+            className={`border-2 rounded-2xl px-10 py-6 text-center shadow-2xl backdrop-blur-sm ${TEAM_BANNER_BG[bannerTeam] ?? "bg-gray-900/90 border-gray-500"}`}
+          >
+            <div
+              className={`text-3xl font-black tracking-wide ${TEAM_TEXT[bannerTeam] ?? "text-white"}`}
+            >
               {bannerText}
             </div>
           </div>

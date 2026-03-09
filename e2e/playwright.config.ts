@@ -11,7 +11,7 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   // Output directory for screenshots and traces
-  outputDir: "./results",
-  // Reporter for CI-friendly output
-  reporter: [["list"], ["html", { outputFolder: "./results/html-report" }]],
+  outputDir: "./results/test-results",
+  // Reporter for CI-friendly output (avoid same path as outputDir to prevent artifact loss)
+  reporter: [["list"], ["html", { outputFolder: "./results/playwright-report" }]],
 });

@@ -3,9 +3,17 @@
 
 import type { GameState, GameCommand } from "./types";
 import {
-  getUnit, getUnitAt, getPlayer, getTile,
-  updateUnit, removeUnit, addUnit, updateTile, updatePlayer,
-  getNextUnitId, duplicateState,
+  getUnit,
+  getUnitAt,
+  getPlayer,
+  getTile,
+  updateUnit,
+  removeUnit,
+  addUnit,
+  updateTile,
+  updatePlayer,
+  getNextUnitId,
+  duplicateState,
 } from "./game-state";
 import { getUnitData } from "./data-loader";
 import { executeCombat, executeSelfDestruct, damageFob } from "./combat";
@@ -19,7 +27,7 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
     case "MOVE": {
       const unit = getUnit(state, cmd.unit_id)!;
       const oldTile = getTile(state, unit.x, unit.y);
-      
+
       // Reset capture progress on the tile the unit is leaving
       // (In AW, moving away from a building resets capture progress)
       if (oldTile && oldTile.capture_points < 20) {
@@ -38,8 +46,12 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
       const attacker = getUnit(state, cmd.attacker_id)!;
       const defender = getUnit(state, cmd.target_id)!;
 
-      const { result, state: newState, attacker: newAttacker, defender: newDefender } =
-        executeCombat(attacker, defender, state, cmd.weapon_index);
+      const {
+        result,
+        state: newState,
+        attacker: newAttacker,
+        defender: newDefender,
+      } = executeCombat(attacker, defender, state, cmd.weapon_index);
 
       state = newState;
 
@@ -218,12 +230,20 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
     }
 
     case "SUBMERGE": {
-      state = updateUnit(state, cmd.unit_id, { is_submerged: true, has_acted: true, has_moved: true });
+      state = updateUnit(state, cmd.unit_id, {
+        is_submerged: true,
+        has_acted: true,
+        has_moved: true,
+      });
       break;
     }
 
     case "SURFACE": {
-      state = updateUnit(state, cmd.unit_id, { is_submerged: false, has_acted: true, has_moved: true });
+      state = updateUnit(state, cmd.unit_id, {
+        is_submerged: false,
+        has_acted: true,
+        has_moved: true,
+      });
       break;
     }
 
@@ -279,7 +299,12 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
       // Reset capture points to 20 for any tile where the new player is capturing
       // (capture points only tick during active action, reset means they persist)
 
-      state = { ...state, current_player_index: nextIndex, turn_number: newTurn, units: updatedUnits };
+      state = {
+        ...state,
+        current_player_index: nextIndex,
+        turn_number: newTurn,
+        units: updatedUnits,
+      };
       state = applyIncome(state, newPlayerId);
 
       // Check turn limit — end in a draw (or winner by property count) when exceeded
@@ -293,9 +318,12 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
             if (t && t.owner_id >= 0) propCount[t.owner_id] = (propCount[t.owner_id] ?? 0) + 1;
           }
         }
-        const entries = Object.entries(propCount).filter(([id]) => !state.players.find((p) => p.id === Number(id))?.is_defeated);
+        const entries = Object.entries(propCount).filter(
+          ([id]) => !state.players.find((p) => p.id === Number(id))?.is_defeated
+        );
         entries.sort((a, b) => b[1] - a[1]);
-        const winnerId = entries.length >= 2 && entries[0][1] > entries[1][1] ? Number(entries[0][0]) : -1;
+        const winnerId =
+          entries.length >= 2 && entries[0][1] > entries[1][1] ? Number(entries[0][0]) : -1;
         state = { ...state, phase: "game_over", winner_id: winnerId };
       }
       break;

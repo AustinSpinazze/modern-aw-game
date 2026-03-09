@@ -3,7 +3,14 @@
 
 import type { AIProvider } from "./types";
 import type { GameState, GameCommand, UnitState } from "../game/types";
-import { duplicateState, getUnitsByOwner, getTile, getPlayer, getUnit, getUnitAt } from "../game/game-state";
+import {
+  duplicateState,
+  getUnitsByOwner,
+  getTile,
+  getPlayer,
+  getUnit,
+  getUnitAt,
+} from "../game/game-state";
 import { getUnitData, getTerrainData } from "../game/data-loader";
 import { getReachableTiles, getAttackableTiles, manhattanDistance } from "../game/pathfinding";
 import { canAttack, calculateDamage } from "../game/combat";
@@ -13,7 +20,9 @@ import { validateCommand } from "../game/validators";
 export class HeuristicAI implements AIProvider {
   readonly providerName = "Heuristic";
 
-  isConfigured(): boolean { return true; }
+  isConfigured(): boolean {
+    return true;
+  }
 
   async requestTurn(stateIn: GameState, playerId: number): Promise<GameCommand[]> {
     const commands: GameCommand[] = [];
@@ -93,7 +102,10 @@ export class HeuristicAI implements AIProvider {
         // Attack after moving
         if (hasWeapons) {
           const attack = this.findBestAttack(movedUnit, stateAfterMove, playerId);
-          if (attack) { cmds.push(attack); return cmds; }
+          if (attack) {
+            cmds.push(attack);
+            return cmds;
+          }
         }
 
         // Capture after moving
@@ -165,7 +177,12 @@ export class HeuristicAI implements AIProvider {
     return null;
   }
 
-  private findBestMove(unit: UnitState, state: GameState, playerId: number, unitData: ReturnType<typeof getUnitData>): GameCommand | null {
+  private findBestMove(
+    unit: UnitState,
+    state: GameState,
+    playerId: number,
+    unitData: ReturnType<typeof getUnitData>
+  ): GameCommand | null {
     const reachable = getReachableTiles(state, unit);
     if (reachable.length === 0) return null;
 
@@ -184,12 +201,24 @@ export class HeuristicAI implements AIProvider {
     }
 
     if (bestTile.x >= 0) {
-      return { type: "MOVE", player_id: playerId, unit_id: unit.id, dest_x: bestTile.x, dest_y: bestTile.y };
+      return {
+        type: "MOVE",
+        player_id: playerId,
+        unit_id: unit.id,
+        dest_x: bestTile.x,
+        dest_y: bestTile.y,
+      };
     }
     return null;
   }
 
-  private evaluateTile(x: number, y: number, state: GameState, playerId: number, canCapture: boolean): number {
+  private evaluateTile(
+    x: number,
+    y: number,
+    state: GameState,
+    playerId: number,
+    canCapture: boolean
+  ): number {
     const tile = getTile(state, x, y);
     if (!tile) return 0;
     const terrainData = getTerrainData(tile.terrain_type);

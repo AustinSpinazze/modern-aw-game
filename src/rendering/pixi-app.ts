@@ -261,11 +261,11 @@ export async function initPixiApp(canvas: HTMLCanvasElement): Promise<Applicatio
  */
 async function loadSpritesheets(): Promise<void> {
   // Use relative paths for Electron production (file:// protocol)
-  // In dev mode (Vite), BASE_URL is "/" 
+  // In dev mode (Vite), BASE_URL is "/"
   // In production (Electron file://), BASE_URL is "./"
   const basePath = import.meta.env.BASE_URL || "/";
   console.log("[Sprites] Loading with basePath:", basePath, "Mode:", import.meta.env.MODE);
-  
+
   const sheets = [
     { key: "neutral", base: `${basePath}sprites/warsworld/neutral` },
     { key: "orange-star", base: `${basePath}sprites/warsworld/orange-star` },
@@ -285,7 +285,7 @@ async function loadSpritesheets(): Promise<void> {
       const jsonData = await jsonRes.json();
 
       const baseTexture = await Assets.load(pngUrl);
-      
+
       const sheet = new Spritesheet(baseTexture, jsonData);
       await sheet.parse();
 
@@ -301,7 +301,7 @@ async function loadSpritesheets(): Promise<void> {
       console.error(`[Sprites] ❌ Failed to load ${sheets[i].key}:`, result.reason);
     }
   });
-  
+
   console.log("[Sprites] Loaded sheets:", Object.keys(spritesheets));
 }
 

@@ -47,10 +47,14 @@ export default function BuyMenu({ facilityX, facilityY, onClose }: BuyMenuProps)
         <div className="flex justify-between items-center px-4 py-3 border-b border-gray-700 shrink-0">
           <div>
             <h2 className="text-white font-bold">Purchase Unit</h2>
-            <div className="text-gray-400 text-xs capitalize">{terrainData?.name ?? tile.terrain_type}</div>
+            <div className="text-gray-400 text-xs capitalize">
+              {terrainData?.name ?? tile.terrain_type}
+            </div>
           </div>
           <div className="text-right">
-            <div className="text-yellow-300 font-mono font-bold">¥{player.funds.toLocaleString()}</div>
+            <div className="text-yellow-300 font-mono font-bold">
+              ¥{player.funds.toLocaleString()}
+            </div>
             <div className="text-gray-500 text-xs">Available</div>
           </div>
         </div>
@@ -83,7 +87,9 @@ export default function BuyMenu({ facilityX, facilityY, onClose }: BuyMenuProps)
                       {primaryWeapon && (
                         <>
                           <span>·</span>
-                          <span>Rng {primaryWeapon.min_range}–{primaryWeapon.max_range}</span>
+                          <span>
+                            Rng {primaryWeapon.min_range}–{primaryWeapon.max_range}
+                          </span>
                         </>
                       )}
                     </div>
@@ -91,7 +97,9 @@ export default function BuyMenu({ facilityX, facilityY, onClose }: BuyMenuProps)
 
                   {/* Cost */}
                   <div className="text-right shrink-0">
-                    <div className={`font-mono font-bold text-sm ${canBuy ? "text-yellow-300" : "text-gray-600"}`}>
+                    <div
+                      className={`font-mono font-bold text-sm ${canBuy ? "text-yellow-300" : "text-gray-600"}`}
+                    >
                       ¥{unitData.cost.toLocaleString()}
                     </div>
                     {isExpanded && <div className="text-gray-500 text-xs">▲ Less</div>}
@@ -103,14 +111,19 @@ export default function BuyMenu({ facilityX, facilityY, onClose }: BuyMenuProps)
                 {isExpanded && (
                   <div className="px-4 pb-3 bg-gray-800/50 space-y-2">
                     {/* Weapons */}
-                    <div className="text-xs text-gray-400 uppercase tracking-wide pt-1">Weapons</div>
+                    <div className="text-xs text-gray-400 uppercase tracking-wide pt-1">
+                      Weapons
+                    </div>
                     {unitData.weapons.length === 0 && (
                       <div className="text-xs text-gray-500 italic">No weapons (transport)</div>
                     )}
                     {primaryWeapon && (
                       <div className="text-xs">
                         <span className="text-orange-300 font-medium">
-                          {(primaryWeapon as any).name ?? primaryWeapon.id.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                          {(primaryWeapon as any).name ??
+                            primaryWeapon.id
+                              .replace(/_/g, " ")
+                              .replace(/\b\w/g, (c: string) => c.toUpperCase())}
                         </span>
                         {primaryWeapon.ammo > 0 && (
                           <span className="text-gray-500 ml-1">({primaryWeapon.ammo} ammo)</span>
@@ -123,7 +136,10 @@ export default function BuyMenu({ facilityX, facilityY, onClose }: BuyMenuProps)
                     {secondaryWeapon && (
                       <div className="text-xs">
                         <span className="text-yellow-600 font-medium">
-                          {(secondaryWeapon as any).name ?? secondaryWeapon.id.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                          {(secondaryWeapon as any).name ??
+                            secondaryWeapon.id
+                              .replace(/_/g, " ")
+                              .replace(/\b\w/g, (c: string) => c.toUpperCase())}
                         </span>
                         <span className="text-gray-500 ml-1">(∞)</span>
                         <span className="text-gray-400 ml-1">
@@ -140,11 +156,15 @@ export default function BuyMenu({ facilityX, facilityY, onClose }: BuyMenuProps)
                       </div>
                       <div>
                         <div className="text-gray-500">Type</div>
-                        <div className="text-white font-medium capitalize">{unitData.move_type}</div>
+                        <div className="text-white font-medium capitalize">
+                          {unitData.move_type}
+                        </div>
                       </div>
                       <div>
                         <div className="text-gray-500">Vision</div>
-                        <div className="text-white font-medium">{(unitData as any).vision ?? "—"}</div>
+                        <div className="text-white font-medium">
+                          {(unitData as any).vision ?? "—"}
+                        </div>
                       </div>
                     </div>
 

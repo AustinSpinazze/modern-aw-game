@@ -308,7 +308,12 @@ export class TerrainRenderer {
     this.container.addChild(g);
   }
 
-  private drawBuildingFallback(buildingType: string, ownerId: number, px: number, py: number): void {
+  private drawBuildingFallback(
+    buildingType: string,
+    ownerId: number,
+    px: number,
+    py: number
+  ): void {
     // Team colors for fallback
     const teamColors: Record<number, number> = {
       0: 0xdd4444, // Red
@@ -318,7 +323,7 @@ export class TerrainRenderer {
     };
 
     const baseColor = FALLBACK_COLORS[buildingType] ?? 0x888888;
-    const borderColor = ownerId >= 0 ? teamColors[ownerId] ?? 0x888888 : 0x888888;
+    const borderColor = ownerId >= 0 ? (teamColors[ownerId] ?? 0x888888) : 0x888888;
 
     const g = new Graphics();
     g.rect(px + 4, py + 4, DISPLAY - 8, DISPLAY - 8);
@@ -333,7 +338,7 @@ export class TerrainRenderer {
    */
   private drawCaptureIndicator(capturePoints: number, px: number, py: number): void {
     const g = new Graphics();
-    
+
     // Small square badge in bottom-left corner
     const badgeSize = 14;
     const badgeX = px + 2;

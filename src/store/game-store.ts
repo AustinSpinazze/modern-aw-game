@@ -2,7 +2,13 @@
 
 import { create } from "zustand";
 import type { GameState, GameCommand, UnitState, Vec2 } from "../game/types";
-import { createGameState, getCurrentPlayer, getUnit, getUnitAt, duplicateState } from "../game/game-state";
+import {
+  createGameState,
+  getCurrentPlayer,
+  getUnit,
+  getUnitAt,
+  duplicateState,
+} from "../game/game-state";
 import { validateCommand } from "../game/validators";
 import { applyCommand } from "../game/apply-command";
 import { getReachableTiles, getAttackableTiles, findPath } from "../game/pathfinding";
@@ -28,7 +34,7 @@ interface GameStore {
   animationPath: Vec2[]; // path used for actual animation (preserved after arrow cleared)
   isAnimating: boolean; // true while a movement animation is playing
   pendingAction: GameCommand | null; // action to execute after animation
-  
+
   // Command queue for external commands (AI/enemy)
   commandQueue: QueuedCommand[];
   processingQueue: boolean;
@@ -44,7 +50,7 @@ interface GameStore {
   submitCommand: (cmd: GameCommand) => { success: boolean; error?: string };
   resetSelection: () => void;
   cancelPendingMove: () => void;
-  
+
   // Queue system for AI/external commands
   queueCommands: (commands: GameCommand[]) => void;
   processNextCommand: () => QueuedCommand | null;
@@ -71,7 +77,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
   selectUnit: (unit) => {
     const { gameState } = get();
     if (!unit || !gameState) {
-      set({ selectedUnit: null, reachableTiles: [], attackableTiles: [], pendingMove: null, pendingPath: [], hoverPath: [] });
+      set({
+        selectedUnit: null,
+        reachableTiles: [],
+        attackableTiles: [],
+        pendingMove: null,
+        pendingPath: [],
+        hoverPath: [],
+      });
       return;
     }
 
@@ -80,13 +93,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // (or if unit has already moved and can't move further)
     const attackable: Vec2[] = [];
 
-    set({ selectedUnit: unit, reachableTiles: reachable, attackableTiles: attackable, pendingMove: null, pendingPath: [], hoverPath: [] });
+    set({
+      selectedUnit: unit,
+      reachableTiles: reachable,
+      attackableTiles: attackable,
+      pendingMove: null,
+      pendingPath: [],
+      hoverPath: [],
+    });
   },
 
   // Update hovered tile and compute hover path if over a reachable tile
   setHoveredTile: (pos) => {
     const { gameState, selectedUnit, reachableTiles, pendingMove } = get();
-    
+
     // Don't compute hover path if we already have a pending move (clicked destination)
     if (pendingMove) {
       set({ hoveredTile: pos });
@@ -116,19 +136,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
     const path = findPath(gameState, selectedUnit, dest.x, dest.y);
-    
+
     // Compute attackable tiles from the pending destination
     const allAttackable = getAttackableTiles(gameState, selectedUnit, dest.x, dest.y, 0);
-    
+
     // Only keep tiles that have an enemy unit on them
     const currentPlayer = gameState.players[gameState.current_player_index];
     const attackableWithEnemies = allAttackable.filter((tile) => {
       const unitOnTile = getUnitAt(gameState, tile.x, tile.y);
       return unitOnTile && unitOnTile.owner_id !== currentPlayer?.id;
     });
-    
-    set({ 
-      pendingMove: dest, 
+
+    set({
+      pendingMove: dest,
       pendingPath: path,
       hoverPath: [], // Clear hover path once we have a pending move
       reachableTiles: [], // Hide reachable overlay once destination picked
@@ -140,12 +160,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
   startMoveAnimation: (actionCmd) => {
     const { pendingPath } = get();
     // Copy path to animationPath for the animator, clear visual overlays
-    set({ 
-      isAnimating: true, 
-      pendingAction: actionCmd, 
+    set({
+      isAnimating: true,
+      pendingAction: actionCmd,
       animationPath: pendingPath, // Animator uses this
       pendingPath: [], // Clear arrow immediately
-      hoverPath: [], 
+      hoverPath: [],
       attackableTiles: [],
       reachableTiles: [],
     });
@@ -155,7 +175,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   onAnimationComplete: () => {
     const { pendingAction } = get();
     set({ isAnimating: false });
-    
+
     if (pendingAction) {
       // Now execute the actual move + action
       get().confirmMoveAndAction(pendingAction);
@@ -173,7 +193,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let state = gameState;
 
     // If there's a pending move to a different tile and unit hasn't moved yet, apply MOVE first
-    const isInPlace = !pendingMove || (pendingMove.x === selectedUnit.x && pendingMove.y === selectedUnit.y);
+    const isInPlace =
+      !pendingMove || (pendingMove.x === selectedUnit.x && pendingMove.y === selectedUnit.y);
     if (pendingMove && !selectedUnit.has_moved && !isInPlace) {
       const moveCmd = {
         type: "MOVE" as const,
@@ -196,12 +217,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     state = applyCommand(state, actionCmd);
 
     // Clear everything after confirmed action
-    set({ 
-      gameState: state, 
-      selectedUnit: null, 
-      reachableTiles: [], 
-      attackableTiles: [], 
-      pendingMove: null, 
+    set({
+      gameState: state,
+      selectedUnit: null,
+      reachableTiles: [],
+      attackableTiles: [],
+      pendingMove: null,
       pendingPath: [],
       animationPath: [],
       hoverPath: [],
@@ -222,25 +243,43 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ gameState: newState });
 
     // Clear selection after action-finalizing commands
-    const clearTypes = ["ATTACK", "CAPTURE", "WAIT", "END_TURN", "DIG_TRENCH", "BUILD_FOB", "SELF_DESTRUCT", "BUY_UNIT", "MOVE"];
+    const clearTypes = [
+      "ATTACK",
+      "CAPTURE",
+      "WAIT",
+      "END_TURN",
+      "DIG_TRENCH",
+      "BUILD_FOB",
+      "SELF_DESTRUCT",
+      "BUY_UNIT",
+      "MOVE",
+    ];
     if (clearTypes.includes(cmd.type)) {
-      set({ selectedUnit: null, reachableTiles: [], attackableTiles: [], pendingMove: null, pendingPath: [], hoverPath: [] });
+      set({
+        selectedUnit: null,
+        reachableTiles: [],
+        attackableTiles: [],
+        pendingMove: null,
+        pendingPath: [],
+        hoverPath: [],
+      });
     }
 
     return { success: true };
   },
 
-  resetSelection: () => set({
-    selectedUnit: null,
-    reachableTiles: [],
-    attackableTiles: [],
-    pendingMove: null,
-    pendingPath: [],
-    animationPath: [],
-    hoverPath: [],
-    isAnimating: false,
-    pendingAction: null,
-  }),
+  resetSelection: () =>
+    set({
+      selectedUnit: null,
+      reachableTiles: [],
+      attackableTiles: [],
+      pendingMove: null,
+      pendingPath: [],
+      animationPath: [],
+      hoverPath: [],
+      isAnimating: false,
+      pendingAction: null,
+    }),
 
   cancelPendingMove: () => {
     const { selectedUnit, gameState } = get();
@@ -250,8 +289,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
     // Restore reachable tiles when canceling, but don't show attack squares
     const reachable = selectedUnit.has_moved ? [] : getReachableTiles(gameState, selectedUnit);
-    set({ 
-      pendingMove: null, 
+    set({
+      pendingMove: null,
       pendingPath: [],
       hoverPath: [],
       reachableTiles: reachable,
@@ -274,7 +313,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
             command: cmd,
             unitType: unit.unit_type,
             ownerId: unit.owner_id,
-            path: path.length > 0 ? path : [{ x: unit.x, y: unit.y }, { x: cmd.dest_x, y: cmd.dest_y }],
+            path:
+              path.length > 0
+                ? path
+                : [
+                    { x: unit.x, y: unit.y },
+                    { x: cmd.dest_x, y: cmd.dest_y },
+                  ],
           };
         }
       }

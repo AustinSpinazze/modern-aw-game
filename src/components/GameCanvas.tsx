@@ -1,7 +1,13 @@
 // Mounts the Pixi.js canvas and wires game input.
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { initPixiApp, destroyPixiApp, getApp, enablePanZoom, resetPanZoom } from "../rendering/pixi-app";
+import {
+  initPixiApp,
+  destroyPixiApp,
+  getApp,
+  enablePanZoom,
+  resetPanZoom,
+} from "../rendering/pixi-app";
 import { TerrainRenderer } from "../rendering/terrain-renderer";
 import { UnitRenderer } from "../rendering/unit-renderer";
 import { HighlightRenderer } from "../rendering/highlight-renderer";
@@ -131,7 +137,11 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
             // Clicking elsewhere cancels pending move and deselects
             cancelPendingMove();
             resetSelection();
-            if (clickedUnit && clickedUnit.owner_id === currentPlayer.id && !clickedUnit.is_loaded) {
+            if (
+              clickedUnit &&
+              clickedUnit.owner_id === currentPlayer.id &&
+              !clickedUnit.is_loaded
+            ) {
               selectUnit(clickedUnit);
             }
             return;
@@ -171,11 +181,21 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
           }
 
           resetSelection();
-          if (clickedUnit && currentPlayer && clickedUnit.owner_id === currentPlayer.id && !clickedUnit.is_loaded) {
+          if (
+            clickedUnit &&
+            currentPlayer &&
+            clickedUnit.owner_id === currentPlayer.id &&
+            !clickedUnit.is_loaded
+          ) {
             selectUnit(clickedUnit);
           }
         } else {
-          if (clickedUnit && currentPlayer && clickedUnit.owner_id === currentPlayer.id && !clickedUnit.is_loaded) {
+          if (
+            clickedUnit &&
+            currentPlayer &&
+            clickedUnit.owner_id === currentPlayer.id &&
+            !clickedUnit.is_loaded
+          ) {
             selectUnit(clickedUnit);
           } else if (!clickedUnit && currentPlayer) {
             // Check if clicking on an owned facility to open buy menu
@@ -209,10 +229,36 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     };
   }, []);
 
+  // E2E helper: programmatic tile click (used by Playwright tests)
+  useEffect(() => {
+    if (!pixiReady) return;
+    const app = getApp();
+    if (!app) return;
+    const stage = app.stage;
+    const canvas = app.canvas;
+    const TILE_DISPLAY = 48;
+    (window as unknown as { __clickTile?: (tx: number, ty: number) => void }).__clickTile = (
+      tileX: number,
+      tileY: number
+    ) => {
+      const rect = canvas.getBoundingClientRect();
+      const worldX = tileX * TILE_DISPLAY + TILE_DISPLAY / 2;
+      const worldY = tileY * TILE_DISPLAY + TILE_DISPLAY / 2;
+      const canvasX = stage.x + worldX * stage.scale.x;
+      const canvasY = stage.y + worldY * stage.scale.y;
+      const clientX = rect.left + canvasX;
+      const clientY = rect.top + canvasY;
+      canvas.dispatchEvent(new MouseEvent("click", { clientX, clientY, bubbles: true }));
+    };
+    return () => {
+      delete (window as unknown as { __clickTile?: (tx: number, ty: number) => void }).__clickTile;
+    };
+  }, [pixiReady]);
+
   // Animation update loop
   useEffect(() => {
     if (!pixiReady) return;
-    
+
     const app = getApp();
     if (!app) return;
 
@@ -250,15 +296,10 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     }
 
     // Start the animation with the path (arrow already cleared)
-    animator.animate(
-      selectedUnit.unit_type,
-      selectedUnit.owner_id,
-      animationPath,
-      () => {
-        // Animation complete - trigger the actual game state update
-        onAnimationComplete();
-      }
-    );
+    animator.animate(selectedUnit.unit_type, selectedUnit.owner_id, animationPath, () => {
+      // Animation complete - trigger the actual game state update
+      onAnimationComplete();
+    });
   }, [isAnimating, selectedUnit, animationPath, onAnimationComplete]);
 
   // Track queue processing state locally to ensure re-renders
@@ -268,7 +309,7 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
   useEffect(() => {
     if (!pixiReady || !processingQueue) return;
     if (isAnimating) return; // Wait for current animation to finish
-    
+
     const animator = movementAnimatorRef.current;
     if (!animator || animator.isAnimating()) return;
 
@@ -297,7 +338,16 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
         setQueueTrigger((t) => t + 1);
       }, 100);
     }
-  }, [pixiReady, processingQueue, isAnimating, commandQueue, queueTrigger, processNextCommand, submitCommand, onQueuedAnimationComplete]);
+  }, [
+    pixiReady,
+    processingQueue,
+    isAnimating,
+    commandQueue,
+    queueTrigger,
+    processNextCommand,
+    submitCommand,
+    onQueuedAnimationComplete,
+  ]);
 
   // Re-render whenever game state OR pixi readiness changes.
   // pixiReady in the dep array is the key fix: when Pixi finishes initialising
@@ -310,7 +360,8 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     terrainRendererRef.current?.render(gameState);
     // Pass the animating unit ID so we can hide it during movement animation
     // Could be player's unit (selectedUnit) or AI's unit (queueAnimatingUnitId)
-    const animatingUnitId = queueAnimatingUnitId ?? (isAnimating && selectedUnit ? selectedUnit.id : undefined);
+    const animatingUnitId =
+      queueAnimatingUnitId ?? (isAnimating && selectedUnit ? selectedUnit.id : undefined);
     unitRendererRef.current?.render(gameState, animatingUnitId);
 
     const highlights = highlightRendererRef.current;
@@ -344,7 +395,19 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     if (hoveredTile) {
       cursorOverlay.drawTargetCursor(hoveredTile.x, hoveredTile.y);
     }
-  }, [pixiReady, gameState, selectedUnit, reachableTiles, attackableTiles, hoveredTile, hoverPath, pendingMove, pendingPath, isAnimating, queueAnimatingUnitId]);
+  }, [
+    pixiReady,
+    gameState,
+    selectedUnit,
+    reachableTiles,
+    attackableTiles,
+    hoveredTile,
+    hoverPath,
+    pendingMove,
+    pendingPath,
+    isAnimating,
+    queueAnimatingUnitId,
+  ]);
 
   return (
     <canvas

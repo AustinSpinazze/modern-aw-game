@@ -32,9 +32,14 @@ export default function ActionMenu() {
   const tile = getTile(gameState, pendingMove.x, pendingMove.y);
   const terrainData = tile ? getTerrainData(tile.terrain_type) : null;
 
-  const canCapture = unitData.can_capture && terrainData?.can_capture && tile?.owner_id !== currentPlayer.id;
-  const canDigTrench = unitData.special_actions.includes("dig_trench") && terrainData?.can_build_trench && !tile?.has_trench;
-  const canBuildFob = unitData.special_actions.includes("build_fob") && terrainData?.can_build_fob && !tile?.has_fob;
+  const canCapture =
+    unitData.can_capture && terrainData?.can_capture && tile?.owner_id !== currentPlayer.id;
+  const canDigTrench =
+    unitData.special_actions.includes("dig_trench") &&
+    terrainData?.can_build_trench &&
+    !tile?.has_trench;
+  const canBuildFob =
+    unitData.special_actions.includes("build_fob") && terrainData?.can_build_fob && !tile?.has_fob;
 
   // Build a temp attacker at pending position for damage calc
   const tempAttacker = { ...selectedUnit, x: pendingMove.x, y: pendingMove.y };
@@ -44,14 +49,20 @@ export default function ActionMenu() {
     unitId: number;
     unitName: string;
     weaponIndex: number;
-    attackDmg: number;   // % damage we'd deal (base, no luck)
-    counterDmg: number;  // % damage we'd receive in counter (0 if no counter)
+    attackDmg: number; // % damage we'd deal (base, no luck)
+    counterDmg: number; // % damage we'd receive in counter (0 if no counter)
   };
 
   const attackableEnemies: EnemyEntry[] = [];
   if (unitData.weapons.length > 0) {
     for (let wi = 0; wi < unitData.weapons.length; wi++) {
-      const attackTiles = getAttackableTiles(gameState, selectedUnit, pendingMove.x, pendingMove.y, wi);
+      const attackTiles = getAttackableTiles(
+        gameState,
+        selectedUnit,
+        pendingMove.x,
+        pendingMove.y,
+        wi
+      );
       for (const pos of attackTiles) {
         const target = getUnitAt(gameState, pos.x, pos.y);
         if (!target || target.owner_id === currentPlayer.id) continue;
@@ -70,7 +81,10 @@ export default function ActionMenu() {
         if (targetData && targetData.weapons.length > 0) {
           for (let ci = 0; ci < targetData.weapons.length; ci++) {
             const { damage } = calculateDamage(target, tempAttacker, gameState, ci, true);
-            if (damage > 0) { counterDmg = damage; break; }
+            if (damage > 0) {
+              counterDmg = damage;
+              break;
+            }
           }
         }
 
@@ -169,9 +183,7 @@ export default function ActionMenu() {
             {enemy.counterDmg > 0 && (
               <span className="text-orange-400">Def: {enemy.counterDmg * 10}%</span>
             )}
-            {enemy.counterDmg === 0 && (
-              <span className="text-gray-500">No counter</span>
-            )}
+            {enemy.counterDmg === 0 && <span className="text-gray-500">No counter</span>}
           </div>
         </button>
       ))}

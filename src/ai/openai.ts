@@ -17,14 +17,19 @@ export class OpenAIProvider implements AIProvider {
     const res = await fetch("/api/ai/openai", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ gameState: state, playerId, apiKey: openaiApiKey, model: openaiModel }),
+      body: JSON.stringify({
+        gameState: state,
+        playerId,
+        apiKey: openaiApiKey,
+        model: openaiModel,
+      }),
     });
 
     if (!res.ok) {
       throw new Error(`OpenAI API route error: ${res.status}`);
     }
 
-    const data = await res.json() as { commands: GameCommand[] };
+    const data = (await res.json()) as { commands: GameCommand[] };
     return data.commands;
   }
 }

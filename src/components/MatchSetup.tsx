@@ -1,11 +1,19 @@
 // Pre-game lobby: configure players, map, and match rules.
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import type { ControllerType, GameState } from "../game/types";
-import { createGameState, createPlayer, createUnit, initializeMap, addUnit, updateTile } from "../game/game-state";
+import {
+  createGameState,
+  createPlayer,
+  createUnit,
+  initializeMap,
+  addUnit,
+  updateTile,
+} from "../game/game-state";
 import { generateMatchSeed } from "../game/rng";
 import { loadGameData } from "../game/data-loader";
 import { parseAwbwMapText, importAwbwMap } from "../game/awbw-import";
+import { buildTestScenarioState } from "../game/test-scenario";
 import { useGameStore } from "../store/game-store";
 
 interface PlayerConfig {
@@ -35,8 +43,16 @@ interface ParsedPreview {
   tiles: number[][];
 }
 
+interface SavedGameMeta {
+  name: string;
+  savedAt: string;
+  turnNumber: number;
+  playerCount: number;
+}
+
 interface MatchSetupProps {
   onMatchStart: () => void;
+  onOpenSettings?: () => void;
 }
 
 const DEFAULT_MAP_WIDTH = 20;
@@ -50,9 +66,9 @@ const DEFAULT_CONFIG: MatchConfig = {
 };
 
 const LUCK_SETTINGS: Record<MatchConfig["luck"], { min: number; max: number }> = {
-  off:    { min: 0,    max: 0    },
-  normal: { min: 0,    max: 0.10 },
-  high:   { min: 0,    max: 0.20 },
+  off: { min: 0, max: 0 },
+  normal: { min: 0, max: 0.1 },
+  high: { min: 0, max: 0.2 },
 };
 
 const SAVED_MAPS_KEY = "modern-aw-saved-maps";
@@ -72,18 +88,27 @@ function persistSavedMaps(maps: SavedMap[]) {
 
 // ── Tile-ID → minimap color ──────────────────────────────────────────────────
 // Maps raw AWBW tile IDs to display colors without loading game data.
-const FACTION_COLORS = ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#e67e22", "#9b59b6", "#1abc9c", "#e91e63"];
+const FACTION_COLORS = [
+  "#e74c3c",
+  "#3498db",
+  "#2ecc71",
+  "#f1c40f",
+  "#e67e22",
+  "#9b59b6",
+  "#1abc9c",
+  "#e91e63",
+];
 
 function tileIdToColor(id: number): string {
-  if (id <= 0 || id === 1) return "#8bc34a";     // plains
-  if (id === 2) return "#95a5a6";                 // mountain
-  if (id === 3) return "#27ae60";                 // forest
-  if (id >= 4 && id <= 14) return "#2980b9";      // river
-  if (id >= 15 && id <= 25) return "#bdc3c7";     // road
-  if (id === 26 || id === 27) return "#7f8c8d";   // bridge
-  if (id === 28) return "#1a5276";                // sea
-  if (id >= 29 && id <= 32) return "#76d7c4";     // shoal
-  if (id === 33) return "#0e6655";                // reef
+  if (id <= 0 || id === 1) return "#8bc34a"; // plains
+  if (id === 2) return "#95a5a6"; // mountain
+  if (id === 3) return "#27ae60"; // forest
+  if (id >= 4 && id <= 14) return "#2980b9"; // river
+  if (id >= 15 && id <= 25) return "#bdc3c7"; // road
+  if (id === 26 || id === 27) return "#7f8c8d"; // bridge
+  if (id === 28) return "#1a5276"; // sea
+  if (id >= 29 && id <= 32) return "#76d7c4"; // shoal
+  if (id === 33) return "#0e6655"; // reef
   // Neutral properties (34-37)
   if (id >= 34 && id <= 37) return "#8e44ad";
   // Faction-owned: groups of 5 per faction starting at 38
@@ -110,7 +135,10 @@ function MapMinimap({ preview }: { preview: ParsedPreview }) {
     if (!ctx) return;
 
     const MAX_PX = 320;
-    const tileSize = Math.max(2, Math.min(8, Math.floor(MAX_PX / Math.max(preview.width, preview.height))));
+    const tileSize = Math.max(
+      2,
+      Math.min(8, Math.floor(MAX_PX / Math.max(preview.width, preview.height)))
+    );
     canvas.width = preview.width * tileSize;
     canvas.height = preview.height * tileSize;
 
@@ -132,10 +160,10 @@ function MapMinimap({ preview }: { preview: ParsedPreview }) {
   );
 }
 
-export default function MatchSetup({ onMatchStart }: MatchSetupProps) {
+export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupProps) {
   const [playerCount, setPlayerCount] = useState(2);
   const [players, setPlayers] = useState<PlayerConfig[]>([
-    { controllerType: "human",    modelId: "" },
+    { controllerType: "human", modelId: "" },
     { controllerType: "heuristic", modelId: "" },
   ]);
   const [config, setConfig] = useState<MatchConfig>(DEFAULT_CONFIG);
@@ -148,7 +176,44 @@ export default function MatchSetup({ onMatchStart }: MatchSetupProps) {
   const [savedMaps, setSavedMaps] = useState<SavedMap[]>(() => loadSavedMaps());
   const [mapName, setMapName] = useState("");
   const [showSavedMaps, setShowSavedMaps] = useState(true);
+
+  // Electron save-game slots
+  const [gameSaves, setGameSaves] = useState<SavedGameMeta[]>([]);
+  const [loadingGame, setLoadingGame] = useState(false);
+
   const setGameState = useGameStore((s) => s.setGameState);
+
+  // Load save list from Electron on mount
+  useEffect(() => {
+    if (!window.electronAPI) return;
+    window.electronAPI.listSaves().then(setGameSaves).catch(console.error);
+  }, []);
+
+  const handleLoadGame = useCallback(
+    async (name: string) => {
+      if (!window.electronAPI) return;
+      setLoadingGame(true);
+      try {
+        await loadGameData();
+        const raw = (await window.electronAPI.loadGame(name)) as { state?: GameState } | null;
+        if (raw?.state) {
+          setGameState(raw.state);
+          onMatchStart();
+        }
+      } catch (e) {
+        console.error("Failed to load save:", e);
+      } finally {
+        setLoadingGame(false);
+      }
+    },
+    [setGameState, onMatchStart]
+  );
+
+  const handleDeleteGame = useCallback(async (name: string) => {
+    if (!window.electronAPI) return;
+    await window.electronAPI.deleteSave(name);
+    setGameSaves((prev) => prev.filter((s) => s.name !== name));
+  }, []);
 
   const updatePlayerConfig = (index: number, patch: Partial<PlayerConfig>) => {
     setPlayers((prev) => prev.map((p, i) => (i === index ? { ...p, ...patch } : p)));
@@ -182,6 +247,17 @@ export default function MatchSetup({ onMatchStart }: MatchSetupProps) {
     }
   };
 
+  const handleStartTestScenario = async () => {
+    setLoading(true);
+    try {
+      await loadGameData();
+      setGameState(buildTestScenarioState());
+      onMatchStart();
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleAwbwImport = async () => {
     setAwbwError("");
     if (!awbwText.trim()) {
@@ -198,7 +274,9 @@ export default function MatchSetup({ onMatchStart }: MatchSetupProps) {
       }
       let state = importAwbwMap(mapData);
       if (state.players.length === 0) {
-        setAwbwError("No player properties found on map. Need at least one HQ/factory/city with an owner.");
+        setAwbwError(
+          "No player properties found on map. Need at least one HQ/factory/city with an owner."
+        );
         return;
       }
       state = {
@@ -237,7 +315,11 @@ export default function MatchSetup({ onMatchStart }: MatchSetupProps) {
     setAwbwError("");
     try {
       const mapData = parseAwbwMapText(map.csv);
-      setParsedPreview(mapData.width > 0 ? { width: mapData.width, height: mapData.height, tiles: mapData.tiles } : null);
+      setParsedPreview(
+        mapData.width > 0
+          ? { width: mapData.width, height: mapData.height, tiles: mapData.tiles }
+          : null
+      );
     } catch {
       setParsedPreview(null);
     }
@@ -255,12 +337,61 @@ export default function MatchSetup({ onMatchStart }: MatchSetupProps) {
     <div className="min-h-screen bg-gray-950 text-white flex items-start justify-center p-8 overflow-y-auto">
       <div className="bg-gray-900 rounded-xl border border-gray-700 w-full max-w-lg shadow-2xl my-auto">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-700">
-          <h1 className="text-2xl font-bold text-white">Modern AW</h1>
-          <p className="text-gray-400 text-sm mt-1">Configure your match</p>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
+          <div>
+            <h1 className="text-2xl font-bold text-white">Modern AW</h1>
+            <p className="text-gray-400 text-sm mt-0.5">Configure your match</p>
+          </div>
+          {onOpenSettings && (
+            <button
+              onClick={onOpenSettings}
+              className="text-gray-400 hover:text-white text-sm px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded transition-colors"
+              title="Settings"
+            >
+              ⚙ Settings
+            </button>
+          )}
         </div>
 
         <div className="p-6 space-y-5">
+          {/* ── Saved Games (Electron only) ──────────────────────────────── */}
+          {gameSaves.length > 0 && (
+            <div className="border border-blue-800/50 bg-blue-950/30 rounded-lg overflow-hidden">
+              <div className="px-4 py-3 border-b border-blue-800/40">
+                <h2 className="text-sm font-semibold text-blue-300">Continue a Saved Game</h2>
+              </div>
+              <div className="divide-y divide-blue-900/30">
+                {gameSaves.map((save) => (
+                  <div key={save.name} className="flex items-center gap-3 px-4 py-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-white font-medium capitalize">
+                        {save.name.replace(/-/g, " ")}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Turn {save.turnNumber} · {save.playerCount}P ·{" "}
+                        {new Date(save.savedAt).toLocaleString()}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleLoadGame(save.name)}
+                      disabled={loadingGame}
+                      className="shrink-0 px-3 py-1.5 bg-blue-700 hover:bg-blue-600 disabled:opacity-50 text-white text-xs font-medium rounded transition-colors"
+                    >
+                      {loadingGame ? "Loading…" : "Continue"}
+                    </button>
+                    <button
+                      onClick={() => handleDeleteGame(save.name)}
+                      className="shrink-0 px-2 py-1.5 bg-gray-700 hover:bg-red-800 text-gray-400 hover:text-red-300 text-xs rounded transition-colors"
+                      title="Delete save"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Player count */}
           <div>
             <label className="text-xs text-gray-400 uppercase tracking-wide">Players</label>
@@ -299,7 +430,9 @@ export default function MatchSetup({ onMatchStart }: MatchSetupProps) {
                 <div className={`font-bold w-8 shrink-0 ${playerColors[i]}`}>P{i + 1}</div>
                 <select
                   value={players[i]?.controllerType ?? "human"}
-                  onChange={(e) => updatePlayerConfig(i, { controllerType: e.target.value as ControllerType })}
+                  onChange={(e) =>
+                    updatePlayerConfig(i, { controllerType: e.target.value as ControllerType })
+                  }
                   className="flex-1 bg-gray-800 border border-gray-600 rounded px-3 py-1.5 text-sm text-white"
                 >
                   <option value="human">Human</option>
@@ -350,13 +483,15 @@ export default function MatchSetup({ onMatchStart }: MatchSetupProps) {
                   <label className="text-xs text-gray-400 uppercase tracking-wide block mb-1">
                     Income Per Property
                   </label>
-                  <p className="text-xs text-gray-500 mb-2">Multiplier on base property income (default: ¥1,000/property)</p>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Multiplier on base property income (default: ¥1,000/property)
+                  </p>
                   <div className="flex flex-wrap gap-2">
                     {[
                       { label: "×½  (¥500)", value: 0.5 },
-                      { label: "×1  (¥1k)",  value: 1   },
+                      { label: "×1  (¥1k)", value: 1 },
                       { label: "×1.5 (¥1.5k)", value: 1.5 },
-                      { label: "×2  (¥2k)",  value: 2   },
+                      { label: "×2  (¥2k)", value: 2 },
                     ].map(({ label, value }) => (
                       <button
                         key={value}
@@ -378,7 +513,9 @@ export default function MatchSetup({ onMatchStart }: MatchSetupProps) {
                   <label className="text-xs text-gray-400 uppercase tracking-wide block mb-1">
                     Luck
                   </label>
-                  <p className="text-xs text-gray-500 mb-2">Random variance added to each attack roll</p>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Random variance added to each attack roll
+                  </p>
                   <div className="flex gap-2">
                     {(["off", "normal", "high"] as const).map((v) => (
                       <button
@@ -407,9 +544,9 @@ export default function MatchSetup({ onMatchStart }: MatchSetupProps) {
                   <div className="flex flex-wrap gap-2">
                     {[
                       { label: "Unlimited", value: -1 },
-                      { label: "20 turns",  value: 20 },
-                      { label: "30 turns",  value: 30 },
-                      { label: "50 turns",  value: 50 },
+                      { label: "20 turns", value: 20 },
+                      { label: "30 turns", value: 30 },
+                      { label: "50 turns", value: 50 },
                     ].map(({ label, value }) => (
                       <button
                         key={value}
@@ -428,10 +565,24 @@ export default function MatchSetup({ onMatchStart }: MatchSetupProps) {
 
                 {/* Config summary */}
                 <div className="bg-gray-800 rounded p-3 text-xs text-gray-400 flex flex-wrap gap-x-4 gap-y-1">
-                  <span>Funds: <span className="text-yellow-300 font-mono">¥{config.startingFunds.toLocaleString()}</span></span>
-                  <span>Income: <span className="text-green-300">×{config.incomeMultiplier}</span></span>
-                  <span>Luck: <span className="text-purple-300 capitalize">{config.luck}</span></span>
-                  <span>Turns: <span className="text-orange-300">{config.maxTurns < 0 ? "∞" : config.maxTurns}</span></span>
+                  <span>
+                    Funds:{" "}
+                    <span className="text-yellow-300 font-mono">
+                      ¥{config.startingFunds.toLocaleString()}
+                    </span>
+                  </span>
+                  <span>
+                    Income: <span className="text-green-300">×{config.incomeMultiplier}</span>
+                  </span>
+                  <span>
+                    Luck: <span className="text-purple-300 capitalize">{config.luck}</span>
+                  </span>
+                  <span>
+                    Turns:{" "}
+                    <span className="text-orange-300">
+                      {config.maxTurns < 0 ? "∞" : config.maxTurns}
+                    </span>
+                  </span>
                 </div>
               </div>
             )}
@@ -449,9 +600,11 @@ export default function MatchSetup({ onMatchStart }: MatchSetupProps) {
                 if (text.trim()) {
                   try {
                     const mapData = parseAwbwMapText(text);
-                    setParsedPreview(mapData.width > 0
-                      ? { width: mapData.width, height: mapData.height, tiles: mapData.tiles }
-                      : null);
+                    setParsedPreview(
+                      mapData.width > 0
+                        ? { width: mapData.width, height: mapData.height, tiles: mapData.tiles }
+                        : null
+                    );
                   } catch {
                     setParsedPreview(null);
                   }
@@ -494,9 +647,7 @@ export default function MatchSetup({ onMatchStart }: MatchSetupProps) {
               </div>
             )}
 
-            {awbwError && (
-              <p className="text-red-400 text-xs mt-1">{awbwError}</p>
-            )}
+            {awbwError && <p className="text-red-400 text-xs mt-1">{awbwError}</p>}
             <button
               onClick={handleAwbwImport}
               disabled={loading || !parsedPreview}
@@ -513,7 +664,9 @@ export default function MatchSetup({ onMatchStart }: MatchSetupProps) {
                 onClick={() => setShowSavedMaps((v) => !v)}
                 className="w-full flex items-center justify-between px-4 py-3 bg-gray-800/50 hover:bg-gray-800 transition-colors text-sm font-medium text-gray-300"
               >
-                <span>Saved Maps <span className="text-gray-500 font-normal">({savedMaps.length})</span></span>
+                <span>
+                  Saved Maps <span className="text-gray-500 font-normal">({savedMaps.length})</span>
+                </span>
                 <span className="text-gray-500 text-xs">{showSavedMaps ? "▲ Hide" : "▼ Show"}</span>
               </button>
 
@@ -548,13 +701,21 @@ export default function MatchSetup({ onMatchStart }: MatchSetupProps) {
         </div>
 
         {/* Start */}
-        <div className="px-6 py-4 border-t border-gray-700">
+        <div className="px-6 py-4 border-t border-gray-700 space-y-2">
           <button
             onClick={handleStart}
             disabled={loading}
             className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 text-white font-bold py-3 rounded-lg transition-colors"
           >
             {loading ? "Loading…" : "Start Match"}
+          </button>
+          <button
+            onClick={handleStartTestScenario}
+            disabled={loading}
+            className="w-full bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-gray-300 text-sm py-2 rounded-lg transition-colors"
+            title="Minimal 5×5 map for E2E tests (attack + capture)"
+          >
+            Start test scenario
           </button>
         </div>
       </div>
@@ -587,24 +748,52 @@ function buildDefaultGameState(playerConfigs: PlayerConfig[], startingFunds: num
 
   // ── Terrain features ──────────────────────────────────────────────────
   const terrainPatches: Array<[number, number, string]> = [
-    [2, 3, "forest"], [3, 3, "forest"], [4, 4, "forest"],
-    [W - 3, H - 4, "forest"], [W - 4, H - 4, "forest"], [W - 5, H - 5, "forest"],
-    [10, 3, "forest"], [11, 4, "forest"],
-    [8, 5, "mountain"], [9, 5, "mountain"], [8, 6, "mountain"],
-    [W - 7, H - 6, "mountain"], [W - 8, H - 6, "mountain"],
-    [6, 0, "road"], [6, 1, "road"], [6, 2, "road"], [6, 3, "road"],
-    [6, 4, "road"], [6, 5, "road"], [6, 6, "road"], [6, 7, "road"],
-    [7, 7, "road"], [8, 7, "road"], [9, 7, "road"], [10, 7, "road"],
-    [11, 7, "road"], [12, 7, "road"], [13, 7, "road"],
-    [13, 8, "road"], [13, 9, "road"], [13, 10, "road"],
-    ...(Array.from({ length: H }, (_, row) => [W - 1, row, "sea"] as [number, number, string])),
-    ...(Array.from({ length: H }, (_, row) => [W - 2, row, "shoal"] as [number, number, string])),
+    [2, 3, "forest"],
+    [3, 3, "forest"],
+    [4, 4, "forest"],
+    [W - 3, H - 4, "forest"],
+    [W - 4, H - 4, "forest"],
+    [W - 5, H - 5, "forest"],
+    [10, 3, "forest"],
+    [11, 4, "forest"],
+    [8, 5, "mountain"],
+    [9, 5, "mountain"],
+    [8, 6, "mountain"],
+    [W - 7, H - 6, "mountain"],
+    [W - 8, H - 6, "mountain"],
+    [6, 0, "road"],
+    [6, 1, "road"],
+    [6, 2, "road"],
+    [6, 3, "road"],
+    [6, 4, "road"],
+    [6, 5, "road"],
+    [6, 6, "road"],
+    [6, 7, "road"],
+    [7, 7, "road"],
+    [8, 7, "road"],
+    [9, 7, "road"],
+    [10, 7, "road"],
+    [11, 7, "road"],
+    [12, 7, "road"],
+    [13, 7, "road"],
+    [13, 8, "road"],
+    [13, 9, "road"],
+    [13, 10, "road"],
+    ...Array.from({ length: H }, (_, row) => [W - 1, row, "sea"] as [number, number, string]),
+    ...Array.from({ length: H }, (_, row) => [W - 2, row, "shoal"] as [number, number, string]),
     [W - 1, 9, "reef"],
-    [W - 4, 3, "river"], [W - 3, 3, "river"], [W - 2, 3, "river"],
+    [W - 4, 3, "river"],
+    [W - 3, 3, "river"],
+    [W - 2, 3, "river"],
     [W - 4, 7, "bridge"],
-    [0, H - 1, "sea"], [1, H - 1, "sea"], [2, H - 1, "sea"],
-    [0, H - 2, "shoal"], [1, H - 2, "shoal"], [2, H - 2, "shoal"],
-    [3, H - 1, "shoal"], [4, H - 1, "shoal"],
+    [0, H - 1, "sea"],
+    [1, H - 1, "sea"],
+    [2, H - 1, "sea"],
+    [0, H - 2, "shoal"],
+    [1, H - 2, "shoal"],
+    [2, H - 2, "shoal"],
+    [3, H - 1, "shoal"],
+    [4, H - 1, "shoal"],
   ];
 
   for (const [x, y, t] of terrainPatches) {
@@ -638,27 +827,30 @@ function buildDefaultGameState(playerConfigs: PlayerConfig[], startingFunds: num
   const startingUnits: Array<{ unitType: string; ownerId: number; x: number; y: number }> = [
     { unitType: "infantry", ownerId: 0, x: 1, y: 3 },
     { unitType: "infantry", ownerId: 0, x: 2, y: 3 },
-    { unitType: "tank",     ownerId: 0, x: 3, y: 2 },
+    { unitType: "tank", ownerId: 0, x: 3, y: 2 },
   ];
 
   if (playerConfigs.length >= 2) {
     startingUnits.push(
       { unitType: "infantry", ownerId: 1, x: W - 5, y: H - 3 },
       { unitType: "infantry", ownerId: 1, x: W - 6, y: H - 3 },
-      { unitType: "tank",     ownerId: 1, x: W - 5, y: H - 4 }
+      { unitType: "tank", ownerId: 1, x: W - 5, y: H - 4 }
     );
   }
 
   for (const u of startingUnits) {
     const [id, s] = getNextUnitId(state);
     state = s;
-    state = addUnit(state, createUnit({
-      id,
-      unit_type: u.unitType,
-      owner_id: u.ownerId,
-      x: u.x,
-      y: u.y,
-    }));
+    state = addUnit(
+      state,
+      createUnit({
+        id,
+        unit_type: u.unitType,
+        owner_id: u.ownerId,
+        x: u.x,
+        y: u.y,
+      })
+    );
   }
 
   return state;

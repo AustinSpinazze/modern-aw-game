@@ -37,10 +37,13 @@ export default function TileInfoPanel() {
             <span className="text-gray-400 text-xs ml-1">Def</span>
           </div>
           {tile.has_trench && <div className="text-yellow-400 text-xs">⛏ Trench (+2 def)</div>}
-          {tile.has_fob && <div className="text-orange-400 text-xs">🏗 FOB (HP: {tile.fob_hp})</div>}
+          {tile.has_fob && (
+            <div className="text-orange-400 text-xs">🏗 FOB (HP: {tile.fob_hp})</div>
+          )}
           {terrainData.is_property && (
             <div className="text-xs mt-1">
-              Owner: <span className="text-yellow-300">
+              Owner:{" "}
+              <span className="text-yellow-300">
                 {tile.owner_id === -1 ? "Neutral" : `Player ${tile.owner_id + 1}`}
               </span>
             </div>
@@ -50,7 +53,7 @@ export default function TileInfoPanel() {
               <div className="text-xs text-orange-400 font-medium">⚔ Being Captured</div>
               <div className="flex items-center gap-2 mt-0.5">
                 <div className="flex-1 h-2 bg-gray-700 rounded overflow-hidden">
-                  <div 
+                  <div
                     className="h-full bg-orange-400 transition-all"
                     style={{ width: `${((20 - tile.capture_points) / 20) * 100}%` }}
                   />

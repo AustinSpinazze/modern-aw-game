@@ -126,7 +126,12 @@ export function findPath(state: GameState, unit: UnitState, destX: number, destY
   return [];
 }
 
-export function isDestinationReachable(state: GameState, unit: UnitState, destX: number, destY: number): boolean {
+export function isDestinationReachable(
+  state: GameState,
+  unit: UnitState,
+  destX: number,
+  destY: number
+): boolean {
   return findPath(state, unit, destX, destY).length > 0;
 }
 

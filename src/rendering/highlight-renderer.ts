@@ -44,27 +44,27 @@ export class HighlightRenderer {
     const lineWidth = 2;
 
     const g = new Graphics();
-    
+
     // Top-left corner (└ rotated)
     g.moveTo(px + inset, py + inset + cornerLen);
     g.lineTo(px + inset, py + inset);
     g.lineTo(px + inset + cornerLen, py + inset);
-    
+
     // Top-right corner (┘ rotated)
     g.moveTo(px + DISPLAY - inset - cornerLen, py + inset);
     g.lineTo(px + DISPLAY - inset, py + inset);
     g.lineTo(px + DISPLAY - inset, py + inset + cornerLen);
-    
+
     // Bottom-left corner (┌ rotated)
     g.moveTo(px + inset, py + DISPLAY - inset - cornerLen);
     g.lineTo(px + inset, py + DISPLAY - inset);
     g.lineTo(px + inset + cornerLen, py + DISPLAY - inset);
-    
+
     // Bottom-right corner (┐ rotated)
     g.moveTo(px + DISPLAY - inset - cornerLen, py + DISPLAY - inset);
     g.lineTo(px + DISPLAY - inset, py + DISPLAY - inset);
     g.lineTo(px + DISPLAY - inset, py + DISPLAY - inset - cornerLen);
-    
+
     g.stroke({ width: lineWidth, color: 0xffff00 }); // Yellow like AWBW
     this.container.addChild(g);
   }
@@ -91,7 +91,7 @@ export class HighlightRenderer {
     const firstTile = path[1];
     const startDx = firstTile.x - unitTile.x;
     const startDy = firstTile.y - unitTile.y;
-    
+
     // Start from the first path tile's edge (not unit's edge) to avoid overlap
     const startX = firstTile.x * DISPLAY + half - startDx * half;
     const startY = firstTile.y * DISPLAY + half - startDy * half;
@@ -101,7 +101,7 @@ export class HighlightRenderer {
     const prevTile = path[path.length - 2];
     const endDx = lastTile.x - prevTile.x;
     const endDy = lastTile.y - prevTile.y;
-    
+
     // Stop at the edge of the destination tile
     const endX = lastTile.x * DISPLAY + half - endDx * half;
     const endY = lastTile.y * DISPLAY + half - endDy * half;
@@ -115,7 +115,12 @@ export class HighlightRenderer {
     for (let i = 1; i < allPoints.length; i++) {
       gBorder.lineTo(allPoints[i].x, allPoints[i].y);
     }
-    gBorder.stroke({ width: lineWidth + borderWidth * 2, color: 0x886600, cap: "butt", join: "miter" });
+    gBorder.stroke({
+      width: lineWidth + borderWidth * 2,
+      color: 0x886600,
+      cap: "butt",
+      join: "miter",
+    });
     this.container.addChild(gBorder);
 
     // Draw the main path line - straight edges
@@ -132,9 +137,16 @@ export class HighlightRenderer {
     // Note: Targeting cursor is drawn separately by cursorOverlay
   }
 
-  private drawArrowhead(x: number, y: number, dx: number, dy: number, width: number, borderWidth: number): void {
+  private drawArrowhead(
+    x: number,
+    y: number,
+    dx: number,
+    dy: number,
+    width: number,
+    borderWidth: number
+  ): void {
     const size = width * 2.2;
-    
+
     // Points for the triangle
     let tip: { x: number; y: number };
     let left: { x: number; y: number };

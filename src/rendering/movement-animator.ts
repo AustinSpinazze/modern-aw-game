@@ -45,12 +45,7 @@ export class MovementAnimator {
   }
 
   /** Start animating a unit along a path. Calls onComplete when done. */
-  animate(
-    unitType: string,
-    ownerId: number,
-    path: Vec2[],
-    onComplete: () => void
-  ): void {
+  animate(unitType: string, ownerId: number, path: Vec2[], onComplete: () => void): void {
     if (path.length < 2) {
       onComplete();
       return;
@@ -120,7 +115,7 @@ export class MovementAnimator {
     // Interpolate position between current and next tile
     const fromTile = anim.path[anim.currentIndex];
     const toTile = anim.path[anim.currentIndex + 1];
-    
+
     if (!toTile) {
       this.complete();
       return;
@@ -188,7 +183,7 @@ export class MovementAnimator {
       // Fallback to idle animation
       const idleFrames = getAnimation(sheetKey, baseAnim);
       if (!idleFrames || idleFrames.length === 0) return null;
-      
+
       const sprite = new AnimatedSprite(idleFrames);
       // Sync animation to movement: complete one cycle per tile
       // 4 frames per cycle, FRAMES_PER_TILE frames per tile
@@ -223,10 +218,10 @@ export class MovementAnimator {
     // Calculate current position from path and progress
     const fromTile = anim.path[anim.currentIndex];
     const toTile = anim.path[anim.currentIndex + 1];
-    
+
     let x = fromTile.x * DISPLAY;
     let y = fromTile.y * DISPLAY;
-    
+
     if (toTile) {
       x += (toTile.x * DISPLAY - x) * anim.progress;
       y += (toTile.y * DISPLAY - y) * anim.progress;

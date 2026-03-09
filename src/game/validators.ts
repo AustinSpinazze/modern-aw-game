@@ -2,9 +2,19 @@
 
 import type { GameState, GameCommand, ValidationResult } from "./types";
 import type {
-  CmdMove, CmdAttack, CmdCapture, CmdBuyUnit,
-  CmdLoad, CmdUnload, CmdDigTrench, CmdBuildFOB,
-  CmdSelfDestruct, CmdWait, CmdResupply, CmdSubmerge, CmdSurface,
+  CmdMove,
+  CmdAttack,
+  CmdCapture,
+  CmdBuyUnit,
+  CmdLoad,
+  CmdUnload,
+  CmdDigTrench,
+  CmdBuildFOB,
+  CmdSelfDestruct,
+  CmdWait,
+  CmdResupply,
+  CmdSubmerge,
+  CmdSurface,
 } from "./types";
 import { getCurrentPlayer, getUnit, getUnitAt, getPlayer, getTile } from "./game-state";
 import { getUnitData, getTerrainData } from "./data-loader";
@@ -12,8 +22,12 @@ import { canAttack } from "./combat";
 import { isDestinationReachable, isPassable, manhattanDistance } from "./pathfinding";
 import { FOB_COST } from "./economy";
 
-function ok(): ValidationResult { return { valid: true, error: "" }; }
-function fail(msg: string): ValidationResult { return { valid: false, error: msg }; }
+function ok(): ValidationResult {
+  return { valid: true, error: "" };
+}
+function fail(msg: string): ValidationResult {
+  return { valid: false, error: msg };
+}
 
 export function validateCommand(cmd: GameCommand, state: GameState): ValidationResult {
   if (state.phase === "game_over") return fail("Game is over");
@@ -23,21 +37,36 @@ export function validateCommand(cmd: GameCommand, state: GameState): ValidationR
   if (cmd.player_id !== current.id) return fail("Not your turn");
 
   switch (cmd.type) {
-    case "MOVE":          return validateMove(cmd, state);
-    case "ATTACK":        return validateAttack(cmd, state);
-    case "CAPTURE":       return validateCapture(cmd, state);
-    case "BUY_UNIT":      return validateBuyUnit(cmd, state);
-    case "LOAD":          return validateLoad(cmd, state);
-    case "UNLOAD":        return validateUnload(cmd, state);
-    case "DIG_TRENCH":    return validateDigTrench(cmd, state);
-    case "BUILD_FOB":     return validateBuildFOB(cmd, state);
-    case "SELF_DESTRUCT": return validateSelfDestruct(cmd, state);
-    case "WAIT":          return validateWait(cmd, state);
-    case "END_TURN":      return ok();
-    case "RESUPPLY":      return validateResupply(cmd, state);
-    case "SUBMERGE":      return validateSubmerge(cmd, state);
-    case "SURFACE":       return validateSurface(cmd, state);
-    default:              return fail("Unknown command type");
+    case "MOVE":
+      return validateMove(cmd, state);
+    case "ATTACK":
+      return validateAttack(cmd, state);
+    case "CAPTURE":
+      return validateCapture(cmd, state);
+    case "BUY_UNIT":
+      return validateBuyUnit(cmd, state);
+    case "LOAD":
+      return validateLoad(cmd, state);
+    case "UNLOAD":
+      return validateUnload(cmd, state);
+    case "DIG_TRENCH":
+      return validateDigTrench(cmd, state);
+    case "BUILD_FOB":
+      return validateBuildFOB(cmd, state);
+    case "SELF_DESTRUCT":
+      return validateSelfDestruct(cmd, state);
+    case "WAIT":
+      return validateWait(cmd, state);
+    case "END_TURN":
+      return ok();
+    case "RESUPPLY":
+      return validateResupply(cmd, state);
+    case "SUBMERGE":
+      return validateSubmerge(cmd, state);
+    case "SURFACE":
+      return validateSurface(cmd, state);
+    default:
+      return fail("Unknown command type");
   }
 }
 
@@ -274,7 +303,8 @@ function validateSelfDestruct(cmd: CmdSelfDestruct, state: GameState): Validatio
   if (unit.is_loaded) return fail("Unit is loaded in transport");
 
   const unitData = getUnitData(unit.unit_type);
-  if (!unitData?.special_actions.includes("self_destruct")) return fail("Unit cannot self-destruct");
+  if (!unitData?.special_actions.includes("self_destruct"))
+    return fail("Unit cannot self-destruct");
 
   const target = getUnit(state, cmd.target_id);
   if (!target) return fail("Target not found");

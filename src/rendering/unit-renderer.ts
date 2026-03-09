@@ -56,14 +56,14 @@ export class UnitRenderer {
 
   render(state: GameState, animatingUnitId?: number): void {
     this.container.removeChildren();
-    
+
     // Track current player to only darken their units that have acted
     const currentPlayer = state.players[state.current_player_index];
     this.currentPlayerId = currentPlayer?.id ?? -1;
 
     for (const unit of Object.values(state.units)) {
       if (unit.is_loaded) continue; // skip units inside transports
-      
+
       // Skip the unit being animated (it's rendered by MovementAnimator)
       if (unit.id === animatingUnitId) continue;
 
@@ -121,7 +121,9 @@ export class UnitRenderer {
   }
 
   private drawUnitFallback(ownerId: number, hasActed: boolean, px: number, py: number): void {
-    const fill = hasActed ? (TEAM_COLORS_ACTED[ownerId] ?? 0x444444) : (TEAM_COLORS[ownerId] ?? 0x888888);
+    const fill = hasActed
+      ? (TEAM_COLORS_ACTED[ownerId] ?? 0x444444)
+      : (TEAM_COLORS[ownerId] ?? 0x888888);
     const border = TEAM_BORDER_COLORS[ownerId] ?? 0x444444;
 
     const pad = 6;

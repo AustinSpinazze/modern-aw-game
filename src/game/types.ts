@@ -55,7 +55,7 @@ export interface GameState {
   luck_max: number;
   // Match configuration
   income_multiplier: number; // multiply each property's income by this (default 1)
-  max_turns: number;         // -1 = unlimited; game ends in a draw when turn_number > max_turns
+  max_turns: number; // -1 = unlimited; game ends in a draw when turn_number > max_turns
 }
 
 // Command types as discriminated union
@@ -152,7 +152,7 @@ export interface CmdEndTurn extends CmdBase {
 
 export interface CmdResupply extends CmdBase {
   type: "RESUPPLY";
-  unit_id: number;   // the support unit performing resupply (air_tanker, resupply_ship, carrier)
+  unit_id: number; // the support unit performing resupply (air_tanker, resupply_ship, carrier)
   target_id: number; // the unit being resupplied
 }
 

@@ -5,6 +5,7 @@ Utilities for visual validation during development.
 ## Usage
 
 ### `screenshot.mjs`
+
 Takes a screenshot of the game canvas for visual inspection.
 
 ```bash
@@ -21,9 +22,11 @@ node scripts/screenshot.mjs zoom.png --zoom 100 100 400 300
 Requires: `npx playwright install chromium` (one-time setup)
 
 ### `diag.mjs`
+
 Diagnostic screenshot utility for debugging rendering issues.
 
 ## Notes for AI Agents
+
 - Generated PNG files can be deleted after inspection
 - Keep these utilities for automated visual validation
 - Run before/after rendering changes to verify correctness

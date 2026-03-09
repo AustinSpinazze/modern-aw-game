@@ -3,9 +3,9 @@
 // turn_number, attack_counter, and entity IDs.
 
 export const DEFAULT_LUCK_MIN = 0.0;
-export const DEFAULT_LUCK_MAX = 0.10;
+export const DEFAULT_LUCK_MAX = 0.1;
 export const ALTERNATE_LUCK_MIN = -0.03;
-export const ALTERNATE_LUCK_MAX = 0.10;
+export const ALTERNATE_LUCK_MAX = 0.1;
 
 // FNV-1a style hash mixing over an array of integers
 export function hashCombine(values: number[]): number {

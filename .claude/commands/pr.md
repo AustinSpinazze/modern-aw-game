@@ -9,6 +9,7 @@ Create a pull request for the current branch. Follow this process:
 5. Create the PR with `gh pr create`:
    - Title: concise, ≤70 chars, imperative mood
    - Body template:
+
      ```
      ## Summary
      - <bullet 1>
@@ -21,6 +22,7 @@ Create a pull request for the current branch. Follow this process:
 
      🤖 Generated with [Claude Code](https://claude.com/claude-code)
      ```
+
 6. Return the PR URL
 
 Do NOT force push or push to main directly.

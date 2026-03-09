@@ -8,6 +8,7 @@ update this file so future sessions don't repeat the mistake.
 ## Project Overview
 
 Turn-based tactics game (Advance Wars-inspired) built with Next.js 16 App Router + Pixi.js.
+
 - **Game logic** lives in `src/game/` — pure TypeScript, no framework dependencies
 - **Rendering** lives in `src/rendering/` — Pixi.js v8, always loaded client-side only
 - **UI** is React + Tailwind in `src/components/`
@@ -20,6 +21,7 @@ Turn-based tactics game (Advance Wars-inspired) built with Next.js 16 App Router
 ## Architecture Rules
 
 ### Game Logic (`src/game/`)
+
 - **All game state is immutable.** Every mutation helper returns a new state object, never mutates in place.
 - `apply-command.ts` is the only place commands are applied to state. Don't apply commands inline elsewhere.
 - `validators.ts` must be called before `apply-command.ts`. Never skip validation.
@@ -27,12 +29,14 @@ Turn-based tactics game (Advance Wars-inspired) built with Next.js 16 App Router
 - For server-side (API routes, Partykit), use `server-data-loader.ts` which reads from `public/data/` via `fs`.
 
 ### Rendering (`src/rendering/`)
+
 - Pixi.js must never be imported at the top level of a file that could run on the server.
 - All rendering files have `"use client"` at the top.
 - `GameCanvas.tsx` uses `dynamic(() => import(...), { ssr: false })` — never remove the `ssr: false`.
 - TILE_SIZE = 16px (sprite sheet resolution). TILE_SCALE = 3 (display multiplier → 48px tiles).
 
 ### Sprite System (WarsWorld)
+
 - Sprites are in `public/sprites/warsworld/` — PNG + JSON pairs per army color
 - Use `getSprite(sheetKey, frameName)` from `pixi-app.ts` to get static textures
 - Use `getAnimation(sheetKey, animName)` from `pixi-app.ts` to get animation frame arrays
@@ -42,6 +46,7 @@ Turn-based tactics game (Advance Wars-inspired) built with Next.js 16 App Router
 - Buildings use `AnimatedSprite` for owned buildings, static `Sprite` for neutral
 
 ### AWBW Map Import (`src/game/awbw-import.ts`)
+
 - **Max 4 players supported.** Maps with 5+ factions throw an error.
 - **All factions remap to players 0-3 sequentially**, regardless of AWBW faction type (Grey Sky, Black Hole, Amber Blaze, etc.)
 - **QUIRK: Building order varies by tile ID range!**
@@ -52,21 +57,25 @@ Turn-based tactics game (Advance Wars-inspired) built with Next.js 16 App Router
 - See detailed comments at top of `awbw-import.ts` for full documentation
 
 ### React Components
+
 - Components that use Zustand store, browser APIs, or Pixi.js need `"use client"` directive.
 - Page components in `app/` are Server Components by default — only add `"use client"` when needed.
 - The match page (`app/match/[matchId]/page.tsx`) is `"use client"` because it drives the AI loop.
 
 ### State Management
+
 - `useGameStore` is the single source of truth for game state during a match.
 - `useConfigStore` is persisted to localStorage (API keys, settings). Never store keys in env client-side.
 - When the AI is running its turn, set `aiRunning: true` in the match page to show the indicator.
 
 ### API Routes
+
 - AI routes (`/api/ai/*`) are server-side only. They receive `apiKey` from the client body OR fall back to `process.env.*`.
 - Always call `loadGameDataForServer()` at the top of every AI route before running game logic.
 - API routes validate + apply each command through `validateCommand` → `applyCommand` on a `duplicateState`.
 
 ### Partykit (`party/match.ts`)
+
 - The room is the authoritative source for multiplayer matches.
 - Every command goes through `validateCommand` in the room before being applied.
 - After applying END_TURN, the room checks if the next player is AI and calls the appropriate API route.
@@ -87,23 +96,27 @@ Turn-based tactics game (Advance Wars-inspired) built with Next.js 16 App Router
 ## Code Conventions
 
 ### TypeScript
+
 - Prefer `interface` over `type` for object shapes.
 - Use discriminated unions for command types (see `src/game/types.ts`).
 - Return `null` (not `undefined`) from accessors that may fail (`getUnit`, `getTile`, etc.).
 - All game logic functions are pure: `(state, ...args) => newState`. No side effects.
 
 ### File Naming
+
 - `kebab-case.ts` for all source files.
 - `PascalCase.tsx` for React components.
 - Route handlers are always `route.ts` inside the appropriate `app/api/` directory.
 
 ### Imports
+
 - Import from `@/*` alias for all `src/` imports in `app/` files.
   - e.g. `import { useGameStore } from "@/src/store/game-store"` — but prefer relative imports when already inside `src/`.
 - Game logic files (`src/game/`) should only import from other `src/game/` files or `data-loader`.
 - Rendering files may import from `src/game/`.
 
 ### Tailwind
+
 - Dark UI: `bg-gray-950` for page backgrounds, `bg-gray-900` for cards/panels, `bg-gray-700` for inputs.
 - Team colors: red=P1, blue=P2, green=P3, yellow=P4 — consistent across UI and rendering.
 - Use `transition-colors` on all interactive elements.
@@ -125,7 +138,7 @@ Movement cost of `-1` means **impassable** for that move type. Always check `> 0
 ## Active Refactoring
 
 > ⚠️ **ELECTRON REFACTOR IN PROGRESS** — See [docs/ELECTRON_REFACTOR.md](/docs/ELECTRON_REFACTOR.md) for the migration plan.
-> 
+>
 > Before making changes, check the refactor document for current phase and status.
 
 ---
