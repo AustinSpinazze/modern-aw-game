@@ -1,6 +1,6 @@
 # Modern AW — Project Roadmap
 
-Last Updated: 2026-03-02
+Last Updated: 2026-03-09
 
 ---
 
@@ -12,6 +12,11 @@ A modern Advance Wars-inspired turn-based strategy game that:
 - Eventually adds custom units and mechanics (see `docs/units.md`)
 - Runs as a **desktop Electron app** to simplify architecture and enable local AI play
 - Supports multiplayer via Partykit for online matches
+
+### Known gaps (to address)
+
+- **Shoals:** WarsWorld provides only one `shoal.png`; no directional coastline variants. Coastlines render as uniform yellow blocks instead of proper beach edges. Requires additional shoal sprites + bitmask auto-tiling (see Map Features).
+- **Custom content:** 30 custom units and new buildings/tiles are designed in `docs/units.md` but not yet in data or sprites (see Custom Content).
 
 ---
 
@@ -41,7 +46,7 @@ A modern Advance Wars-inspired turn-based strategy game that:
 - [x] Plains, Roads, Mountains, Forests, Rivers
 - [x] Bridges, Shoals, Sea, Reef
 - [x] HQ, City, Factory, Airport, Port
-- [x] Auto-tiling for roads, rivers, sea, shoals
+- [x] Auto-tiling for roads and rivers (bitmask); sea and shoal use single sprite
 
 ### Rendering (Pixi.js)
 
@@ -138,7 +143,6 @@ A modern Advance Wars-inspired turn-based strategy game that:
 - [ ] Skirmish vs AI (local)
 - [ ] Hot-seat multiplayer (same device)
 - [ ] Online multiplayer (Partykit)
-- [ ] Campaign mode (future)
 - [ ] Map editor
 
 ### Map Features
@@ -147,6 +151,7 @@ A modern Advance Wars-inspired turn-based strategy game that:
 - [ ] Minimap
 - [ ] Zoom in/out
 - [ ] Map preview before game start
+- [ ] **Shoal coastline auto-tiling** — WarsWorld only ships one `shoal.png`; AWBW uses 4+ tile IDs (29–32) for different coastline orientations. Add directional shoal sprites (or source from AWBW) and bitmask auto-tiling (like roads/rivers) so coastlines render as proper beach edges instead of uniform yellow blocks.
 
 ### Advanced Gameplay
 
@@ -160,10 +165,11 @@ A modern Advance Wars-inspired turn-based strategy game that:
 
 ### Custom Content (Future)
 
-- [ ] Custom units from `docs/units.md`
-- [ ] New unit sprites
-- [ ] Custom buildings
-- [ ] Mod support
+- [ ] **Custom units** (from `docs/units.md`) — 30 designs (Engineer, Drone Team, Light/Heavy Tank, Mobile Artillery, SAMs, MLRS, Blackhawk, Chinook, Apache, Lander variants, etc.). Each needs: entry in `public/data/units.json`, damage table vs all units, movement costs in terrain data, and either new sprites or reuse/placeholder.
+- [ ] **New unit sprites** — Art for custom units (16×16 or 32×32); integrate with WarsWorld-style sheet or separate atlas.
+- [ ] **New terrain tiles** — Any additional terrain types beyond current AWBW set; add to `terrain.json`, renderer, and AWBW import if needed.
+- [ ] **New buildings** — e.g. radar station, supply depot, repair bay. Add to `terrain.json` (is_property, income, can_produce, etc.), sprite mapping, and building-specific logic (e.g. supply range).
+- [ ] Mod support (load external units/maps)
 
 ---
 
@@ -277,9 +283,12 @@ A modern Advance Wars-inspired turn-based strategy game that:
 | Transport mechanics     | Medium   | Medium     | 🟡 Medium | 5     |
 | Audio/SFX               | Medium   | Low        | 🟡 Medium | 6     |
 | Map editor              | Medium   | High       | 🟢 Low    | 7     |
-| Campaign mode           | High     | Very High  | 🟢 Low    | 8     |
+| Shoal coastline tiles   | Medium   | Medium     | 🟡 Medium | 8     |
+| Custom units (units.md) | High     | High       | 🟢 Low    | 9     |
+| New buildings/tiles     | Medium   | Medium     | 🟢 Low    | 10    |
 
 > **Note:** Electron migration comes before Audio because it enables local AI play with secure API key storage.
+> **Known gap:** WarsWorld assets only include one shoal sprite; coastlines render as uniform yellow. See Map Features → Shoal coastline auto-tiling.
 
 ---
 
@@ -298,6 +307,10 @@ A modern Advance Wars-inspired turn-based strategy game that:
 - AI games are local-only (Electron desktop)
 - Web version = online multiplayer only
 - Desktop version = AI + local + online multiplayer
+
+### Out of scope
+
+- **Campaign mode** — Not planned. Focus is skirmish, hot-seat, and online multiplayer.
 
 ---
 

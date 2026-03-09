@@ -53,7 +53,16 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
       setSaved(false);
       onClose();
     }, 800);
-  }, [anthropicKey, openaiKey, localHttpUrl, localModel, anthropicModel, openaiModel, store, onClose]);
+  }, [
+    anthropicKey,
+    openaiKey,
+    localHttpUrl,
+    localModel,
+    anthropicModel,
+    openaiModel,
+    store,
+    onClose,
+  ]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {

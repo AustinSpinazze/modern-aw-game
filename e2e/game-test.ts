@@ -6,20 +6,17 @@
  */
 
 import { _electron as electron } from "playwright";
+import type { Page } from "playwright";
 import path from "path";
 import fs from "fs";
 
 const RESULTS_DIR = path.resolve(__dirname, "results");
 
-function clickTile(
-  page: Awaited<ReturnType<typeof electron.launch>>["firstWindow"],
-  tx: number,
-  ty: number
-) {
+function clickTile(page: Page, tx: number, ty: number) {
   return page.evaluate(
-    ({ x, y }) => {
+    (arg: { x: number; y: number }) => {
       const w = (window as unknown as { __clickTile?: (a: number, b: number) => void }).__clickTile;
-      if (w) w(x, y);
+      if (w) w(arg.x, arg.y);
     },
     { x: tx, y: ty }
   );

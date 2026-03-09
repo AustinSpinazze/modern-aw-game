@@ -57,11 +57,8 @@ export function serializeStateForLLM(state: GameState, playerId: number): string
         ownerStr = `enemy(p${tile.owner_id})`;
       }
 
-      const capStr =
-        tile.capture_points < 20 ? ` cp=${tile.capture_points}/20` : "";
-      lines.push(
-        `  ${tile.terrain_type} @(${x},${y}) owner=${ownerStr}${capStr}`
-      );
+      const capStr = tile.capture_points < 20 ? ` cp=${tile.capture_points}/20` : "";
+      lines.push(`  ${tile.terrain_type} @(${x},${y}) owner=${ownerStr}${capStr}`);
     }
   }
   lines.push("");

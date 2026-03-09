@@ -13,6 +13,7 @@ The heuristic AI runs entirely offline with no external dependencies. It evaluat
 turn using a scoring function and picks the best move/attack/capture.
 
 **Strategy priorities (per unit, in order):**
+
 1. Attack the highest-value target in range (maximises damage × target cost; instant kill bonus)
 2. Capture the current tile if it's a non-owned property
 3. Move toward the nearest objective (enemy/neutral property for infantry-class, enemy units for combat units)
@@ -47,6 +48,7 @@ sends `END_TURN` or all units have acted.
 ### Supported models
 
 Any model ID accepted by `POST https://api.anthropic.com/v1/messages`, e.g.:
+
 - `claude-opus-4-6` — most capable, slower
 - `claude-sonnet-4-6` — balanced (default)
 - `claude-haiku-4-5-20251001` — fastest, cheapest
@@ -79,6 +81,7 @@ repeat. Same retry/fallback logic.
 ### Supported models
 
 Any model ID accepted by `POST https://api.openai.com/v1/chat/completions`, e.g.:
+
 - `gpt-4o` — default, good balance
 - `gpt-4o-mini` — faster, cheaper
 - `o3-mini` — reasoning model (slower)
@@ -110,12 +113,12 @@ No data leaves your machine and no API key is required.
 
 ### Compatible servers
 
-| Server | Default URL | Install |
-|--------|-------------|---------|
-| [Ollama](https://ollama.com) | `http://localhost:11434` | `brew install ollama` |
-| [LM Studio](https://lmstudio.ai) | `http://localhost:1234` | Download from lmstudio.ai |
-| [llama.cpp server](https://github.com/ggerganov/llama.cpp) | `http://localhost:8080` | Build from source |
-| Any OpenAI-compatible proxy | custom | — |
+| Server                                                     | Default URL              | Install                   |
+| ---------------------------------------------------------- | ------------------------ | ------------------------- |
+| [Ollama](https://ollama.com)                               | `http://localhost:11434` | `brew install ollama`     |
+| [LM Studio](https://lmstudio.ai)                           | `http://localhost:1234`  | Download from lmstudio.ai |
+| [llama.cpp server](https://github.com/ggerganov/llama.cpp) | `http://localhost:8080`  | Build from source         |
+| Any OpenAI-compatible proxy                                | custom                   | —                         |
 
 ### Example: running DeepSeek via Ollama
 
@@ -141,15 +144,15 @@ ollama serve
 The harness sends structured JSON prompts, so models with strong instruction-following
 and reliable JSON output work best.
 
-| Model (Ollama name) | Size | Notes |
-|---------------------|------|-------|
-| `deepseek-r1:7b` | 7B | Reasoning model, good JSON, slightly slower |
-| `deepseek-r1:14b` | 14B | More capable, needs ~10 GB VRAM |
-| `kimi-k2` | — | Strong reasoning; check Ollama registry for latest tag |
-| `qwen2.5:7b` | 7B | Strong structured output |
-| `mistral` | 7B | Good instruction following |
-| `llama3.2` | 3B | Fast default; lower quality JSON |
-| `llama3.1:8b` | 8B | Better than 3.2 for complex prompts |
+| Model (Ollama name) | Size | Notes                                                  |
+| ------------------- | ---- | ------------------------------------------------------ |
+| `deepseek-r1:7b`    | 7B   | Reasoning model, good JSON, slightly slower            |
+| `deepseek-r1:14b`   | 14B  | More capable, needs ~10 GB VRAM                        |
+| `kimi-k2`           | —    | Strong reasoning; check Ollama registry for latest tag |
+| `qwen2.5:7b`        | 7B   | Strong structured output                               |
+| `mistral`           | 7B   | Good instruction following                             |
+| `llama3.2`          | 3B   | Fast default; lower quality JSON                       |
+| `llama3.1:8b`       | 8B   | Better than 3.2 for complex prompts                    |
 
 > Models smaller than 7B may produce malformed JSON more often. The runner retries up to
 > 9 times total before falling back to the **Heuristic AI**.
@@ -166,11 +169,13 @@ and reliable JSON output work best.
 ## Fallback Behaviour
 
 All three LLM providers fall back to the **Heuristic AI** automatically when:
+
 - The API call fails (network error, invalid key, rate limit)
 - The model produces invalid JSON three times in a row for the same step
 - The total retry budget (9 retries) across all steps is exhausted
 
 A warning is logged to the browser console when a fallback occurs:
+
 ```
 [LLM AI] Too many retries, falling back to heuristic
 ```
@@ -189,6 +194,7 @@ It includes:
 - A filtered list of your units that can still act this turn
 
 Example snippet:
+
 ```
 === GAME STATE (Turn 3) ===
 Map: 15x10

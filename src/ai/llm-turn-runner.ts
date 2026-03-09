@@ -72,10 +72,7 @@ function waitForQueueComplete(): Promise<void> {
 }
 
 // Call Anthropic REST API via Electron IPC
-async function callAnthropicViaIPC(
-  messages: ChatMessage[],
-  model: string
-): Promise<string> {
+async function callAnthropicViaIPC(messages: ChatMessage[], model: string): Promise<string> {
   if (!window.electronAPI) {
     throw new Error("Electron API not available");
   }
@@ -87,10 +84,7 @@ async function callAnthropicViaIPC(
 }
 
 // Call OpenAI REST API via Electron IPC
-async function callOpenAIViaIPC(
-  messages: ChatMessage[],
-  model: string
-): Promise<string> {
+async function callOpenAIViaIPC(messages: ChatMessage[], model: string): Promise<string> {
   if (!window.electronAPI) {
     throw new Error("Electron API not available");
   }
