@@ -55,6 +55,10 @@ interface GameStore {
   queueCommands: (commands: GameCommand[]) => void;
   processNextCommand: () => QueuedCommand | null;
   onQueuedAnimationComplete: () => void;
+
+  // Clears movement-animation state after move completes but before combat animation starts.
+  // Sets gameState to post-move, clears all selection/overlay fields.
+  applyPostMoveState: (newState: GameState) => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -342,6 +346,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ commandQueue: rest, isAnimating: hasAnimation });
     return next;
   },
+
+  applyPostMoveState: (newState) =>
+    set({
+      gameState: newState,
+      isAnimating: false,
+      pendingAction: null,
+      selectedUnit: null,
+      reachableTiles: [],
+      attackableTiles: [],
+      pendingMove: null,
+      pendingPath: [],
+      animationPath: [],
+      hoverPath: [],
+    }),
 
   // Called when a queued animation completes - applies the command and continues
   onQueuedAnimationComplete: () => {

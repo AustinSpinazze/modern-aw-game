@@ -12,11 +12,16 @@ import { TerrainRenderer } from "../rendering/terrain-renderer";
 import { UnitRenderer } from "../rendering/unit-renderer";
 import { HighlightRenderer } from "../rendering/highlight-renderer";
 import { MovementAnimator } from "../rendering/movement-animator";
+import { CombatAnimator } from "../rendering/combat-animator";
 import { InputHandler } from "../rendering/input-handler";
 import { useGameStore } from "../store/game-store";
 import type { Vec2 } from "../game/types";
-import { getUnitAt, getTile } from "../game/game-state";
-import { getTerrainData } from "../game/data-loader";
+import { getUnitAt, getTile, getUnit } from "../game/game-state";
+import { getTerrainData, getUnitData } from "../game/data-loader";
+import { applyCommand } from "../game/apply-command";
+import { validateCommand } from "../game/validators";
+import { getAttackableTiles } from "../game/pathfinding";
+import { canAttack } from "../game/combat";
 
 interface GameCanvasProps {
   onFacilityClick?: (x: number, y: number) => void;
@@ -30,6 +35,7 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
   const pathOverlayRef = useRef<HighlightRenderer | null>(null); // For path arrows
   const cursorOverlayRef = useRef<HighlightRenderer | null>(null); // For targeting cursor (always on top)
   const movementAnimatorRef = useRef<MovementAnimator | null>(null); // For unit movement
+  const combatAnimatorRef = useRef<CombatAnimator | null>(null); // For combat flash/destruction
   const inputHandlerRef = useRef<InputHandler | null>(null);
   const onFacilityClickRef = useRef(onFacilityClick);
   onFacilityClickRef.current = onFacilityClick;
@@ -79,13 +85,15 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
       const pathOverlay = new HighlightRenderer(); // For path arrows
       const cursorOverlay = new HighlightRenderer(); // For targeting cursor
       const movementAnimator = new MovementAnimator();
+      const combatAnimator = new CombatAnimator();
 
-      // Render order: terrain -> highlights -> units -> capture overlay -> movement anim -> path overlay -> cursor (on top)
+      // Render order: terrain -> highlights -> units -> capture overlay -> movement anim -> combat effects -> path overlay -> cursor (on top)
       app.stage.addChild(terrain.getContainer());
       app.stage.addChild(highlights.getContainer());
       app.stage.addChild(units.getContainer());
       app.stage.addChild(terrain.getCaptureOverlay()); // Capture indicators above units
       app.stage.addChild(movementAnimator.getContainer()); // Moving unit on top of static units
+      app.stage.addChild(combatAnimator.getContainer()); // Combat flash/destruction effects
       app.stage.addChild(pathOverlay.getContainer());
       app.stage.addChild(cursorOverlay.getContainer()); // Cursor always on very top
 
@@ -95,6 +103,7 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
       pathOverlayRef.current = pathOverlay;
       cursorOverlayRef.current = cursorOverlay;
       movementAnimatorRef.current = movementAnimator;
+      combatAnimatorRef.current = combatAnimator;
 
       // Wire input
       const handleTileClick = (pos: Vec2) => {
@@ -124,14 +133,54 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
           if (pendingMove) {
             const isAttackable = attackableTiles.some((t) => t.x === pos.x && t.y === pos.y);
             if (isAttackable && clickedUnit && clickedUnit.owner_id !== currentPlayer.id) {
-              // Confirm move + attack
-              confirmMoveAndAction({
-                type: "ATTACK",
+              // Shortcut: click enemy directly while pendingMove is set.
+              // Apply MOVE instantly (no movement anim), then run combat animation.
+              const attackCmd = {
+                type: "ATTACK" as const,
                 player_id: currentPlayer.id,
                 attacker_id: selUnit.id,
                 target_id: clickedUnit.id,
                 weapon_index: 0,
-              });
+              };
+              const cAnim = combatAnimatorRef.current;
+              if (cAnim && !cAnim.isAnimating()) {
+                // Pre-apply MOVE to get attacker at destination
+                const isInPlace = pendingMove.x === selUnit.x && pendingMove.y === selUnit.y;
+                let movedState = state;
+                if (!selUnit.has_moved && !isInPlace) {
+                  const moveCmd = {
+                    type: "MOVE" as const,
+                    player_id: currentPlayer.id,
+                    unit_id: selUnit.id,
+                    dest_x: pendingMove.x,
+                    dest_y: pendingMove.y,
+                  };
+                  if (validateCommand(moveCmd, state).valid) {
+                    movedState = applyCommand(state, moveCmd);
+                  }
+                }
+                const attacker = getUnit(movedState, attackCmd.attacker_id);
+                const defender = getUnit(movedState, attackCmd.target_id);
+                if (attacker && defender) {
+                  const postState = applyCommand(movedState, attackCmd);
+                  const attackerDestroyed = !getUnit(postState, attackCmd.attacker_id);
+                  const defenderDestroyed = !getUnit(postState, attackCmd.target_id);
+                  // Apply moved state immediately (unit jumps, selection clears)
+                  useGameStore.getState().applyPostMoveState(movedState);
+                  cAnim.animate({
+                    attackerPos: { x: attacker.x, y: attacker.y },
+                    defenderPos: { x: defender.x, y: defender.y },
+                    attackerDestroyed,
+                    defenderDestroyed,
+                    onComplete: () => {
+                      useGameStore.getState().setGameState(postState);
+                    },
+                  });
+                  return;
+                }
+              }
+              // Fallback: no combat animator available
+              confirmMoveAndAction(attackCmd);
               return;
             }
             // Clicking elsewhere cancels pending move and deselects
@@ -161,23 +210,31 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
             return;
           }
 
-          // Check for direct attack from current position (no move)
-          const isAttackable = attackableTiles.some((t) => t.x === pos.x && t.y === pos.y);
-          if (
-            isAttackable &&
-            clickedUnit &&
-            currentPlayer && // defensive check
-            clickedUnit.owner_id !== currentPlayer.id &&
-            !selUnit.has_acted
-          ) {
-            submitCommand({
-              type: "ATTACK",
-              player_id: currentPlayer.id,
-              attacker_id: selUnit.id,
-              target_id: clickedUnit.id,
-              weapon_index: 0,
-            });
-            return;
+          // Check if the clicked enemy is in attack range from the current position.
+          // If so, open the ActionMenu (via setPendingMove on the unit's own tile) rather
+          // than attacking immediately — lets the player confirm or cancel in case of misclick.
+          // attackableTiles in the store is empty until setPendingMove fires, so we compute
+          // range on the fly here.
+          if (clickedUnit && clickedUnit.owner_id !== currentPlayer.id && !selUnit.has_acted) {
+            const unitDat = getUnitData(selUnit.unit_type);
+            let isInRange = false;
+            for (let wi = 0; wi < (unitDat?.weapons.length ?? 0); wi++) {
+              const rangeTiles = getAttackableTiles(state, selUnit, selUnit.x, selUnit.y, wi);
+              if (
+                rangeTiles.some((t) => t.x === pos.x && t.y === pos.y) &&
+                canAttack(selUnit, clickedUnit, state, wi)
+              ) {
+                isInRange = true;
+                break;
+              }
+            }
+            if (isInRange) {
+              // Set pendingMove to the unit's current tile — this surfaces the ActionMenu
+              // showing the attackable enemies (and a Cancel button), same as clicking your
+              // own tile. The player then confirms the attack from the menu.
+              setPendingMove({ x: selUnit.x, y: selUnit.y });
+              return;
+            }
           }
 
           resetSelection();
@@ -264,10 +321,10 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
 
     const ticker = app.ticker;
     const onTick = () => {
-      const animator = movementAnimatorRef.current;
-      if (animator?.isAnimating()) {
-        animator.update();
-      }
+      const mAnimator = movementAnimatorRef.current;
+      if (mAnimator?.isAnimating()) mAnimator.update();
+      const cAnimator = combatAnimatorRef.current;
+      if (cAnimator?.isAnimating()) cAnimator.update();
     };
 
     ticker.add(onTick);
@@ -297,8 +354,62 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
 
     // Start the animation with the path (arrow already cleared)
     animator.animate(selectedUnit.unit_type, selectedUnit.owner_id, animationPath, () => {
-      // Animation complete - trigger the actual game state update
-      onAnimationComplete();
+      // Movement done. If the pending action is ATTACK, intercept to run a combat animation
+      // before the state update removes any dead units.
+      const store = useGameStore.getState();
+      const pendingAct = store.pendingAction;
+      const cAnim = combatAnimatorRef.current;
+
+      if (pendingAct?.type === "ATTACK" && cAnim) {
+        // Apply only the MOVE portion so the unit visually snaps to its destination.
+        const curState = store.gameState!;
+        const selUnit = store.selectedUnit!;
+        const pMove = store.pendingMove;
+        const isInPlace = !pMove || (pMove.x === selUnit.x && pMove.y === selUnit.y);
+
+        let movedState = curState;
+        if (pMove && !selUnit.has_moved && !isInPlace) {
+          const moveCmd = {
+            type: "MOVE" as const,
+            player_id: curState.players[curState.current_player_index].id,
+            unit_id: selUnit.id,
+            dest_x: pMove.x,
+            dest_y: pMove.y,
+          };
+          if (validateCommand(moveCmd, curState).valid) {
+            movedState = applyCommand(curState, moveCmd);
+          }
+        }
+
+        const attacker = getUnit(movedState, pendingAct.attacker_id);
+        const defender = getUnit(movedState, pendingAct.target_id);
+
+        if (attacker && defender) {
+          const postCombatState = applyCommand(movedState, pendingAct);
+          const attackerDestroyed = !getUnit(postCombatState, pendingAct.attacker_id);
+          const defenderDestroyed = !getUnit(postCombatState, pendingAct.target_id);
+
+          // Commit post-move state (unit at destination), clear animation/selection state.
+          store.applyPostMoveState(movedState);
+
+          cAnim.animate({
+            attackerPos: { x: attacker.x, y: attacker.y },
+            defenderPos: { x: defender.x, y: defender.y },
+            attackerDestroyed,
+            defenderDestroyed,
+            onComplete: () => {
+              // Apply final post-combat state (removes dead units, updates HP).
+              useGameStore.getState().setGameState(postCombatState);
+            },
+          });
+        } else {
+          // Units not found — fall back to standard apply path.
+          onAnimationComplete();
+        }
+      } else {
+        // Non-attack action (Capture, Wait, etc.) — standard apply path.
+        onAnimationComplete();
+      }
     });
   }, [isAnimating, selectedUnit, animationPath, onAnimationComplete]);
 
@@ -308,33 +419,64 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
   // Process command queue (AI/enemy turns)
   useEffect(() => {
     if (!pixiReady || !processingQueue) return;
-    if (isAnimating) return; // Wait for current animation to finish
+    if (isAnimating) return; // Wait for movement animation to finish
 
-    const animator = movementAnimatorRef.current;
-    if (!animator || animator.isAnimating()) return;
+    const mAnimator = movementAnimatorRef.current;
+    if (!mAnimator || mAnimator.isAnimating()) return;
+
+    // Also wait for any active combat animation to finish before processing next command
+    if (combatAnimatorRef.current?.isAnimating()) return;
 
     const queued = processNextCommand();
     if (!queued) return;
 
     const { command, unitType, ownerId, path } = queued;
 
-    // If this is a MOVE command with a path, animate it
+    // MOVE command with a path — play movement animation
     if (command.type === "MOVE" && path && path.length > 1 && unitType && ownerId !== undefined) {
       setQueueAnimatingUnitId(command.unit_id);
-      animator.animate(unitType, ownerId, path, () => {
-        // Animation done - apply the command
+      mAnimator.animate(unitType, ownerId, path, () => {
         submitCommand(command);
         setQueueAnimatingUnitId(undefined);
         onQueuedAnimationComplete();
-        // Trigger next command processing
         setQueueTrigger((t) => t + 1);
       });
-    } else {
-      // Non-move command - just apply it with a small delay for visual effect
+    } else if (command.type === "ATTACK") {
+      // ATTACK command — play combat animation before applying state change
+      const curState = useGameStore.getState().gameState;
+      const cAnim = combatAnimatorRef.current;
+      if (curState && cAnim) {
+        const attacker = getUnit(curState, command.attacker_id);
+        const defender = getUnit(curState, command.target_id);
+        if (attacker && defender) {
+          const postState = applyCommand(curState, command);
+          const attackerDestroyed = !getUnit(postState, command.attacker_id);
+          const defenderDestroyed = !getUnit(postState, command.target_id);
+          cAnim.animate({
+            attackerPos: { x: attacker.x, y: attacker.y },
+            defenderPos: { x: defender.x, y: defender.y },
+            attackerDestroyed,
+            defenderDestroyed,
+            onComplete: () => {
+              submitCommand(command);
+              onQueuedAnimationComplete();
+              setQueueTrigger((t) => t + 1);
+            },
+          });
+          return;
+        }
+      }
+      // Fallback: no animation available
       setTimeout(() => {
         submitCommand(command);
         onQueuedAnimationComplete();
-        // Trigger next command processing
+        setQueueTrigger((t) => t + 1);
+      }, 100);
+    } else {
+      // Non-move, non-attack command — short delay for visual clarity
+      setTimeout(() => {
+        submitCommand(command);
+        onQueuedAnimationComplete();
         setQueueTrigger((t) => t + 1);
       }, 100);
     }
