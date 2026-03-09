@@ -226,7 +226,10 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
 
     ticker.add(onTick);
     return () => {
-      ticker.remove(onTick);
+      // Guard: destroyPixiApp() may have already destroyed the ticker before
+      // this cleanup runs. Calling remove() on a destroyed ticker reads
+      // ticker._head.next → "Cannot read properties of null (reading 'next')".
+      if (getApp()) ticker.remove(onTick);
     };
   }, [pixiReady]);
 

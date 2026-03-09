@@ -1,6 +1,6 @@
 // Pre-game lobby: configure players, map, and match rules.
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { ControllerType, GameState } from "../game/types";
 import { createGameState, createPlayer, createUnit, initializeMap, addUnit, updateTile } from "../game/game-state";
 import { generateMatchSeed } from "../game/rng";
@@ -15,9 +15,24 @@ interface PlayerConfig {
 
 interface MatchConfig {
   startingFunds: number;
-  incomeMultiplier: number; // multiplier on terrain income (1 = normal, 2 = double, etc.)
+  incomeMultiplier: number;
   luck: "off" | "normal" | "high";
-  maxTurns: number; // -1 = unlimited
+  maxTurns: number;
+}
+
+interface SavedMap {
+  id: string;
+  name: string;
+  csv: string;
+  width: number;
+  height: number;
+  savedAt: number;
+}
+
+interface ParsedPreview {
+  width: number;
+  height: number;
+  tiles: number[][];
 }
 
 interface MatchSetupProps {
@@ -40,6 +55,83 @@ const LUCK_SETTINGS: Record<MatchConfig["luck"], { min: number; max: number }> =
   high:   { min: 0,    max: 0.20 },
 };
 
+const SAVED_MAPS_KEY = "modern-aw-saved-maps";
+
+function loadSavedMaps(): SavedMap[] {
+  try {
+    const raw = localStorage.getItem(SAVED_MAPS_KEY);
+    return raw ? (JSON.parse(raw) as SavedMap[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistSavedMaps(maps: SavedMap[]) {
+  localStorage.setItem(SAVED_MAPS_KEY, JSON.stringify(maps));
+}
+
+// ── Tile-ID → minimap color ──────────────────────────────────────────────────
+// Maps raw AWBW tile IDs to display colors without loading game data.
+const FACTION_COLORS = ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#e67e22", "#9b59b6", "#1abc9c", "#e91e63"];
+
+function tileIdToColor(id: number): string {
+  if (id <= 0 || id === 1) return "#8bc34a";     // plains
+  if (id === 2) return "#95a5a6";                 // mountain
+  if (id === 3) return "#27ae60";                 // forest
+  if (id >= 4 && id <= 14) return "#2980b9";      // river
+  if (id >= 15 && id <= 25) return "#bdc3c7";     // road
+  if (id === 26 || id === 27) return "#7f8c8d";   // bridge
+  if (id === 28) return "#1a5276";                // sea
+  if (id >= 29 && id <= 32) return "#76d7c4";     // shoal
+  if (id === 33) return "#0e6655";                // reef
+  // Neutral properties (34-37)
+  if (id >= 34 && id <= 37) return "#8e44ad";
+  // Faction-owned: groups of 5 per faction starting at 38
+  if (id >= 38 && id <= 100) {
+    const faction = Math.floor((id - 38) / 5) % 8;
+    return FACTION_COLORS[faction];
+  }
+  // Extended faction ranges (117+)
+  if (id >= 117) {
+    const faction = Math.floor((id - 117) / 5) % 8;
+    return FACTION_COLORS[faction];
+  }
+  return "#8bc34a"; // default plains
+}
+
+// ── Minimap canvas component ──────────────────────────────────────────────────
+function MapMinimap({ preview }: { preview: ParsedPreview }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const MAX_PX = 320;
+    const tileSize = Math.max(2, Math.min(8, Math.floor(MAX_PX / Math.max(preview.width, preview.height))));
+    canvas.width = preview.width * tileSize;
+    canvas.height = preview.height * tileSize;
+
+    for (let row = 0; row < preview.height; row++) {
+      for (let col = 0; col < preview.width; col++) {
+        const id = preview.tiles[row]?.[col] ?? 1;
+        ctx.fillStyle = tileIdToColor(id);
+        ctx.fillRect(col * tileSize, row * tileSize, tileSize, tileSize);
+      }
+    }
+  }, [preview]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="rounded border border-gray-600 block mx-auto"
+      style={{ imageRendering: "pixelated", maxWidth: "100%" }}
+    />
+  );
+}
+
 export default function MatchSetup({ onMatchStart }: MatchSetupProps) {
   const [playerCount, setPlayerCount] = useState(2);
   const [players, setPlayers] = useState<PlayerConfig[]>([
@@ -51,7 +143,11 @@ export default function MatchSetup({ onMatchStart }: MatchSetupProps) {
   const [loading, setLoading] = useState(false);
   const [awbwText, setAwbwText] = useState("");
   const [awbwError, setAwbwError] = useState("");
-  const [awbwPreview, setAwbwPreview] = useState<{ width: number; height: number } | null>(null);
+  const [parsedPreview, setParsedPreview] = useState<ParsedPreview | null>(null);
+  // Saved maps
+  const [savedMaps, setSavedMaps] = useState<SavedMap[]>(() => loadSavedMaps());
+  const [mapName, setMapName] = useState("");
+  const [showSavedMaps, setShowSavedMaps] = useState(true);
   const setGameState = useGameStore((s) => s.setGameState);
 
   const updatePlayerConfig = (index: number, patch: Partial<PlayerConfig>) => {
@@ -105,7 +201,6 @@ export default function MatchSetup({ onMatchStart }: MatchSetupProps) {
         setAwbwError("No player properties found on map. Need at least one HQ/factory/city with an owner.");
         return;
       }
-      // Apply starting funds + config to imported map players
       state = {
         ...state,
         players: state.players.map((p) => ({ ...p, funds: config.startingFunds })),
@@ -120,11 +215,45 @@ export default function MatchSetup({ onMatchStart }: MatchSetupProps) {
     }
   };
 
+  const handleSaveMap = () => {
+    if (!parsedPreview || !awbwText.trim()) return;
+    const name = mapName.trim() || `Map ${parsedPreview.width}×${parsedPreview.height}`;
+    const newMap: SavedMap = {
+      id: `map_${Date.now()}`,
+      name,
+      csv: awbwText,
+      width: parsedPreview.width,
+      height: parsedPreview.height,
+      savedAt: Date.now(),
+    };
+    const updated = [newMap, ...savedMaps];
+    setSavedMaps(updated);
+    persistSavedMaps(updated);
+    setMapName("");
+  };
+
+  const handleLoadSavedMap = (map: SavedMap) => {
+    setAwbwText(map.csv);
+    setAwbwError("");
+    try {
+      const mapData = parseAwbwMapText(map.csv);
+      setParsedPreview(mapData.width > 0 ? { width: mapData.width, height: mapData.height, tiles: mapData.tiles } : null);
+    } catch {
+      setParsedPreview(null);
+    }
+  };
+
+  const handleDeleteSavedMap = (id: string) => {
+    const updated = savedMaps.filter((m) => m.id !== id);
+    setSavedMaps(updated);
+    persistSavedMaps(updated);
+  };
+
   const playerColors = ["text-red-400", "text-blue-400", "text-green-400", "text-yellow-400"];
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center p-8">
-      <div className="bg-gray-900 rounded-xl border border-gray-700 w-full max-w-lg shadow-2xl">
+    <div className="min-h-screen bg-gray-950 text-white flex items-start justify-center p-8 overflow-y-auto">
+      <div className="bg-gray-900 rounded-xl border border-gray-700 w-full max-w-lg shadow-2xl my-auto">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-700">
           <h1 className="text-2xl font-bold text-white">Modern AW</h1>
@@ -308,7 +437,7 @@ export default function MatchSetup({ onMatchStart }: MatchSetupProps) {
             )}
           </div>
 
-          {/* AWBW Import */}
+          {/* ── AWBW Import ─────────────────────────────────────────────── */}
           <div>
             <label className="text-xs text-gray-400 uppercase tracking-wide">Import AWBW Map</label>
             <textarea
@@ -320,33 +449,102 @@ export default function MatchSetup({ onMatchStart }: MatchSetupProps) {
                 if (text.trim()) {
                   try {
                     const mapData = parseAwbwMapText(text);
-                    setAwbwPreview(mapData.width > 0 ? { width: mapData.width, height: mapData.height } : null);
+                    setParsedPreview(mapData.width > 0
+                      ? { width: mapData.width, height: mapData.height, tiles: mapData.tiles }
+                      : null);
                   } catch {
-                    setAwbwPreview(null);
+                    setParsedPreview(null);
                   }
                 } else {
-                  setAwbwPreview(null);
+                  setParsedPreview(null);
                 }
               }}
               placeholder="Paste AWBW map CSV (comma-separated tile IDs, one row per line)"
               className="w-full mt-2 bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white font-mono h-20 resize-y"
             />
-            {awbwPreview && (
-              <p className="text-green-400 text-xs mt-1">
-                Map detected: {awbwPreview.width}×{awbwPreview.height} tiles
-              </p>
+
+            {/* Map preview */}
+            {parsedPreview && (
+              <div className="mt-3 space-y-3">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-green-400">
+                    {parsedPreview.width}×{parsedPreview.height} tiles detected
+                  </span>
+                  <span className="text-gray-500">minimap preview</span>
+                </div>
+                <MapMinimap preview={parsedPreview} />
+
+                {/* Save map controls */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={mapName}
+                    onChange={(e) => setMapName(e.target.value)}
+                    placeholder="Map name (optional)"
+                    className="flex-1 bg-gray-800 border border-gray-600 rounded px-3 py-1.5 text-sm text-white"
+                    onKeyDown={(e) => e.key === "Enter" && handleSaveMap()}
+                  />
+                  <button
+                    onClick={handleSaveMap}
+                    className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm rounded transition-colors shrink-0"
+                  >
+                    Save Map
+                  </button>
+                </div>
+              </div>
             )}
+
             {awbwError && (
               <p className="text-red-400 text-xs mt-1">{awbwError}</p>
             )}
             <button
               onClick={handleAwbwImport}
-              disabled={loading}
-              className="mt-2 w-full bg-green-700 hover:bg-green-600 disabled:bg-gray-700 text-white font-medium py-2 rounded transition-colors text-sm"
+              disabled={loading || !parsedPreview}
+              className="mt-2 w-full bg-green-700 hover:bg-green-600 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium py-2 rounded transition-colors text-sm"
             >
               {loading ? "Importing…" : "Import & Start"}
             </button>
           </div>
+
+          {/* ── Saved Maps ──────────────────────────────────────────────── */}
+          {savedMaps.length > 0 && (
+            <div className="border border-gray-700 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setShowSavedMaps((v) => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-gray-800/50 hover:bg-gray-800 transition-colors text-sm font-medium text-gray-300"
+              >
+                <span>Saved Maps <span className="text-gray-500 font-normal">({savedMaps.length})</span></span>
+                <span className="text-gray-500 text-xs">{showSavedMaps ? "▲ Hide" : "▼ Show"}</span>
+              </button>
+
+              {showSavedMaps && (
+                <div className="divide-y divide-gray-800 border-t border-gray-700">
+                  {savedMaps.map((map) => (
+                    <div key={map.id} className="flex items-center gap-2 px-4 py-2.5">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-white font-medium truncate">{map.name}</div>
+                        <div className="text-xs text-gray-500">
+                          {map.width}×{map.height} · {new Date(map.savedAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleLoadSavedMap(map)}
+                        className="shrink-0 px-2.5 py-1 bg-blue-700 hover:bg-blue-600 text-white text-xs rounded transition-colors"
+                      >
+                        Load
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSavedMap(map.id)}
+                        className="shrink-0 px-2 py-1 bg-gray-700 hover:bg-red-800 text-gray-400 hover:text-red-300 text-xs rounded transition-colors"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Start */}
@@ -389,32 +587,21 @@ function buildDefaultGameState(playerConfigs: PlayerConfig[], startingFunds: num
 
   // ── Terrain features ──────────────────────────────────────────────────
   const terrainPatches: Array<[number, number, string]> = [
-    // Forests — scattered clusters
     [2, 3, "forest"], [3, 3, "forest"], [4, 4, "forest"],
     [W - 3, H - 4, "forest"], [W - 4, H - 4, "forest"], [W - 5, H - 5, "forest"],
     [10, 3, "forest"], [11, 4, "forest"],
-
-    // Mountains — central range
     [8, 5, "mountain"], [9, 5, "mountain"], [8, 6, "mountain"],
     [W - 7, H - 6, "mountain"], [W - 8, H - 6, "mountain"],
-
-    // Roads — vertical road connecting both sides
     [6, 0, "road"], [6, 1, "road"], [6, 2, "road"], [6, 3, "road"],
     [6, 4, "road"], [6, 5, "road"], [6, 6, "road"], [6, 7, "road"],
-    // Horizontal road
     [7, 7, "road"], [8, 7, "road"], [9, 7, "road"], [10, 7, "road"],
     [11, 7, "road"], [12, 7, "road"], [13, 7, "road"],
-    // P2 side road
     [13, 8, "road"], [13, 9, "road"], [13, 10, "road"],
-
-    // ── Water features (right coast) ────────────────────────────────────
     ...(Array.from({ length: H }, (_, row) => [W - 1, row, "sea"] as [number, number, string])),
     ...(Array.from({ length: H }, (_, row) => [W - 2, row, "shoal"] as [number, number, string])),
     [W - 1, 9, "reef"],
     [W - 4, 3, "river"], [W - 3, 3, "river"], [W - 2, 3, "river"],
     [W - 4, 7, "bridge"],
-
-    // ── Water features (bottom edge) ────────────────────────────────────
     [0, H - 1, "sea"], [1, H - 1, "sea"], [2, H - 1, "sea"],
     [0, H - 2, "shoal"], [1, H - 2, "shoal"], [2, H - 2, "shoal"],
     [3, H - 1, "shoal"], [4, H - 1, "shoal"],
@@ -426,7 +613,6 @@ function buildDefaultGameState(playerConfigs: PlayerConfig[], startingFunds: num
     }
   }
 
-  // ── Player bases ────────────────────────────────────────────────────
   if (playerConfigs.length >= 1) {
     state = updateTile(state, 1, 1, { terrain_type: "hq", owner_id: 0 });
   }
@@ -444,15 +630,11 @@ function buildDefaultGameState(playerConfigs: PlayerConfig[], startingFunds: num
   state = updateTile(state, W - 2, 6, { terrain_type: "port", owner_id: 0 });
   state = updateTile(state, 2, H - 3, { terrain_type: "port", owner_id: 1 });
 
-  // ── Neutral properties ──────────────────────────────────────────────
   state = updateTile(state, 9, 2, { terrain_type: "city", owner_id: -1 });
   state = updateTile(state, 5, 9, { terrain_type: "city", owner_id: -1 });
   state = updateTile(state, 10, 10, { terrain_type: "factory", owner_id: -1 });
-
-  // ── FOB showcase ───────
   state = updateTile(state, 4, 5, { has_fob: true, fob_hp: 15 });
 
-  // Starting units
   const startingUnits: Array<{ unitType: string; ownerId: number; x: number; y: number }> = [
     { unitType: "infantry", ownerId: 0, x: 1, y: 3 },
     { unitType: "infantry", ownerId: 0, x: 2, y: 3 },

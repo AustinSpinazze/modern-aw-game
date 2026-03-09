@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef, Component, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import MatchSetup from "./components/MatchSetup";
 import GameCanvas from "./components/GameCanvas";
 import InfoPanel from "./components/InfoPanel";
@@ -70,6 +71,7 @@ function AppContent() {
   const [view, setView] = useState<AppView>("setup");
   const [buyMenuTile, setBuyMenuTile] = useState<{ x: number; y: number } | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1.0);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   const handleZoomIn = useCallback(() => {
     zoomIn();
@@ -227,10 +229,16 @@ function AppContent() {
     setBuyMenuTile(null);
   }, []);
 
-  const handleBackToSetup = useCallback(() => {
-    setView("setup");
-    setBuyMenuTile(null);
-    setBannerVisible(false);
+  const handleExitGame = useCallback(() => {
+    // flushSync unmounts all game components synchronously before we touch Zustand,
+    // preventing the "Cannot read properties of null (reading 'next')" crash that
+    // occurred when Pixi's display-list traversal read from a null game state.
+    flushSync(() => {
+      setView("setup");
+      setBuyMenuTile(null);
+      setBannerVisible(false);
+      setShowExitConfirm(false);
+    });
     const store = useGameStore.getState();
     store.resetSelection();
     store.setGameState(null as any);
@@ -259,10 +267,10 @@ function AppContent() {
         </div>
         <div className="p-3 border-t border-gray-700">
           <button
-            onClick={handleBackToSetup}
-            className="w-full bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm py-2 rounded transition-colors"
+            onClick={() => setShowExitConfirm(true)}
+            className="w-full bg-gray-700 hover:bg-red-900 hover:text-red-300 text-gray-300 text-sm py-2 rounded transition-colors"
           >
-            ← Back to Setup
+            Exit Game
           </button>
         </div>
       </aside>
@@ -320,6 +328,30 @@ function AppContent() {
           facilityY={buyMenuTile.y}
           onClose={handleCloseBuyMenu}
         />
+      )}
+
+      {/* Exit confirmation modal */}
+      {showExitConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-gray-600 rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4">
+            <h2 className="text-white font-bold text-lg mb-1">Exit Game?</h2>
+            <p className="text-gray-400 text-sm mb-5">All match progress will be lost.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleExitGame}
+                className="flex-1 bg-red-700 hover:bg-red-600 text-white font-bold py-2 rounded-lg transition-colors"
+              >
+                Exit
+              </button>
+              <button
+                onClick={() => setShowExitConfirm(false)}
+                className="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium py-2 rounded-lg transition-colors"
+              >
+                Keep Playing
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Turn transition banner */}
