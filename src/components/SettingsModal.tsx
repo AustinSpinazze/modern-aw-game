@@ -24,6 +24,7 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
   const [anthropicKey, setAnthropicKey] = useState(store.anthropicApiKey);
   const [openaiKey, setOpenaiKey] = useState(store.openaiApiKey);
   const [localHttpUrl, setLocalHttpUrl] = useState(store.localHttpUrl);
+  const [localModel, setLocalModel] = useState(store.ollamaModel);
   const [anthropicModel, setAnthropicModel] = useState(store.anthropicModel);
   const [openaiModel, setOpenaiModel] = useState(store.openaiModel);
 
@@ -43,6 +44,7 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
     store.setAnthropicApiKey(anthropicKey.trim());
     store.setOpenaiApiKey(openaiKey.trim());
     store.setLocalHttpUrl(localHttpUrl.trim());
+    store.setOllamaModel(localModel.trim());
     store.setAnthropicModel(anthropicModel);
     store.setOpenaiModel(openaiModel);
 
@@ -51,7 +53,7 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
       setSaved(false);
       onClose();
     }, 800);
-  }, [anthropicKey, openaiKey, localHttpUrl, anthropicModel, openaiModel, store, onClose]);
+  }, [anthropicKey, openaiKey, localHttpUrl, localModel, anthropicModel, openaiModel, store, onClose]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -174,17 +176,29 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
           {/* Local HTTP */}
           <section>
             <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wide mb-3">
-              Local AI (Ollama / LM Studio)
+              Local AI (Ollama / LM Studio / DeepSeek / Kimi / etc.)
             </h3>
-            <div>
-              <label className="text-xs text-gray-400 block mb-1">Server URL</label>
-              <input
-                type="url"
-                value={localHttpUrl}
-                onChange={(e) => setLocalHttpUrl(e.target.value)}
-                placeholder="http://localhost:11434"
-                className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white font-mono"
-              />
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Server URL</label>
+                <input
+                  type="url"
+                  value={localHttpUrl}
+                  onChange={(e) => setLocalHttpUrl(e.target.value)}
+                  placeholder="http://localhost:11434"
+                  className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white font-mono"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Model name</label>
+                <input
+                  type="text"
+                  value={localModel}
+                  onChange={(e) => setLocalModel(e.target.value)}
+                  placeholder="e.g. llama3.2, deepseek-r1:7b, kimi-k2"
+                  className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white font-mono"
+                />
+              </div>
             </div>
           </section>
         </div>

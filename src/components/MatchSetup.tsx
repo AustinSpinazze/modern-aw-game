@@ -439,6 +439,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                   <option value="heuristic">Heuristic AI</option>
                   <option value="anthropic">Claude (Anthropic)</option>
                   <option value="openai">GPT (OpenAI)</option>
+                  <option value="local_http">Local HTTP (Ollama / DeepSeek / etc.)</option>
                 </select>
               </div>
             ))}

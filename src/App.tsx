@@ -14,8 +14,9 @@ import { useConfigStore } from "./store/config-store";
 import { loadGameData } from "./game/data-loader";
 import type { GameState } from "./game/types";
 
-// AI turn runner
+// AI turn runners
 import { runHeuristicTurn } from "./ai/heuristic";
+import { runLLMTurn } from "./ai/llm-turn-runner";
 import {
   zoomIn,
   zoomOut,
@@ -122,6 +123,8 @@ function AppContent() {
   const prevPlayerIndexRef = useRef<number>(-1);
   const prevPhaseRef = useRef<string>("");
   const prevTurnNumberRef = useRef<number>(-1);
+  const llmTurnInProgressRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // ── Sync encrypted API keys from Electron on startup ───────────────────
   useEffect(() => {
@@ -189,8 +192,24 @@ function AppContent() {
         if (commands.length > 0) {
           queueCommands(commands);
         }
+      } else if (
+        (currentPlayer.controller_type === "anthropic" ||
+          currentPlayer.controller_type === "openai" ||
+          currentPlayer.controller_type === "local_http") &&
+        !llmTurnInProgressRef.current
+      ) {
+        llmTurnInProgressRef.current = true;
+        abortControllerRef.current = new AbortController();
+        try {
+          await runLLMTurn(
+            currentPlayer.controller_type,
+            currentPlayer.id,
+            abortControllerRef.current.signal
+          );
+        } finally {
+          llmTurnInProgressRef.current = false;
+        }
       }
-      // TODO: Add LLM AI providers (anthropic, openai) when integrated
     }, 500);
 
     return () => clearTimeout(timer);
@@ -298,6 +317,10 @@ function AppContent() {
   }, []);
 
   const handleExitGame = useCallback(() => {
+    // Abort any in-progress LLM turn
+    abortControllerRef.current?.abort();
+    llmTurnInProgressRef.current = false;
+
     // flushSync unmounts all game components synchronously before we touch Zustand,
     // preventing the "Cannot read properties of null (reading 'next')" crash that
     // occurred when Pixi's display-list traversal read from a null game state.

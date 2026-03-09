@@ -11,12 +11,14 @@ interface ConfigState {
   localHttpUrl: string;
   anthropicModel: string;
   openaiModel: string;
+  ollamaModel: string;
 
   setAnthropicApiKey: (key: string) => void;
   setOpenaiApiKey: (key: string) => void;
   setLocalHttpUrl: (url: string) => void;
   setAnthropicModel: (model: string) => void;
   setOpenaiModel: (model: string) => void;
+  setOllamaModel: (model: string) => void;
 
   // Load encrypted keys from Electron's safeStorage (call once on startup)
   syncFromElectron: () => Promise<void>;
@@ -30,6 +32,7 @@ export const useConfigStore = create<ConfigState>()(
       localHttpUrl: "http://localhost:11434",
       anthropicModel: "claude-sonnet-4-6",
       openaiModel: "gpt-4o",
+      ollamaModel: "llama3.2",
 
       setAnthropicApiKey: (key) => {
         set({ anthropicApiKey: key });
@@ -45,6 +48,7 @@ export const useConfigStore = create<ConfigState>()(
       setLocalHttpUrl: (url) => set({ localHttpUrl: url }),
       setAnthropicModel: (model) => set({ anthropicModel: model }),
       setOpenaiModel: (model) => set({ openaiModel: model }),
+      setOllamaModel: (model) => set({ ollamaModel: model }),
 
       syncFromElectron: async () => {
         if (!window.electronAPI) return;
@@ -65,6 +69,7 @@ export const useConfigStore = create<ConfigState>()(
         localHttpUrl: state.localHttpUrl,
         anthropicModel: state.anthropicModel,
         openaiModel: state.openaiModel,
+        ollamaModel: state.ollamaModel,
       }),
     }
   )

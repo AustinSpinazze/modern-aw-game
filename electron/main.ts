@@ -226,14 +226,93 @@ ipcMain.handle("apikey:load", (_event, name: string): string => {
   }
 });
 
-// AI request handler (will be expanded in Phase 5)
+// AI request handler — calls Anthropic or OpenAI REST APIs using stored encrypted keys
 ipcMain.handle(
   "ai:run",
-  async (_event, provider: string, state: unknown, apiKey?: string): Promise<unknown[]> => {
-    // For now, just return empty array
-    // Will be implemented in Phase 5
-    console.log(`AI request: provider=${provider}, hasKey=${!!apiKey}`);
-    return [];
+  async (
+    _event,
+    provider: string,
+    messages: Array<{ role: string; content: string }>,
+    options?: { model?: string }
+  ): Promise<{ text: string } | { error: string }> => {
+    try {
+      // Load the API key from encrypted storage
+      const config = loadConfig();
+      const storageKey = `apikey_${provider}`;
+      let apiKey = config[storageKey] as string | undefined;
+      if (apiKey && safeStorage.isEncryptionAvailable()) {
+        try {
+          apiKey = safeStorage.decryptString(Buffer.from(apiKey, "base64"));
+        } catch {
+          // stored as plain text fallback
+        }
+      }
+
+      if (!apiKey) {
+        return { error: `No API key configured for provider: ${provider}` };
+      }
+
+      if (provider === "anthropic") {
+        const model = options?.model ?? "claude-sonnet-4-6";
+        // Separate system message from conversation messages
+        const systemMsg = messages.find((m) => m.role === "system");
+        const nonSystemMsgs = messages.filter((m) => m.role !== "system");
+
+        const body: Record<string, unknown> = {
+          model,
+          max_tokens: 1024,
+          messages: nonSystemMsgs,
+        };
+        if (systemMsg) body.system = systemMsg.content;
+
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          return { error: `Anthropic API error ${response.status}: ${errText}` };
+        }
+
+        const data = (await response.json()) as {
+          content: Array<{ type: string; text: string }>;
+        };
+        const text = data?.content?.find((c) => c.type === "text")?.text ?? "";
+        return { text };
+      } else if (provider === "openai") {
+        const model = options?.model ?? "gpt-4o";
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ model, messages, max_tokens: 1024 }),
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          return { error: `OpenAI API error ${response.status}: ${errText}` };
+        }
+
+        const data = (await response.json()) as {
+          choices: Array<{ message: { content: string } }>;
+        };
+        const text = data?.choices?.[0]?.message?.content ?? "";
+        return { text };
+      } else {
+        return { error: `Unknown AI provider: ${provider}` };
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { error: `AI request failed: ${msg}` };
+    }
   }
 );
 

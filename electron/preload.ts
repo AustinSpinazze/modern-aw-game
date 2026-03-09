@@ -30,8 +30,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
   deleteSave: (name: string) => ipcRenderer.invoke("delete:save", name),
 
   // AI provider calls
-  runAI: (provider: string, state: unknown, apiKey?: string) =>
-    ipcRenderer.invoke("ai:run", provider, state, apiKey),
+  runAI: (
+    provider: string,
+    messages: Array<{ role: string; content: string }>,
+    options?: { model?: string }
+  ) => ipcRenderer.invoke("ai:run", provider, messages, options),
 });
 
 // TypeScript declarations for the exposed API
@@ -48,7 +51,11 @@ declare global {
       loadGame: (name: string) => Promise<unknown>;
       listSaves: () => Promise<SaveMetadata[]>;
       deleteSave: (name: string) => Promise<boolean>;
-      runAI: (provider: string, state: unknown, apiKey?: string) => Promise<unknown[]>;
+      runAI: (
+        provider: string,
+        messages: Array<{ role: string; content: string }>,
+        options?: { model?: string }
+      ) => Promise<{ text: string } | { error: string }>;
     };
   }
 }
