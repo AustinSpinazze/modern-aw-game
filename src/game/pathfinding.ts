@@ -135,8 +135,13 @@ export function isDestinationReachable(
   return findPath(state, unit, destX, destY).length > 0;
 }
 
-// BFS flood-fill to get all reachable tile positions (not including start)
-export function getReachableTiles(state: GameState, unit: UnitState): Vec2[] {
+// BFS flood-fill to get all reachable tile positions (not including start).
+// Optional visibility map: when provided, tiles not visible are excluded.
+export function getReachableTiles(
+  state: GameState,
+  unit: UnitState,
+  visibility?: boolean[][]
+): Vec2[] {
   const unitData = getUnitData(unit.unit_type);
   if (!unitData) return [];
   const moveType = unitData.move_type;
@@ -183,6 +188,9 @@ export function getReachableTiles(state: GameState, unit: UnitState): Vec2[] {
         if (moveType !== "air" && blockData?.domain !== "air") continue;
       }
 
+      // Fog: skip tiles not visible to the moving unit's player
+      if (visibility && !visibility[ny][nx]) continue;
+
       const nkey = `${nx},${ny}`;
       const nPrev = visited.get(nkey);
       if (nPrev === undefined || nPrev > newCost) {
@@ -194,13 +202,15 @@ export function getReachableTiles(state: GameState, unit: UnitState): Vec2[] {
   return reachable;
 }
 
-// All tiles within weapon attack range from a given position
+// All tiles within weapon attack range from a given position.
+// Optional visibility map: when provided, only visible tiles are returned.
 export function getAttackableTiles(
   state: GameState,
   unit: UnitState,
   fromX: number,
   fromY: number,
-  weaponIndex = 0
+  weaponIndex = 0,
+  visibility?: boolean[][]
 ): Vec2[] {
   const unitData = getUnitData(unit.unit_type);
   if (!unitData || weaponIndex >= unitData.weapons.length) return [];
@@ -217,7 +227,9 @@ export function getAttackableTiles(
         const tx = fromX + dx;
         const ty = fromY + dy;
         if (tx >= 0 && tx < state.map_width && ty >= 0 && ty < state.map_height) {
-          result.push({ x: tx, y: ty });
+          if (!visibility || visibility[ty][tx]) {
+            result.push({ x: tx, y: ty });
+          }
         }
       }
     }

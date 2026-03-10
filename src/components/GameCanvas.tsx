@@ -13,6 +13,7 @@ import { UnitRenderer } from "../rendering/unit-renderer";
 import { HighlightRenderer } from "../rendering/highlight-renderer";
 import { MovementAnimator } from "../rendering/movement-animator";
 import { CombatAnimator } from "../rendering/combat-animator";
+import { FogRenderer } from "../rendering/fog-renderer";
 import { InputHandler } from "../rendering/input-handler";
 import { useGameStore } from "../store/game-store";
 import type { Vec2 } from "../game/types";
@@ -36,6 +37,7 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
   const cursorOverlayRef = useRef<HighlightRenderer | null>(null); // For targeting cursor (always on top)
   const movementAnimatorRef = useRef<MovementAnimator | null>(null); // For unit movement
   const combatAnimatorRef = useRef<CombatAnimator | null>(null); // For combat flash/destruction
+  const fogRendererRef = useRef<FogRenderer | null>(null); // Fog-of-war tile overlay
   const inputHandlerRef = useRef<InputHandler | null>(null);
   const onFacilityClickRef = useRef(onFacilityClick);
   onFacilityClickRef.current = onFacilityClick;
@@ -45,6 +47,7 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
 
   const {
     gameState,
+    visibilityMap,
     selectedUnit,
     reachableTiles,
     attackableTiles,
@@ -86,13 +89,19 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
       const cursorOverlay = new HighlightRenderer(); // For targeting cursor
       const movementAnimator = new MovementAnimator();
       const combatAnimator = new CombatAnimator();
+      const fogRenderer = new FogRenderer();
 
-      // Render order: terrain -> highlights -> units -> capture overlay -> movement anim -> combat effects -> path overlay -> cursor (on top)
+      // Render order:
+      //   terrain → highlights (reachable/attack tiles) → units → fog → capture overlay
+      //   → movement anim → combat effects → path overlay → cursor (on top)
+      // Fog sits above units so enemy units on fogged tiles are hidden.
+      // Highlights and cursor are above fog so the player can still interact.
       app.stage.addChild(terrain.getContainer());
       app.stage.addChild(highlights.getContainer());
       app.stage.addChild(units.getContainer());
-      app.stage.addChild(terrain.getCaptureOverlay()); // Capture indicators above units
-      app.stage.addChild(movementAnimator.getContainer()); // Moving unit on top of static units
+      app.stage.addChild(fogRenderer.getContainer()); // Fog above units, below overlays
+      app.stage.addChild(terrain.getCaptureOverlay()); // Capture indicators above fog
+      app.stage.addChild(movementAnimator.getContainer()); // Moving unit on top
       app.stage.addChild(combatAnimator.getContainer()); // Combat flash/destruction effects
       app.stage.addChild(pathOverlay.getContainer());
       app.stage.addChild(cursorOverlay.getContainer()); // Cursor always on very top
@@ -104,6 +113,7 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
       cursorOverlayRef.current = cursorOverlay;
       movementAnimatorRef.current = movementAnimator;
       combatAnimatorRef.current = combatAnimator;
+      fogRendererRef.current = fogRenderer;
 
       // Wire input
       const handleTileClick = (pos: Vec2) => {
@@ -432,38 +442,65 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
 
     const { command, unitType, ownerId, path } = queued;
 
-    // MOVE command with a path — play movement animation
+    // Helper: is a tile visible to the human player right now?
+    const vis = useGameStore.getState().visibilityMap;
+    const isTileVisible = (x: number, y: number) => !vis || vis[y]?.[x] === true;
+
+    // MOVE command with a path — play movement animation only if visible
     if (command.type === "MOVE" && path && path.length > 1 && unitType && ownerId !== undefined) {
-      setQueueAnimatingUnitId(command.unit_id);
-      mAnimator.animate(unitType, ownerId, path, () => {
+      // Check if any tile along the path is visible to the human player.
+      // If the entire path is in fog, skip the animation (AWBW behaviour: you
+      // never see enemy units move while they are hidden).
+      const pathVisible = path.some((t) => isTileVisible(t.x, t.y));
+
+      if (pathVisible) {
+        setQueueAnimatingUnitId(command.unit_id);
+        mAnimator.animate(unitType, ownerId, path, () => {
+          submitCommand(command);
+          setQueueAnimatingUnitId(undefined);
+          onQueuedAnimationComplete();
+          setQueueTrigger((t) => t + 1);
+        });
+      } else {
+        // Entirely in fog — apply instantly, no animation
         submitCommand(command);
-        setQueueAnimatingUnitId(undefined);
         onQueuedAnimationComplete();
         setQueueTrigger((t) => t + 1);
-      });
+      }
     } else if (command.type === "ATTACK") {
-      // ATTACK command — play combat animation before applying state change
+      // ATTACK command — play combat animation only if either combatant is visible
       const curState = useGameStore.getState().gameState;
       const cAnim = combatAnimatorRef.current;
       if (curState && cAnim) {
         const attacker = getUnit(curState, command.attacker_id);
         const defender = getUnit(curState, command.target_id);
         if (attacker && defender) {
+          const attackVisible =
+            isTileVisible(attacker.x, attacker.y) || isTileVisible(defender.x, defender.y);
           const postState = applyCommand(curState, command);
           const attackerDestroyed = !getUnit(postState, command.attacker_id);
           const defenderDestroyed = !getUnit(postState, command.target_id);
-          cAnim.animate({
-            attackerPos: { x: attacker.x, y: attacker.y },
-            defenderPos: { x: defender.x, y: defender.y },
-            attackerDestroyed,
-            defenderDestroyed,
-            onComplete: () => {
-              submitCommand(command);
-              onQueuedAnimationComplete();
-              setQueueTrigger((t) => t + 1);
-            },
-          });
-          return;
+
+          if (attackVisible) {
+            cAnim.animate({
+              attackerPos: { x: attacker.x, y: attacker.y },
+              defenderPos: { x: defender.x, y: defender.y },
+              attackerDestroyed,
+              defenderDestroyed,
+              onComplete: () => {
+                submitCommand(command);
+                onQueuedAnimationComplete();
+                setQueueTrigger((t) => t + 1);
+              },
+            });
+            return;
+          } else {
+            // Both combatants in fog — apply instantly
+            submitCommand(command);
+            onQueuedAnimationComplete();
+            setQueueTrigger((t) => t + 1);
+            return;
+          }
         }
       }
       // Fallback: no animation available
@@ -499,12 +536,15 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     if (!getApp()) return;
 
     inputHandlerRef.current?.setMapSize(gameState.map_width, gameState.map_height);
-    terrainRendererRef.current?.render(gameState);
+    terrainRendererRef.current?.render(gameState, visibilityMap);
     // Pass the animating unit ID so we can hide it during movement animation
     // Could be player's unit (selectedUnit) or AI's unit (queueAnimatingUnitId)
     const animatingUnitId =
       queueAnimatingUnitId ?? (isAnimating && selectedUnit ? selectedUnit.id : undefined);
-    unitRendererRef.current?.render(gameState, animatingUnitId);
+    unitRendererRef.current?.render(gameState, animatingUnitId, visibilityMap);
+
+    // Fog of war overlay — drawn above units so fogged units are hidden
+    fogRendererRef.current?.render(gameState.map_width, gameState.map_height, visibilityMap);
 
     const highlights = highlightRendererRef.current;
     const pathOverlay = pathOverlayRef.current;
@@ -540,6 +580,7 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
   }, [
     pixiReady,
     gameState,
+    visibilityMap,
     selectedUnit,
     reachableTiles,
     attackableTiles,

@@ -26,6 +26,7 @@ interface MatchConfig {
   incomeMultiplier: number;
   luck: "off" | "normal" | "high";
   maxTurns: number;
+  fogOfWar: boolean;
 }
 
 interface SavedMap {
@@ -63,6 +64,7 @@ const DEFAULT_CONFIG: MatchConfig = {
   incomeMultiplier: 1,
   luck: "normal",
   maxTurns: -1,
+  fogOfWar: false,
 };
 
 const LUCK_SETTINGS: Record<MatchConfig["luck"], { min: number; max: number }> = {
@@ -231,6 +233,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
       luck_max: luck.max,
       income_multiplier: config.incomeMultiplier,
       max_turns: config.maxTurns,
+      fog_of_war: config.fogOfWar,
     };
   };
 
@@ -564,6 +567,31 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                   </div>
                 </div>
 
+                {/* Fog of War */}
+                <div>
+                  <label className="text-xs text-gray-400 uppercase tracking-wide block mb-2">
+                    Fog of War
+                  </label>
+                  <div className="flex gap-2">
+                    {[
+                      { label: "Off", value: false },
+                      { label: "On", value: true },
+                    ].map(({ label, value }) => (
+                      <button
+                        key={String(value)}
+                        onClick={() => updateConfig({ fogOfWar: value })}
+                        className={`px-3 py-1.5 rounded text-sm transition-colors ${
+                          config.fogOfWar === value
+                            ? "bg-slate-700 text-slate-200 border border-slate-500"
+                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Config summary */}
                 <div className="bg-gray-800 rounded p-3 text-xs text-gray-400 flex flex-wrap gap-x-4 gap-y-1">
                   <span>
@@ -583,6 +611,9 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                     <span className="text-orange-300">
                       {config.maxTurns < 0 ? "∞" : config.maxTurns}
                     </span>
+                  </span>
+                  <span>
+                    Fog: <span className="text-slate-300">{config.fogOfWar ? "On" : "Off"}</span>
                   </span>
                 </div>
               </div>

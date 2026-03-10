@@ -56,6 +56,7 @@ export interface GameState {
   // Match configuration
   income_multiplier: number; // multiply each property's income by this (default 1)
   max_turns: number; // -1 = unlimited; game ends in a draw when turn_number > max_turns
+  fog_of_war: boolean; // when true, each player only sees tiles in their units' vision range
 }
 
 // Command types as discriminated union
@@ -229,6 +230,7 @@ export interface UnitData {
   domain: string;
   tags: string[];
   can_capture: boolean;
+  vision: number;
   weapons: WeaponData[];
   special_actions: string[];
   transport?: TransportData;

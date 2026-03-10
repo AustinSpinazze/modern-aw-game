@@ -54,7 +54,7 @@ export class UnitRenderer {
     return this.container;
   }
 
-  render(state: GameState, animatingUnitId?: number): void {
+  render(state: GameState, animatingUnitId?: number, visibility?: boolean[][] | null): void {
     this.container.removeChildren();
 
     // Track current player to only darken their units that have acted
@@ -66,6 +66,9 @@ export class UnitRenderer {
 
       // Skip the unit being animated (it's rendered by MovementAnimator)
       if (unit.id === animatingUnitId) continue;
+
+      // Fog of war: hide units on non-visible tiles (own units always shown via vision)
+      if (visibility && !visibility[unit.y][unit.x]) continue;
 
       // Always draw unit at its current position
       // Unit only moves after action is confirmed

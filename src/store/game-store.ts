@@ -12,6 +12,21 @@ import {
 import { validateCommand } from "../game/validators";
 import { applyCommand } from "../game/apply-command";
 import { getReachableTiles, getAttackableTiles, findPath } from "../game/pathfinding";
+import { computeVisibility } from "../game/visibility";
+
+/** Returns the player ID whose fog should be shown on screen.
+ *  When it's a human's turn → that human's fog.
+ *  When it's an AI's turn   → the first human player's fog (so the watcher
+ *  can't see the AI's hidden movements). Falls back to current player if no
+ *  human is found (shouldn't happen in normal matches). */
+function getViewingPlayerId(state: GameState): number {
+  const current = state.players[state.current_player_index];
+  if (!current) return 0;
+  if (current.controller_type === "human") return current.id;
+  // AI's turn — keep rendering from the human player's perspective
+  const humanPlayer = state.players.find((p) => p.controller_type === "human");
+  return humanPlayer?.id ?? current.id;
+}
 
 // For external command animations (AI/enemy)
 export interface QueuedCommand {
@@ -24,6 +39,7 @@ export interface QueuedCommand {
 interface GameStore {
   // State
   gameState: GameState | null;
+  visibilityMap: boolean[][] | null; // null = fog off or no game state; true[][] = fog on
   selectedUnit: UnitState | null;
   reachableTiles: Vec2[];
   attackableTiles: Vec2[];
@@ -41,6 +57,7 @@ interface GameStore {
 
   // Actions
   setGameState: (state: GameState) => void;
+  recomputeVisibility: () => void;
   selectUnit: (unit: UnitState | null) => void;
   setHoveredTile: (pos: Vec2 | null) => void;
   setPendingMove: (dest: Vec2 | null) => void;
@@ -63,6 +80,7 @@ interface GameStore {
 
 export const useGameStore = create<GameStore>((set, get) => ({
   gameState: null,
+  visibilityMap: null,
   selectedUnit: null,
   reachableTiles: [],
   attackableTiles: [],
@@ -76,7 +94,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
   commandQueue: [],
   processingQueue: false,
 
-  setGameState: (state) => set({ gameState: state }),
+  recomputeVisibility: () => {
+    const { gameState } = get();
+    if (!gameState || !gameState.fog_of_war) {
+      set({ visibilityMap: null });
+      return;
+    }
+    set({ visibilityMap: computeVisibility(gameState, getViewingPlayerId(gameState)) });
+  },
+
+  setGameState: (state) => {
+    // Single atomic set — prevents a stale visibilityMap from the previous game
+    // triggering a mid-render with incorrect fog before the new map is computed.
+    const visibilityMap = state.fog_of_war
+      ? computeVisibility(state, getViewingPlayerId(state))
+      : null;
+    set({ gameState: state, visibilityMap });
+  },
 
   selectUnit: (unit) => {
     const { gameState } = get();
@@ -92,7 +126,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
 
-    const reachable = unit.has_moved ? [] : getReachableTiles(gameState, unit);
+    const { visibilityMap } = get();
+    const reachable = unit.has_moved
+      ? []
+      : getReachableTiles(gameState, unit, visibilityMap ?? undefined);
     // Don't show attack squares initially - only show after clicking a destination
     // (or if unit has already moved and can't move further)
     const attackable: Vec2[] = [];
@@ -142,7 +179,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const path = findPath(gameState, selectedUnit, dest.x, dest.y);
 
     // Compute attackable tiles from the pending destination
-    const allAttackable = getAttackableTiles(gameState, selectedUnit, dest.x, dest.y, 0);
+    const { visibilityMap } = get();
+    const allAttackable = getAttackableTiles(
+      gameState,
+      selectedUnit,
+      dest.x,
+      dest.y,
+      0,
+      visibilityMap ?? undefined
+    );
 
     // Only keep tiles that have an enemy unit on them
     const currentPlayer = gameState.players[gameState.current_player_index];
@@ -220,9 +265,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     state = applyCommand(state, actionCmd);
 
+    // Compute visibility for the new state before committing
+    const newVisibility = state.fog_of_war
+      ? computeVisibility(state, getViewingPlayerId(state))
+      : null;
+
     // Clear everything after confirmed action
     set({
       gameState: state,
+      visibilityMap: newVisibility,
       selectedUnit: null,
       reachableTiles: [],
       attackableTiles: [],
@@ -244,7 +295,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!result.valid) return { success: false, error: result.error };
 
     const newState = applyCommand(gameState, cmd);
-    set({ gameState: newState });
+    // Use setGameState so visibility is recomputed automatically
+    get().setGameState(newState);
 
     // Clear selection after action-finalizing commands
     const clearTypes = [
@@ -292,7 +344,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
     // Restore reachable tiles when canceling, but don't show attack squares
-    const reachable = selectedUnit.has_moved ? [] : getReachableTiles(gameState, selectedUnit);
+    const { visibilityMap } = get();
+    const reachable = selectedUnit.has_moved
+      ? []
+      : getReachableTiles(gameState, selectedUnit, visibilityMap ?? undefined);
     set({
       pendingMove: null,
       pendingPath: [],
@@ -347,9 +402,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     return next;
   },
 
-  applyPostMoveState: (newState) =>
+  applyPostMoveState: (newState) => {
+    const visibilityMap = newState.fog_of_war
+      ? computeVisibility(newState, getViewingPlayerId(newState))
+      : null;
     set({
       gameState: newState,
+      visibilityMap,
       isAnimating: false,
       pendingAction: null,
       selectedUnit: null,
@@ -359,7 +418,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       pendingPath: [],
       animationPath: [],
       hoverPath: [],
-    }),
+    });
+  },
 
   // Called when a queued animation completes - applies the command and continues
   onQueuedAnimationComplete: () => {

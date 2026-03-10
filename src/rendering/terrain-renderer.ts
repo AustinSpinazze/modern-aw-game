@@ -116,7 +116,7 @@ export class TerrainRenderer {
     return this.captureOverlay;
   }
 
-  render(state: GameState): void {
+  render(state: GameState, visibility?: boolean[][] | null): void {
     this.container.removeChildren();
     this.captureOverlay.removeChildren();
 
@@ -130,9 +130,12 @@ export class TerrainRenderer {
       }
     }
 
-    // Second pass: draw capture indicators (on separate overlay, above units)
+    // Second pass: draw capture indicators (on separate overlay, above units).
+    // Skip tiles not visible to the current player — the capture icon would
+    // reveal that an enemy unit is there even through fog.
     for (let y = 0; y < state.map_height; y++) {
       for (let x = 0; x < state.map_width; x++) {
+        if (visibility && !visibility[y][x]) continue; // fogged — hide indicator
         const tile = getTile(state, x, y)!;
         if (isBuilding(tile.terrain_type) && tile.capture_points < MAX_CAPTURE_POINTS) {
           const px = x * DISPLAY;

@@ -65,6 +65,7 @@ export function createGameState(partial?: Partial<GameState>): GameState {
     luck_max: 0.1,
     income_multiplier: 1,
     max_turns: -1,
+    fog_of_war: false,
     ...partial,
   };
 }
@@ -240,5 +241,6 @@ export function stateFromDict(data: unknown): GameState | null {
   // Default new fields for backwards-compatible deserialization
   if (typeof s.income_multiplier !== "number") s.income_multiplier = 1;
   if (typeof s.max_turns !== "number") s.max_turns = -1;
+  if (typeof s.fog_of_war !== "boolean") s.fog_of_war = false;
   return data as GameState;
 }
