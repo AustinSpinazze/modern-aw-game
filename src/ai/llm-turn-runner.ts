@@ -95,9 +95,26 @@ async function callOpenAIViaIPC(messages: ChatMessage[], model: string): Promise
   return result.text;
 }
 
+function isAllowedLocalUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return (
+      (parsed.protocol === "http:" || parsed.protocol === "https:") &&
+      (parsed.hostname === "localhost" ||
+        parsed.hostname === "127.0.0.1" ||
+        parsed.hostname === "::1")
+    );
+  } catch {
+    return false;
+  }
+}
+
 // Call Ollama (OpenAI-compatible) directly from renderer
 async function callOllama(messages: ChatMessage[], model: string): Promise<string> {
   const ollamaUrl = useConfigStore.getState().localHttpUrl;
+  if (!isAllowedLocalUrl(ollamaUrl)) {
+    throw new Error(`Blocked request to disallowed URL: ${ollamaUrl}`);
+  }
   const response = await fetch(`${ollamaUrl}/v1/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

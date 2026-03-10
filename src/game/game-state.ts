@@ -238,9 +238,11 @@ export function stateFromDict(data: unknown): GameState | null {
   if (typeof s.luck_min !== "number" || typeof s.luck_max !== "number") return null;
   if (typeof s.match_seed !== "number") return null;
   if (!Array.isArray(s.command_log)) return null;
-  // Default new fields for backwards-compatible deserialization
-  if (typeof s.income_multiplier !== "number") s.income_multiplier = 1;
-  if (typeof s.max_turns !== "number") s.max_turns = -1;
-  if (typeof s.fog_of_war !== "boolean") s.fog_of_war = false;
-  return data as GameState;
+  // Default new fields for backwards-compatible deserialization (non-mutating)
+  return {
+    ...data,
+    income_multiplier: typeof s.income_multiplier === "number" ? s.income_multiplier : 1,
+    max_turns: typeof s.max_turns === "number" ? s.max_turns : -1,
+    fog_of_war: typeof s.fog_of_war === "boolean" ? s.fog_of_war : false,
+  } as GameState;
 }

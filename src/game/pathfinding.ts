@@ -44,6 +44,53 @@ function reconstructPath(goal: PathNode): Vec2[] {
   return path;
 }
 
+// Minimal binary min-heap for A* open set (keyed by f score)
+class MinHeap {
+  private heap: PathNode[] = [];
+
+  push(node: PathNode): void {
+    this.heap.push(node);
+    this._bubbleUp(this.heap.length - 1);
+  }
+
+  pop(): PathNode | undefined {
+    if (this.heap.length === 0) return undefined;
+    const top = this.heap[0];
+    const last = this.heap.pop()!;
+    if (this.heap.length > 0) {
+      this.heap[0] = last;
+      this._sinkDown(0);
+    }
+    return top;
+  }
+
+  get size(): number {
+    return this.heap.length;
+  }
+
+  private _bubbleUp(i: number): void {
+    while (i > 0) {
+      const parent = (i - 1) >> 1;
+      if (this.heap[parent].f <= this.heap[i].f) break;
+      [this.heap[parent], this.heap[i]] = [this.heap[i], this.heap[parent]];
+      i = parent;
+    }
+  }
+
+  private _sinkDown(i: number): void {
+    const n = this.heap.length;
+    while (true) {
+      let smallest = i;
+      const l = 2 * i + 1, r = 2 * i + 2;
+      if (l < n && this.heap[l].f < this.heap[smallest].f) smallest = l;
+      if (r < n && this.heap[r].f < this.heap[smallest].f) smallest = r;
+      if (smallest === i) break;
+      [this.heap[smallest], this.heap[i]] = [this.heap[i], this.heap[smallest]];
+      i = smallest;
+    }
+  }
+}
+
 // Find path from unit position to (destX, destY). Returns [] if unreachable.
 export function findPath(state: GameState, unit: UnitState, destX: number, destY: number): Vec2[] {
   const unitData = getUnitData(unit.unit_type);
@@ -51,27 +98,38 @@ export function findPath(state: GameState, unit: UnitState, destX: number, destY
   const moveType = unitData.move_type;
   const movePoints = unitData.move_points;
 
-  const start: PathNode = { x: unit.x, y: unit.y, g: 0, h: 0, f: 0, parent: null };
-  start.h = heuristic(start.x, start.y, destX, destY);
-  start.f = start.h;
+  const start: PathNode = {
+    x: unit.x,
+    y: unit.y,
+    g: 0,
+    h: heuristic(unit.x, unit.y, destX, destY),
+    f: heuristic(unit.x, unit.y, destX, destY),
+    parent: null,
+  };
 
-  const openSet: PathNode[] = [start];
+  const open = new MinHeap();
+  open.push(start);
+
+  // Best g cost seen for each coordinate
+  const gScore = new Map<string, number>();
+  gScore.set(`${unit.x},${unit.y}`, 0);
+
+  // Best PathNode per coordinate (to reconstruct path)
+  const bestNode = new Map<string, PathNode>();
+  bestNode.set(`${unit.x},${unit.y}`, start);
+
   const closedSet = new Set<string>();
 
-  while (openSet.length > 0) {
-    // Find lowest f
-    let bestIdx = 0;
-    for (let i = 1; i < openSet.length; i++) {
-      if (openSet[i].f < openSet[bestIdx].f) bestIdx = i;
-    }
-    const current = openSet[bestIdx];
+  while (open.size > 0) {
+    const current = open.pop()!;
+    const currentKey = `${current.x},${current.y}`;
+
+    if (closedSet.has(currentKey)) continue; // stale entry
+    closedSet.add(currentKey);
 
     if (current.x === destX && current.y === destY) {
       return reconstructPath(current);
     }
-
-    openSet.splice(bestIdx, 1);
-    closedSet.add(`${current.x},${current.y}`);
 
     const neighbors: Vec2[] = [
       { x: current.x - 1, y: current.y },
@@ -82,7 +140,8 @@ export function findPath(state: GameState, unit: UnitState, destX: number, destY
 
     for (const n of neighbors) {
       if (n.x < 0 || n.x >= state.map_width || n.y < 0 || n.y >= state.map_height) continue;
-      if (closedSet.has(`${n.x},${n.y}`)) continue;
+      const nKey = `${n.x},${n.y}`;
+      if (closedSet.has(nKey)) continue;
 
       const tile = getTile(state, n.x, n.y);
       if (!tile) continue;
@@ -94,32 +153,20 @@ export function findPath(state: GameState, unit: UnitState, destX: number, destY
       const newG = current.g + moveCost;
       if (newG > movePoints) continue;
 
-      // Enemy blocking check
       const blockingUnit = getUnitAt(state, n.x, n.y);
       if (blockingUnit && blockingUnit.owner_id !== unit.owner_id) {
         const blockData = getUnitData(blockingUnit.unit_type);
         if (moveType !== "air" && blockData?.domain !== "air") continue;
       }
 
-      const existing = openSet.find((o) => o.x === n.x && o.y === n.y);
-      if (existing) {
-        if (newG < existing.g) {
-          existing.g = newG;
-          existing.f = newG + existing.h;
-          existing.parent = current;
-        }
-      } else {
-        const neighbor: PathNode = {
-          x: n.x,
-          y: n.y,
-          g: newG,
-          h: heuristic(n.x, n.y, destX, destY),
-          f: 0,
-          parent: current,
-        };
-        neighbor.f = neighbor.g + neighbor.h;
-        openSet.push(neighbor);
-      }
+      const prevG = gScore.get(nKey);
+      if (prevG !== undefined && prevG <= newG) continue;
+
+      gScore.set(nKey, newG);
+      const h = heuristic(n.x, n.y, destX, destY);
+      const neighbor: PathNode = { x: n.x, y: n.y, g: newG, h, f: newG + h, parent: current };
+      bestNode.set(nKey, neighbor);
+      open.push(neighbor);
     }
   }
 

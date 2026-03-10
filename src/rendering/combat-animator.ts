@@ -195,6 +195,9 @@ export class CombatAnimator {
   }
 
   cancel(): void {
+    for (const child of this.container.children) {
+      child.destroy();
+    }
     this.container.removeChildren();
     this.fireG = null;
     this.hitG = null;

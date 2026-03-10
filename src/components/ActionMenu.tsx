@@ -6,7 +6,7 @@ import { getTerrainData, getUnitData } from "../game/data-loader";
 import { getTile, getUnitAt } from "../game/game-state";
 import { getAttackableTiles } from "../game/pathfinding";
 import { canAttack, calculateDamage } from "../game/combat";
-import { TILE_SIZE, TILE_SCALE } from "../rendering/pixi-app";
+import { TILE_SIZE, TILE_SCALE, getStageTransform } from "../rendering/pixi-app";
 
 const DISPLAY = TILE_SIZE * TILE_SCALE;
 
@@ -137,24 +137,22 @@ export default function ActionMenu() {
     });
   };
 
-  // Position near the pending move tile.
-  // We need stage info — read from the pixi app's stage via a ref stored in window (or just use a reasonable heuristic).
-  // The sidebar is 224px wide. Each tile is DISPLAY=48px. Stage may be scaled by fitMapToStage.
-  // For simplicity, position just to the right of the tile, or left if near right edge.
-  const SIDEBAR_W = 224;
-  const tileScreenX = SIDEBAR_W + pendingMove.x * DISPLAY;
-  const tileScreenY = pendingMove.y * DISPLAY;
+  // Position near the pending move tile, accounting for stage pan/zoom.
+  const { x: stageX, y: stageY, scale } = getStageTransform();
+  const tileScreenX = stageX + pendingMove.x * DISPLAY * scale;
+  const tileScreenY = stageY + pendingMove.y * DISPLAY * scale;
+  const tileDisplaySize = DISPLAY * scale;
   const menuW = 180;
   const menuH = 200; // approximate
 
   // Prefer right of tile; flip left if near right edge
   const viewportW = window.innerWidth;
-  let left = tileScreenX + DISPLAY + 4;
+  let left = tileScreenX + tileDisplaySize + 4;
   if (left + menuW > viewportW - 8) {
     left = tileScreenX - menuW - 4;
   }
 
-  // Prefer below tile top; shift up if near bottom
+  // Prefer at tile top; shift up if near bottom
   const viewportH = window.innerHeight;
   let top = tileScreenY;
   if (top + menuH > viewportH - 8) {

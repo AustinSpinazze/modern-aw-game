@@ -55,6 +55,10 @@ export class UnitRenderer {
   }
 
   render(state: GameState, animatingUnitId?: number, visibility?: boolean[][] | null): void {
+    // Stop all AnimatedSprites before removing to release ticker references
+    for (const child of this.container.children) {
+      if (child instanceof AnimatedSprite) child.stop();
+    }
     this.container.removeChildren();
 
     // Track current player to only darken their units that have acted

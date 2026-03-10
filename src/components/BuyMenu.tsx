@@ -163,7 +163,7 @@ export default function BuyMenu({ facilityX, facilityY, onClose }: BuyMenuProps)
                       <div>
                         <div className="text-gray-500">Vision</div>
                         <div className="text-white font-medium">
-                          {(unitData as any).vision ?? "—"}
+                          {unitData.vision ?? "—"}
                         </div>
                       </div>
                     </div>

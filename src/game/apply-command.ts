@@ -194,7 +194,6 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
     }
 
     case "BUILD_FOB": {
-      const fobTerrain = getTile(state, cmd.target_x, cmd.target_y);
       const defaultHp = 10;
       state = updateTile(state, cmd.target_x, cmd.target_y, {
         has_fob: true,

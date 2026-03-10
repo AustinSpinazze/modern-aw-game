@@ -66,7 +66,7 @@ export class HeuristicAI implements AIProvider {
     return commands;
   }
 
-  private decideUnitActions(unit: UnitState, state: GameState, playerId: number): GameCommand[] {
+  public decideUnitActions(unit: UnitState, state: GameState, playerId: number): GameCommand[] {
     const unitData = getUnitData(unit.unit_type);
     if (!unitData) return [{ type: "WAIT", player_id: playerId, unit_id: unit.id }];
 
@@ -279,7 +279,7 @@ export class HeuristicAI implements AIProvider {
     return null;
   }
 
-  private decidePurchases(state: GameState, playerId: number): GameCommand[] {
+  public decidePurchases(state: GameState, playerId: number): GameCommand[] {
     const commands: GameCommand[] = [];
     const player = getPlayer(state, playerId);
     if (!player) return commands;
@@ -348,7 +348,7 @@ export function runHeuristicTurn(state: GameState, playerId: number): GameComman
     const freshUnit = getUnit(currentState, unit.id);
     if (!freshUnit || freshUnit.has_acted) continue;
 
-    const unitCmds = (heuristicAI as any).decideUnitActions(freshUnit, currentState, playerId);
+    const unitCmds = heuristicAI.decideUnitActions(freshUnit, currentState, playerId);
     for (const cmd of unitCmds) {
       const result = validateCommand(cmd, currentState);
       if (result.valid) {
@@ -359,7 +359,7 @@ export function runHeuristicTurn(state: GameState, playerId: number): GameComman
   }
 
   // Purchase units
-  const buyCmds = (heuristicAI as any).decidePurchases(currentState, playerId);
+  const buyCmds = heuristicAI.decidePurchases(currentState, playerId);
   for (const cmd of buyCmds) {
     const result = validateCommand(cmd, currentState);
     if (result.valid) {

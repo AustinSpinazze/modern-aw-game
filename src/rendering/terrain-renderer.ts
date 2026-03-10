@@ -117,6 +117,10 @@ export class TerrainRenderer {
   }
 
   render(state: GameState, visibility?: boolean[][] | null): void {
+    // Stop all AnimatedSprites (building animations) before removing to release ticker references
+    for (const child of this.container.children) {
+      if (child instanceof AnimatedSprite) child.stop();
+    }
     this.container.removeChildren();
     this.captureOverlay.removeChildren();
 

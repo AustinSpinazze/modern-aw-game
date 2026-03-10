@@ -94,13 +94,29 @@ function saveConfig(config: Record<string, unknown>): void {
 
 // ─── IPC Handlers ───────────────────────────────────────────────────────────
 
+// ─── Save Name Sanitizer ─────────────────────────────────────────────────────
+
+function sanitizeSaveName(name: unknown): string | null {
+  if (typeof name !== "string") return null;
+  const safe = name.replace(/[^a-zA-Z0-9_-]/g, "");
+  return safe.length > 0 && safe.length <= 64 ? safe : null;
+}
+
+// ─── Config Key Allowlist ────────────────────────────────────────────────────
+
+const ALLOWED_CONFIG_KEYS = new Set([
+  "localHttpUrl", "anthropicModel", "openaiModel", "ollamaModel",
+]);
+
 // Config get/set
 ipcMain.handle("config:get", (_event, key: string) => {
+  if (!ALLOWED_CONFIG_KEYS.has(key)) return undefined;
   const config = loadConfig();
   return config[key];
 });
 
 ipcMain.handle("config:set", (_event, key: string, value: unknown) => {
+  if (!ALLOWED_CONFIG_KEYS.has(key)) return;
   const config = loadConfig();
   config[key] = value;
   saveConfig(config);
@@ -125,11 +141,15 @@ ipcMain.handle("secure:decrypt", (_event, encrypted: string) => {
 
 // ─── Game Save / Load ────────────────────────────────────────────────────────
 
-ipcMain.handle("save:game", (_event, name: string, data: unknown): boolean => {
+ipcMain.handle("save:game", (_event, name: unknown, data: unknown): boolean => {
   try {
     ensureSavesDir();
-    const filePath = path.join(SAVES_DIR, `${name}.json`);
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    const safe = sanitizeSaveName(name);
+    if (!safe) return false;
+    const filePath = path.join(SAVES_DIR, `${safe}.json`);
+    const resolved = path.resolve(filePath);
+    if (!resolved.startsWith(path.resolve(SAVES_DIR) + path.sep)) return false;
+    fs.writeFileSync(resolved, JSON.stringify(data, null, 2));
     return true;
   } catch (e) {
     console.error("Failed to save game:", e);
@@ -137,11 +157,15 @@ ipcMain.handle("save:game", (_event, name: string, data: unknown): boolean => {
   }
 });
 
-ipcMain.handle("load:game", (_event, name: string): unknown => {
+ipcMain.handle("load:game", (_event, name: unknown): unknown => {
   try {
-    const filePath = path.join(SAVES_DIR, `${name}.json`);
-    if (!fs.existsSync(filePath)) return null;
-    return JSON.parse(fs.readFileSync(filePath, "utf-8"));
+    const safe = sanitizeSaveName(name);
+    if (!safe) return null;
+    const filePath = path.join(SAVES_DIR, `${safe}.json`);
+    const resolved = path.resolve(filePath);
+    if (!resolved.startsWith(path.resolve(SAVES_DIR) + path.sep)) return null;
+    if (!fs.existsSync(resolved)) return null;
+    return JSON.parse(fs.readFileSync(resolved, "utf-8"));
   } catch (e) {
     console.error("Failed to load game:", e);
     return null;
@@ -178,10 +202,14 @@ ipcMain.handle("list:saves", (): SaveMetadata[] => {
   }
 });
 
-ipcMain.handle("delete:save", (_event, name: string): boolean => {
+ipcMain.handle("delete:save", (_event, name: unknown): boolean => {
   try {
-    const filePath = path.join(SAVES_DIR, `${name}.json`);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    const safe = sanitizeSaveName(name);
+    if (!safe) return false;
+    const filePath = path.join(SAVES_DIR, `${safe}.json`);
+    const resolved = path.resolve(filePath);
+    if (!resolved.startsWith(path.resolve(SAVES_DIR) + path.sep)) return false;
+    if (fs.existsSync(resolved)) fs.unlinkSync(resolved);
     return true;
   } catch {
     return false;

@@ -14,10 +14,13 @@ const FOG_ALPHA = 0.65;
 
 export class FogRenderer {
   private container: Container;
+  private graphics: Graphics;
 
   constructor() {
     this.container = new Container();
     this.container.label = "fog";
+    this.graphics = new Graphics();
+    this.container.addChild(this.graphics);
   }
 
   getContainer(): Container {
@@ -27,31 +30,19 @@ export class FogRenderer {
   /** Render fog over tiles not visible to the current player.
    *  Pass null visibilityMap to clear all fog (fog disabled). */
   render(mapWidth: number, mapHeight: number, visibilityMap: boolean[][] | null): void {
-    this.container.removeChildren();
-
-    if (!visibilityMap) return; // fog off — nothing to draw
-
-    // Use a single Graphics object with per-tile rect+fill pairs.
-    // This matches the existing codebase pattern (CombatAnimator, HighlightRenderer)
-    // and avoids Pixi v8 batching issues from calling fill() once after many rects.
-    const g = new Graphics();
-    let anyFog = false;
+    this.graphics.clear();
+    if (!visibilityMap) return;
 
     for (let y = 0; y < mapHeight; y++) {
       for (let x = 0; x < mapWidth; x++) {
-        if (visibilityMap[y][x]) continue; // visible — skip
-        g.rect(x * DISPLAY, y * DISPLAY, DISPLAY, DISPLAY);
-        g.fill({ color: FOG_COLOR, alpha: FOG_ALPHA });
-        anyFog = true;
+        if (visibilityMap[y][x]) continue;
+        this.graphics.rect(x * DISPLAY, y * DISPLAY, DISPLAY, DISPLAY);
+        this.graphics.fill({ color: FOG_COLOR, alpha: FOG_ALPHA });
       }
-    }
-
-    if (anyFog) {
-      this.container.addChild(g);
     }
   }
 
   clear(): void {
-    this.container.removeChildren();
+    this.graphics.clear();
   }
 }

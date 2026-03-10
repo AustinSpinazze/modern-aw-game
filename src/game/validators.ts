@@ -366,7 +366,7 @@ function validateSurface(cmd: CmdSurface, state: GameState): ValidationResult {
   if (!unit.is_submerged) return fail("Unit is not submerged");
 
   const unitData = getUnitData(unit.unit_type);
-  if (!unitData?.special_actions.includes("submerge")) return fail("Unit cannot surface");
+  if (!unitData?.special_actions.includes("submerge") && !unitData?.special_actions.includes("surface")) return fail("Unit cannot surface");
 
   return ok();
 }

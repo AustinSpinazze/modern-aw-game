@@ -57,6 +57,7 @@ interface GameStore {
 
   // Actions
   setGameState: (state: GameState) => void;
+  clearGameState: () => void;
   recomputeVisibility: () => void;
   selectUnit: (unit: UnitState | null) => void;
   setHoveredTile: (pos: Vec2 | null) => void;
@@ -110,6 +111,25 @@ export const useGameStore = create<GameStore>((set, get) => ({
       ? computeVisibility(state, getViewingPlayerId(state))
       : null;
     set({ gameState: state, visibilityMap });
+  },
+
+  clearGameState: () => {
+    set({
+      gameState: null,
+      visibilityMap: null,
+      selectedUnit: null,
+      reachableTiles: [],
+      attackableTiles: [],
+      hoveredTile: null,
+      hoverPath: [],
+      pendingMove: null,
+      pendingPath: [],
+      animationPath: [],
+      isAnimating: false,
+      pendingAction: null,
+      commandQueue: [],
+      processingQueue: false,
+    });
   },
 
   selectUnit: (unit) => {
@@ -362,24 +382,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { gameState } = get();
     if (!gameState) return;
 
-    // Build queued commands with animation data for MOVE commands
     const queued: QueuedCommand[] = commands.map((cmd) => {
       if (cmd.type === "MOVE") {
         const unit = getUnit(gameState, cmd.unit_id);
         if (unit) {
-          const path = findPath(gameState, unit, cmd.dest_x, cmd.dest_y);
-          return {
-            command: cmd,
-            unitType: unit.unit_type,
-            ownerId: unit.owner_id,
-            path:
-              path.length > 0
-                ? path
-                : [
-                    { x: unit.x, y: unit.y },
-                    { x: cmd.dest_x, y: cmd.dest_y },
-                  ],
-          };
+          return { command: cmd, unitType: unit.unit_type, ownerId: unit.owner_id };
         }
       }
       return { command: cmd };
@@ -397,9 +404,25 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     const [next, ...rest] = commandQueue;
-    const hasAnimation = !!(next.path && next.path.length > 1);
+
+    // Compute MOVE path against current (live) state so it reflects prior moves in the queue
+    let queued = next;
+    if (next.command.type === "MOVE" && !next.path) {
+      const unit = getUnit(gameState, next.command.unit_id);
+      if (unit) {
+        const path = findPath(gameState, unit, next.command.dest_x, next.command.dest_y);
+        queued = {
+          ...next,
+          path: path.length > 0
+            ? path
+            : [{ x: unit.x, y: unit.y }, { x: next.command.dest_x, y: next.command.dest_y }],
+        };
+      }
+    }
+
+    const hasAnimation = !!(queued.path && queued.path.length > 1);
     set({ commandQueue: rest, isAnimating: hasAnimation });
-    return next;
+    return queued;
   },
 
   applyPostMoveState: (newState) => {

@@ -16,7 +16,7 @@ import { CombatAnimator } from "../rendering/combat-animator";
 import { FogRenderer } from "../rendering/fog-renderer";
 import { InputHandler } from "../rendering/input-handler";
 import { useGameStore } from "../store/game-store";
-import type { Vec2 } from "../game/types";
+import type { Vec2, GameState, CmdAttack } from "../game/types";
 import { getUnitAt, getTile, getUnit } from "../game/game-state";
 import { getTerrainData, getUnitData } from "../game/data-loader";
 import { applyCommand } from "../game/apply-command";
@@ -26,6 +26,33 @@ import { canAttack } from "../game/combat";
 
 interface GameCanvasProps {
   onFacilityClick?: (x: number, y: number) => void;
+}
+
+/** Runs the combat animation sequence and applies the final post-combat state.
+ *  movedState: state after MOVE has been pre-applied (attacker is at attack position).
+ *  attackCmd: the ATTACK command to execute. */
+function runCombatAnimation(
+  combatAnim: CombatAnimator,
+  movedState: GameState,
+  attackCmd: CmdAttack,
+  onCombatComplete: (postState: GameState) => void
+): boolean {
+  const attacker = getUnit(movedState, attackCmd.attacker_id);
+  const defender = getUnit(movedState, attackCmd.target_id);
+  if (!attacker || !defender) return false;
+
+  const postState = applyCommand(movedState, attackCmd);
+  const attackerDestroyed = !getUnit(postState, attackCmd.attacker_id);
+  const defenderDestroyed = !getUnit(postState, attackCmd.target_id);
+
+  combatAnim.animate({
+    attackerPos: { x: attacker.x, y: attacker.y },
+    defenderPos: { x: defender.x, y: defender.y },
+    attackerDestroyed,
+    defenderDestroyed,
+    onComplete: () => onCombatComplete(postState),
+  });
+  return true;
 }
 
 export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
@@ -169,25 +196,12 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
                     movedState = applyCommand(state, moveCmd);
                   }
                 }
-                const attacker = getUnit(movedState, attackCmd.attacker_id);
-                const defender = getUnit(movedState, attackCmd.target_id);
-                if (attacker && defender) {
-                  const postState = applyCommand(movedState, attackCmd);
-                  const attackerDestroyed = !getUnit(postState, attackCmd.attacker_id);
-                  const defenderDestroyed = !getUnit(postState, attackCmd.target_id);
-                  // Apply moved state immediately (unit jumps, selection clears)
-                  useGameStore.getState().applyPostMoveState(movedState);
-                  cAnim.animate({
-                    attackerPos: { x: attacker.x, y: attacker.y },
-                    defenderPos: { x: defender.x, y: defender.y },
-                    attackerDestroyed,
-                    defenderDestroyed,
-                    onComplete: () => {
-                      useGameStore.getState().setGameState(postState);
-                    },
-                  });
-                  return;
-                }
+                // Apply moved state immediately (unit jumps, selection clears)
+                useGameStore.getState().applyPostMoveState(movedState);
+                const ok = runCombatAnimation(cAnim, movedState, attackCmd, (postState) => {
+                  useGameStore.getState().setGameState(postState);
+                });
+                if (ok) return;
               }
               // Fallback: no combat animator available
               confirmMoveAndAction(attackCmd);
@@ -299,27 +313,29 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
   // E2E helper: programmatic tile click (used by Playwright tests)
   useEffect(() => {
     if (!pixiReady) return;
-    const app = getApp();
-    if (!app) return;
-    const stage = app.stage;
-    const canvas = app.canvas;
-    const TILE_DISPLAY = 48;
-    (window as unknown as { __clickTile?: (tx: number, ty: number) => void }).__clickTile = (
-      tileX: number,
-      tileY: number
-    ) => {
-      const rect = canvas.getBoundingClientRect();
-      const worldX = tileX * TILE_DISPLAY + TILE_DISPLAY / 2;
-      const worldY = tileY * TILE_DISPLAY + TILE_DISPLAY / 2;
-      const canvasX = stage.x + worldX * stage.scale.x;
-      const canvasY = stage.y + worldY * stage.scale.y;
-      const clientX = rect.left + canvasX;
-      const clientY = rect.top + canvasY;
-      canvas.dispatchEvent(new MouseEvent("click", { clientX, clientY, bubbles: true }));
-    };
-    return () => {
-      delete (window as unknown as { __clickTile?: (tx: number, ty: number) => void }).__clickTile;
-    };
+    if (import.meta.env.DEV || import.meta.env.VITE_E2E === "true") {
+      const app = getApp();
+      if (!app) return;
+      const stage = app.stage;
+      const canvas = app.canvas;
+      const TILE_DISPLAY = 48;
+      (window as unknown as { __clickTile?: (tx: number, ty: number) => void }).__clickTile = (
+        tileX: number,
+        tileY: number
+      ) => {
+        const rect = canvas.getBoundingClientRect();
+        const worldX = tileX * TILE_DISPLAY + TILE_DISPLAY / 2;
+        const worldY = tileY * TILE_DISPLAY + TILE_DISPLAY / 2;
+        const canvasX = stage.x + worldX * stage.scale.x;
+        const canvasY = stage.y + worldY * stage.scale.y;
+        const clientX = rect.left + canvasX;
+        const clientY = rect.top + canvasY;
+        canvas.dispatchEvent(new MouseEvent("click", { clientX, clientY, bubbles: true }));
+      };
+      return () => {
+        delete (window as unknown as { __clickTile?: (tx: number, ty: number) => void }).__clickTile;
+      };
+    }
   }, [pixiReady]);
 
   // Animation update loop
@@ -391,31 +407,12 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
           }
         }
 
-        const attacker = getUnit(movedState, pendingAct.attacker_id);
-        const defender = getUnit(movedState, pendingAct.target_id);
-
-        if (attacker && defender) {
-          const postCombatState = applyCommand(movedState, pendingAct);
-          const attackerDestroyed = !getUnit(postCombatState, pendingAct.attacker_id);
-          const defenderDestroyed = !getUnit(postCombatState, pendingAct.target_id);
-
-          // Commit post-move state (unit at destination), clear animation/selection state.
-          store.applyPostMoveState(movedState);
-
-          cAnim.animate({
-            attackerPos: { x: attacker.x, y: attacker.y },
-            defenderPos: { x: defender.x, y: defender.y },
-            attackerDestroyed,
-            defenderDestroyed,
-            onComplete: () => {
-              // Apply final post-combat state (removes dead units, updates HP).
-              useGameStore.getState().setGameState(postCombatState);
-            },
-          });
-        } else {
-          // Units not found — fall back to standard apply path.
-          onAnimationComplete();
-        }
+        // Commit post-move state (unit at destination), clear animation/selection state.
+        store.applyPostMoveState(movedState);
+        const ok = runCombatAnimation(cAnim, movedState, pendingAct, (postState) => {
+          useGameStore.getState().setGameState(postState);
+        });
+        if (!ok) onAnimationComplete();
       } else {
         // Non-attack action (Capture, Wait, etc.) — standard apply path.
         onAnimationComplete();

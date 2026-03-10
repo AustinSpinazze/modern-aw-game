@@ -49,8 +49,7 @@ class ErrorBoundary extends Component<
             <p className="text-gray-300 mb-4">{this.state.error?.message}</p>
             <button
               onClick={() => {
-                useGameStore.getState().resetSelection();
-                useGameStore.getState().setGameState(null as any);
+                useGameStore.getState().clearGameState();
                 this.setState({ hasError: false, error: null });
               }}
               className="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded"
@@ -330,9 +329,7 @@ function AppContent() {
       setBannerVisible(false);
       setShowExitConfirm(false);
     });
-    const store = useGameStore.getState();
-    store.resetSelection();
-    store.setGameState(null as any);
+    useGameStore.getState().clearGameState();
   }, []);
 
   if (view === "setup") {

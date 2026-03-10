@@ -19,6 +19,7 @@ export class HighlightRenderer {
   }
 
   clear(): void {
+    for (const child of this.container.children) child.destroy();
     this.container.removeChildren();
   }
 
@@ -214,11 +215,12 @@ export class HighlightRenderer {
   }
 
   private drawOverlay(tiles: Vec2[], color: number, alpha: number): void {
+    if (tiles.length === 0) return;
+    const g = new Graphics();
     for (const tile of tiles) {
-      const g = new Graphics();
       g.rect(tile.x * DISPLAY, tile.y * DISPLAY, DISPLAY, DISPLAY);
       g.fill({ color, alpha });
-      this.container.addChild(g);
     }
+    this.container.addChild(g);
   }
 }

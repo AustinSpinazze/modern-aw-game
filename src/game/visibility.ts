@@ -53,20 +53,23 @@ export function computeVisibility(state: GameState, playerId: number): boolean[]
   }
 
   // Post-process: submerged submarines are hidden unless an ally is adjacent
+  // Build ally position set once for O(n+m) instead of O(n*m)
+  const allyPositions = new Set<string>();
+  for (const u of Object.values(state.units)) {
+    if (allyIds.has(u.owner_id) && !u.is_loaded) {
+      allyPositions.add(`${u.x},${u.y}`);
+    }
+  }
+
   for (const unit of Object.values(state.units)) {
-    if (unit.is_submerged && !allyIds.has(unit.owner_id)) {
-      // Only visible if an ally unit is within 1 tile
-      let allyAdjacent = false;
-      for (const ally of Object.values(state.units)) {
-        if (!allyIds.has(ally.owner_id) || ally.is_loaded) continue;
-        if (Math.abs(ally.x - unit.x) + Math.abs(ally.y - unit.y) <= 1) {
-          allyAdjacent = true;
-          break;
-        }
-      }
-      if (!allyAdjacent) {
-        visible[unit.y][unit.x] = false;
-      }
+    if (!unit.is_submerged || allyIds.has(unit.owner_id)) continue;
+    const adjacent =
+      allyPositions.has(`${unit.x - 1},${unit.y}`) ||
+      allyPositions.has(`${unit.x + 1},${unit.y}`) ||
+      allyPositions.has(`${unit.x},${unit.y - 1}`) ||
+      allyPositions.has(`${unit.x},${unit.y + 1}`);
+    if (!adjacent) {
+      visible[unit.y][unit.x] = false;
     }
   }
 

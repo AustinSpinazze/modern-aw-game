@@ -328,6 +328,15 @@ export function fitMapToStage(mapW: number, mapH: number): void {
   applyStageTransform();
 }
 
+/** Returns the current stage screen-space transform for UI overlay positioning. */
+export function getStageTransform(): { x: number; y: number; scale: number } {
+  return {
+    x: _baseX + _panOffsetX,
+    y: _baseY + _panOffsetY,
+    scale: _baseScale * _userZoom,
+  };
+}
+
 export function destroyPixiApp(): void {
   disablePanZoom();
   resizeObserver?.disconnect();
@@ -335,6 +344,11 @@ export function destroyPixiApp(): void {
   _panOffsetX = 0;
   _panOffsetY = 0;
   _userZoom = 1.0;
+  _baseScale = 1;
+  _baseX = 0;
+  _baseY = 0;
+  _lastMapW = 0;
+  _lastMapH = 0;
 
   if (app) {
     try {
@@ -343,5 +357,9 @@ export function destroyPixiApp(): void {
       // Swallow any teardown errors
     }
     app = null;
+  }
+  // Clear spritesheet cache so tests/re-init start clean
+  for (const key of Object.keys(spritesheets)) {
+    delete spritesheets[key];
   }
 }
