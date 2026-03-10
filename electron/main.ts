@@ -105,7 +105,10 @@ function sanitizeSaveName(name: unknown): string | null {
 // ─── Config Key Allowlist ────────────────────────────────────────────────────
 
 const ALLOWED_CONFIG_KEYS = new Set([
-  "localHttpUrl", "anthropicModel", "openaiModel", "ollamaModel",
+  "localHttpUrl",
+  "anthropicModel",
+  "openaiModel",
+  "ollamaModel",
 ]);
 
 // Config get/set

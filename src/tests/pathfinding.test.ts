@@ -61,7 +61,20 @@ describe("findPath", () => {
     const state = makeState(5, 5);
     const unit = { id: 1, unit_type: "infantry", owner_id: 0, x: 2, y: 2 };
     const s = addTestUnit(state, unit);
-    const path = findPath(s, { ...unit, hp: 10, has_moved: false, has_acted: false, ammo: {}, cargo: [], is_loaded: false } as any, 2, 2);
+    const path = findPath(
+      s,
+      {
+        ...unit,
+        hp: 10,
+        has_moved: false,
+        has_acted: false,
+        ammo: {},
+        cargo: [],
+        is_loaded: false,
+      } as any,
+      2,
+      2
+    );
     // Destination == source, returns single-element or empty
     expect(path.length).toBeLessThanOrEqual(1);
   });

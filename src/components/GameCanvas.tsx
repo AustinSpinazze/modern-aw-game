@@ -333,7 +333,8 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
         canvas.dispatchEvent(new MouseEvent("click", { clientX, clientY, bubbles: true }));
       };
       return () => {
-        delete (window as unknown as { __clickTile?: (tx: number, ty: number) => void }).__clickTile;
+        delete (window as unknown as { __clickTile?: (tx: number, ty: number) => void })
+          .__clickTile;
       };
     }
   }, [pixiReady]);

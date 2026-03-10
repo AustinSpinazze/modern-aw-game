@@ -81,7 +81,8 @@ class MinHeap {
     const n = this.heap.length;
     while (true) {
       let smallest = i;
-      const l = 2 * i + 1, r = 2 * i + 2;
+      const l = 2 * i + 1,
+        r = 2 * i + 2;
       if (l < n && this.heap[l].f < this.heap[smallest].f) smallest = l;
       if (r < n && this.heap[r].f < this.heap[smallest].f) smallest = r;
       if (smallest === i) break;

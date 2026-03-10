@@ -413,9 +413,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const path = findPath(gameState, unit, next.command.dest_x, next.command.dest_y);
         queued = {
           ...next,
-          path: path.length > 0
-            ? path
-            : [{ x: unit.x, y: unit.y }, { x: next.command.dest_x, y: next.command.dest_y }],
+          path:
+            path.length > 0
+              ? path
+              : [
+                  { x: unit.x, y: unit.y },
+                  { x: next.command.dest_x, y: next.command.dest_y },
+                ],
         };
       }
     }

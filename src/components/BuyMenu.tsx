@@ -162,9 +162,7 @@ export default function BuyMenu({ facilityX, facilityY, onClose }: BuyMenuProps)
                       </div>
                       <div>
                         <div className="text-gray-500">Vision</div>
-                        <div className="text-white font-medium">
-                          {unitData.vision ?? "—"}
-                        </div>
+                        <div className="text-white font-medium">{unitData.vision ?? "—"}</div>
                       </div>
                     </div>
 

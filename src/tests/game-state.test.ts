@@ -71,7 +71,14 @@ describe("getUnitAt", () => {
   it("ignores loaded units", () => {
     let s = createGameState({ players: [createPlayer({ id: 0 })] });
     s = initializeMap(s, 5, 5);
-    const unit = createUnit({ id: 1, unit_type: "infantry", owner_id: 0, x: 2, y: 3, is_loaded: true });
+    const unit = createUnit({
+      id: 1,
+      unit_type: "infantry",
+      owner_id: 0,
+      x: 2,
+      y: 3,
+      is_loaded: true,
+    });
     s = addUnit(s, unit);
     expect(getUnitAt(s, 2, 3)).toBeNull();
   });

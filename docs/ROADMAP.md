@@ -4,6 +4,20 @@ Last Updated: 2026-03-09
 
 ---
 
+## 📍 Where We Are Now (from code + commit history)
+
+- **Electron:** Vite + Electron in place; Next.js removed. Local save/load, encrypted API keys, settings (electron-store), IPC in `electron/main.ts`.
+- **AI:** Local OpenAI + Anthropic + local HTTP provider; heuristic fallback; AI turn with abort; settings for API keys and model.
+- **Combat:** `combat-animator.ts` — fire/hit/destruction tile overlays; wired in GameCanvas for player and queued ATTACK.
+- **Fog of War:** Full implementation — `visibility.ts` (computeVisibility), `fog-renderer.ts`, `fog_of_war` in GameState; MatchSetup option; terrain/units respect visibility.
+- **Save/Load:** Save Game / Continue a Saved Game in UI; IPC save/load/list/delete; serialization tests.
+- **Camera:** Pan (Ctrl/Cmd + drag) and zoom in/out/reset in GameCanvas and App.
+- **Tests:** Vitest (unit + game-state-serialization + visibility), E2E (Playwright), game-test and electron.test.
+
+The sections below still list some of these as planned; checkmarks and "In Progress" have been updated to match the codebase.
+
+---
+
 ## 🎯 Project Vision
 
 A modern Advance Wars-inspired turn-based strategy game that:
@@ -32,7 +46,7 @@ A modern Advance Wars-inspired turn-based strategy game that:
 - [x] Building capture mechanics
 - [x] Unit production from factories/airports/ports
 - [x] Victory conditions (HQ capture, unit elimination)
-- [x] Fog of War foundation (data structures in place)
+- [x] Fog of War (visibility computation, fog renderer, match option; see `src/game/visibility.ts`, `src/rendering/fog-renderer.ts`)
 
 ### Units (19 AWBW-canonical units)
 
@@ -66,6 +80,11 @@ A modern Advance Wars-inspired turn-based strategy game that:
 - [x] Attack range only shows when enemies present
 - [x] Units darken (tint) when acted, not transparent
 - [x] Movement animations (units walk/drive along path)
+- [x] Combat animations (tile overlays: fire, hit, destruction; see `src/rendering/combat-animator.ts`)
+- [x] Zoom and pan (GameCanvas; zoom in/out/reset in App)
+- [x] Save/load game (Electron IPC; Save Game / Continue in UI)
+- [x] Settings modal (API keys, AI provider, model)
+- [x] Local AI (OpenAI, Anthropic, local HTTP; heuristic fallback)
 
 ### Map Import
 
@@ -81,62 +100,45 @@ A modern Advance Wars-inspired turn-based strategy game that:
 
 ## 🚧 In Progress / Next Up
 
-### Electron Desktop App Migration (High Priority)
+### Electron Desktop App — Done ✅
 
-- [ ] Set up Electron + React (electron-vite or similar)
-- [ ] Move game logic to main/renderer process
-- [ ] Local save/load game state to JSON files
-- [ ] Settings stored in electron-store
-- [ ] AI API key management (encrypted local storage)
+- [x] Set up Electron + React (Vite + vite-plugin-electron)
+- [x] Local save/load game state to JSON files (IPC: save:game, load:game, list:saves, delete:save)
+- [x] Settings stored in electron-store; config store sync
+- [x] AI API key management (encrypted local storage via main process)
 
-### AI Opponents
+### AI Opponents — Done ✅
 
-- [ ] Local AI using OpenAI/Anthropic APIs
-- [ ] API key input in settings (stored locally in Electron)
-- [ ] Multiple difficulty levels / AI personalities
-- [ ] Basic heuristic AI fallback (no API needed)
+- [x] Local AI using OpenAI/Anthropic APIs (IPC; renderer triggers, main runs)
+- [x] API key input in settings (stored locally in Electron)
+- [x] Basic heuristic AI fallback (no API needed)
+- [ ] Multiple difficulty levels / AI personalities (future)
+- [ ] AI thinking indicator (optional polish)
 
-### Combat Animations
+### Combat Animations — Done ✅
 
-- [ ] Attack animation (unit shakes/flashes)
-- [ ] Damage numbers or health bar feedback
-- [ ] Unit destruction animation
+- [x] Attack/hit/destruction (tile overlays: fire flash, hit flash, destruction flicker; see combat-animator.ts)
+- [ ] Damage numbers or health bar feedback (optional)
+- [ ] Screen shake / particle effects (optional polish)
 
 ### Camera / Large Maps
 
-- [ ] Camera follow during movement (if map is larger than viewport)
-- [ ] Map panning with mouse/keyboard
+- [x] Map panning (Ctrl/Cmd + drag) and zoom in/out/reset
+- [ ] Camera follow during movement (if map larger than viewport)
 
 ---
 
 ## 📋 Planned Features
 
-### Electron Desktop App Migration
+### Electron Desktop App — Implemented ✅
 
-**Why Electron?**
+- [x] Electron + Vite + React; local save/load; settings (electron-store); encrypted API keys
+- [ ] Keep web version for online multiplayer (Partykit) when desired
 
-- No backend server needed for single-player
-- Store AI API keys locally (secure, no server storage)
-- Offline play support
-- Native file system access for save/load
-- Easier deployment (single executable)
+### AI Opponents — Implemented ✅
 
-**Migration Tasks:**
-
-- [ ] Set up Electron + React (electron-vite or similar)
-- [ ] Move game logic to main/renderer process
-- [ ] Local save/load game state to JSON files
-- [ ] Settings stored in electron-store
-- [ ] AI API key management (encrypted local storage)
-- [ ] Keep web version for online multiplayer
-
-### AI Opponents
-
-- [ ] Local AI using OpenAI/Anthropic APIs
-- [ ] API key input in settings (stored locally in Electron)
-- [ ] Multiple difficulty levels / AI personalities
-- [ ] AI thinking indicator
-- [ ] Basic heuristic AI fallback (no API needed)
+- [x] Local AI (OpenAI, Anthropic, local HTTP); API keys in settings; heuristic fallback
+- [ ] Multiple difficulty levels / AI personalities; AI thinking indicator (optional)
 
 ### Game Modes
 
@@ -147,9 +149,8 @@ A modern Advance Wars-inspired turn-based strategy game that:
 
 ### Map Features
 
-- [ ] Larger map support with camera panning
+- [x] Larger map support with camera panning and zoom in/out (implemented)
 - [ ] Minimap
-- [ ] Zoom in/out
 - [ ] Map preview before game start
 - [ ] **Shoal coastline auto-tiling** — WarsWorld only ships one `shoal.png`; AWBW uses 4+ tile IDs (29–32) for different coastline orientations. Add directional shoal sprites (or source from AWBW) and bitmask auto-tiling (like roads/rivers) so coastlines render as proper beach edges instead of uniform yellow blocks.
 
@@ -161,7 +162,7 @@ A modern Advance Wars-inspired turn-based strategy game that:
 - [ ] Ammo management
 - [ ] Supply from APC/cities
 - [ ] Weather effects (rain, snow, clear)
-- [ ] Fog of War full implementation
+- [x] Fog of War (full implementation in place; visibility + fog renderer + match option)
 
 ### Custom Content (Future)
 
@@ -197,8 +198,8 @@ A modern Advance Wars-inspired turn-based strategy game that:
 - [ ] End turn confirmation dialog
 - [ ] Keyboard shortcuts (arrow keys, Enter, Escape)
 - [ ] Gamepad support
-- [ ] Settings menu (volume, animation speed, etc.)
-- [ ] Save/load game mid-match
+- [x] Settings menu (API keys, AI provider, model)
+- [x] Save/load game mid-match (Save Game / Continue a Saved Game)
 
 ### Accessibility
 
@@ -273,19 +274,20 @@ A modern Advance Wars-inspired turn-based strategy game that:
 
 ## 📊 Priority Matrix
 
-| Feature                 | Impact   | Effort     | Priority  | Order |
-| ----------------------- | -------- | ---------- | --------- | ----- |
-| ~~Movement animations~~ | ~~High~~ | ~~Medium~~ | ✅ Done   | -     |
-| Electron migration      | High     | High       | 🔴 High   | 1     |
-| AI opponents            | High     | Medium     | 🔴 High   | 2     |
-| Save/Load               | High     | Low        | 🟡 Medium | 3     |
-| Combat animations       | Medium   | Low        | 🟡 Medium | 4     |
-| Transport mechanics     | Medium   | Medium     | 🟡 Medium | 5     |
-| Audio/SFX               | Medium   | Low        | 🟡 Medium | 6     |
-| Map editor              | Medium   | High       | 🟢 Low    | 7     |
-| Shoal coastline tiles   | Medium   | Medium     | 🟡 Medium | 8     |
-| Custom units (units.md) | High     | High       | 🟢 Low    | 9     |
-| New buildings/tiles     | Medium   | Medium     | 🟢 Low    | 10    |
+| Feature                 | Impact     | Effort     | Priority  | Order |
+| ----------------------- | ---------- | ---------- | --------- | ----- |
+| ~~Movement animations~~ | ~~High~~   | ~~Medium~~ | ✅ Done   | -     |
+| ~~Electron migration~~  | ~~High~~   | ~~High~~   | ✅ Done   | -     |
+| ~~AI opponents~~        | ~~High~~   | ~~Medium~~ | ✅ Done   | -     |
+| ~~Save/Load~~           | ~~High~~   | ~~Low~~    | ✅ Done   | -     |
+| ~~Combat animations~~   | ~~Medium~~ | ~~Low~~    | ✅ Done   | -     |
+| ~~Fog of War~~          | ~~High~~   | ~~Medium~~ | ✅ Done   | -     |
+| Transport mechanics     | Medium     | Medium     | 🟡 Medium | 5     |
+| Audio/SFX               | Medium     | Low        | 🟡 Medium | 6     |
+| Map editor              | Medium     | High       | 🟢 Low    | 7     |
+| Shoal coastline tiles   | Medium     | Medium     | 🟡 Medium | 8     |
+| Custom units (units.md) | High       | High       | 🟢 Low    | 9     |
+| New buildings/tiles     | Medium     | Medium     | 🟢 Low    | 10    |
 
 > **Note:** Electron migration comes before Audio because it enables local AI play with secure API key storage.
 > **Known gap:** WarsWorld assets only include one shoal sprite; coastlines render as uniform yellow. See Map Features → Shoal coastline auto-tiling.
@@ -316,26 +318,21 @@ A modern Advance Wars-inspired turn-based strategy game that:
 
 ## 🗓️ Rough Timeline
 
-**Q1 2026 (Now)**
+**Q1 2026 (Now) — Largely complete**
 
-- ✅ Core game mechanics
-- ✅ Sprite system
-- ✅ Basic UI/UX
-- Movement animations
-- Combat feedback
+- ✅ Core game mechanics, sprite system, basic UI/UX
+- ✅ Movement and combat animations
+- ✅ Electron, local AI, save/load, Fog of War, zoom/pan
 
 **Q2 2026**
 
-- Electron migration
-- Local AI integration
-- Save/load system
-- Audio
+- Polish and bug fixes; audio
+- Transport mechanics; supply (optional)
 
 **Q3 2026**
 
-- Polish and bug fixes
-- Advanced mechanics (transport, supply)
-- Full Fog of War
+- Advanced mechanics (transport, supply if not in Q2)
+- Shoal coastline; map editor (optional)
 
 **Q4 2026**
 

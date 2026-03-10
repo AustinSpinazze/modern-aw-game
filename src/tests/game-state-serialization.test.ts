@@ -56,7 +56,18 @@ describe("stateFromDict", () => {
       map_width: 1,
       map_height: 1,
       players: [createPlayer({ id: 0 })],
-      tiles: [[{ terrain_type: "plains", owner_id: -1, capture_points: 20, has_trench: false, has_fob: false, fob_hp: 0 }]],
+      tiles: [
+        [
+          {
+            terrain_type: "plains",
+            owner_id: -1,
+            capture_points: 20,
+            has_trench: false,
+            has_fob: false,
+            fob_hp: 0,
+          },
+        ],
+      ],
       units: {},
       attack_counter: 0,
       phase: "action",

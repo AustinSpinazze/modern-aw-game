@@ -12,11 +12,7 @@ import {
 } from "../game/game-state";
 
 /** Build a minimal 2-player game state with a blank map. */
-export function makeState(
-  mapWidth = 5,
-  mapHeight = 5,
-  opts?: { fogOfWar?: boolean }
-): GameState {
+export function makeState(mapWidth = 5, mapHeight = 5, opts?: { fogOfWar?: boolean }): GameState {
   let state = createGameState({
     match_id: "test",
     match_seed: 42,
@@ -46,9 +42,7 @@ export function setTerrain(
   terrain_type: string,
   extra?: Partial<TileState>
 ): GameState {
-  const row = state.tiles[y].map((t, tx) =>
-    tx === x ? { ...t, terrain_type, ...extra } : t
-  );
+  const row = state.tiles[y].map((t, tx) => (tx === x ? { ...t, terrain_type, ...extra } : t));
   const tiles = state.tiles.map((r, ty) => (ty === y ? row : r));
   return { ...state, tiles };
 }
