@@ -9,6 +9,12 @@ export const TILE_SCALE = 3; // Render at 3x for a crisp 48px display tile
 let app: Application | null = null;
 let resizeObserver: ResizeObserver | null = null;
 
+// Tracks any in-flight initPixiApp call so that a second concurrent call
+// (React StrictMode double-effect) waits for the first to settle before
+// starting. This prevents two WebGL contexts being created on the same canvas
+// simultaneously, which causes shader compilation failures.
+let _currentInit: Promise<Application> | null = null;
+
 // Loaded spritesheets by army/key
 const spritesheets: Record<string, Spritesheet> = {};
 
@@ -211,48 +217,67 @@ export function getAnimation(sheetKey: string, animationName: string): Texture[]
   return anim;
 }
 
-export async function initPixiApp(canvas: HTMLCanvasElement): Promise<Application> {
-  // Clean up any existing instance first
-  destroyPixiApp();
+export function initPixiApp(canvas: HTMLCanvasElement): Promise<Application> {
+  // Serialize concurrent calls so two WebGL contexts are never created on the
+  // same canvas at the same time. React StrictMode fires the init effect twice
+  // (mount → cleanup → remount); without serialization both calls would call
+  // `new WebGLRenderingContext(canvas)` concurrently, causing context loss and
+  // shader compilation failures on the second context.
+  const prev = _currentInit;
+  const next = (async () => {
+    // Wait for the previous init (if any) to fully settle before starting.
+    if (prev) await prev.catch(() => {});
 
-  app = new Application();
+    // The previous call may have been the StrictMode "first" call that was
+    // destroyed by cleanup. destroyPixiApp() here clears any stale state.
+    destroyPixiApp();
 
-  await app.init({
-    canvas,
-    width: canvas.parentElement?.clientWidth ?? canvas.clientWidth,
-    height: canvas.parentElement?.clientHeight ?? canvas.clientHeight,
-    backgroundColor: 0x1a1a2e,
-    antialias: false,
-    resolution: window.devicePixelRatio || 1,
-    autoDensity: true,
-    roundPixels: true, // Prevent sub-pixel rendering artifacts
-  });
+    const localApp = new Application();
+    app = localApp;
 
-  // Keep the renderer sized to the container
-  const container = canvas.parentElement;
-  if (container) {
-    const doResize = () => {
-      if (app && container.clientWidth > 0 && container.clientHeight > 0) {
-        app.renderer.resize(container.clientWidth, container.clientHeight);
-        if (_lastMapW > 0 && _lastMapH > 0) {
-          fitMapToStage(_lastMapW, _lastMapH);
-        }
-      }
-    };
+    const initW = canvas.parentElement?.clientWidth ?? canvas.clientWidth;
+    const initH = canvas.parentElement?.clientHeight ?? canvas.clientHeight;
 
-    resizeObserver = new ResizeObserver(doResize);
-    resizeObserver.observe(container);
-
-    // Trigger initial resize after DOM settles
-    requestAnimationFrame(() => {
-      doResize();
-      // Double-check after a short delay for layout shifts
-      setTimeout(doResize, 100);
+    await localApp.init({
+      canvas,
+      width: initW,
+      height: initH,
+      backgroundColor: 0x1a1a2e,
+      antialias: false,
+      resolution: window.devicePixelRatio || 1,
+      autoDensity: true,
+      roundPixels: true, // Prevent sub-pixel rendering artifacts
     });
-  }
 
-  await loadSpritesheets();
-  return app;
+    // Keep the renderer sized to the container
+    const container = canvas.parentElement;
+    if (container) {
+      const doResize = () => {
+        if (app && container.clientWidth > 0 && container.clientHeight > 0) {
+          app.renderer.resize(container.clientWidth, container.clientHeight);
+          if (_lastMapW > 0 && _lastMapH > 0) {
+            fitMapToStage(_lastMapW, _lastMapH);
+          }
+        }
+      };
+
+      resizeObserver = new ResizeObserver(doResize);
+      resizeObserver.observe(container);
+
+      // Trigger initial resize after DOM settles
+      requestAnimationFrame(() => {
+        doResize();
+        // Double-check after a short delay for layout shifts
+        setTimeout(doResize, 100);
+      });
+    }
+
+    await loadSpritesheets();
+    return localApp;
+  })();
+
+  _currentInit = next;
+  return next;
 }
 
 /**
@@ -264,7 +289,6 @@ async function loadSpritesheets(): Promise<void> {
   // In dev mode (Vite), BASE_URL is "/"
   // In production (Electron file://), BASE_URL is "./"
   const basePath = import.meta.env.BASE_URL || "/";
-  console.log("[Sprites] Loading with basePath:", basePath, "Mode:", import.meta.env.MODE);
 
   const sheets = [
     { key: "neutral", base: `${basePath}sprites/warsworld/neutral` },
@@ -278,7 +302,6 @@ async function loadSpritesheets(): Promise<void> {
     sheets.map(async ({ key, base }) => {
       const jsonUrl = `${base}.json`;
       const pngUrl = `${base}.png`;
-      console.log(`[Sprites] Loading ${key}:`, jsonUrl);
 
       const jsonRes = await fetch(jsonUrl);
       if (!jsonRes.ok) throw new Error(`HTTP ${jsonRes.status} for ${jsonUrl}`);
@@ -290,19 +313,15 @@ async function loadSpritesheets(): Promise<void> {
       await sheet.parse();
 
       spritesheets[key] = sheet;
-      console.log(`[Sprites] ✅ Loaded ${key} with ${Object.keys(sheet.textures).length} textures`);
       return key;
     })
   );
 
-  // Log any failures
   results.forEach((result, i) => {
     if (result.status === "rejected") {
-      console.error(`[Sprites] ❌ Failed to load ${sheets[i].key}:`, result.reason);
+      console.error(`[Sprites] Failed to load ${sheets[i].key}:`, result.reason);
     }
   });
-
-  console.log("[Sprites] Loaded sheets:", Object.keys(spritesheets));
 }
 
 /**

@@ -300,6 +300,10 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
       // Signal that Pixi is ready — this triggers the render effect below
       // with the current gameState (which is already set by the time we get here)
       setPixiReady(true);
+    }).catch(() => {
+      // Swallow: only fires if the init was aborted (e.g. Pixi internal error
+      // mid-init). The sequential chain in pixi-app.ts ensures the next call
+      // will still run cleanly.
     });
 
     return () => {

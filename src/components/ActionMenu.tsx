@@ -71,9 +71,6 @@ export default function ActionMenu() {
 
         const targetData = getUnitData(target.unit_type);
 
-        // Damage preview: use luck=false (pass a fake state with counter=fixed so luck is 0)
-        // calculateDamage uses rollLuck which can be non-zero; we call it and show the base value
-        // We replicate the base calc without luck: base * (hp/10) * (1 - defReduction)
         const { damage: attackDmg } = calculateDamage(tempAttacker, target, gameState, wi, false);
 
         // Counter damage estimate (if target can counter)
@@ -162,26 +159,28 @@ export default function ActionMenu() {
 
   return (
     <div
-      className="absolute z-10 bg-gray-900 border border-gray-600 rounded-lg shadow-2xl text-sm overflow-hidden"
+      className="absolute z-10 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl text-sm overflow-hidden"
       style={{ left, top, minWidth: menuW }}
     >
-      <div className="px-3 py-2 text-gray-300 text-xs uppercase tracking-wide font-semibold border-b border-gray-700 bg-gray-800">
+      <div className="px-3 py-2 text-slate-400 text-xs uppercase tracking-widest font-bold border-b border-slate-700 bg-slate-800">
         {unitData.name}
       </div>
 
-      {attackableEnemies.map((enemy) => (
+      {attackableEnemies.map((enemy, idx) => (
         <button
           key={`attack-${enemy.unitId}`}
           onClick={() => handleAttack(enemy.unitId, enemy.weaponIndex)}
-          className="w-full text-left px-3 py-2 hover:bg-gray-700 transition-colors border-b border-gray-800/50 last:border-0"
+          className={`w-full text-left px-3 py-2 hover:bg-slate-800 transition-colors border-b border-slate-800/50 last:border-0 ${
+            idx === 0 ? "bg-amber-500/10 border-l-2 border-amber-500" : ""
+          }`}
         >
-          <div className="text-red-400 font-medium">⚔ {enemy.unitName}</div>
+          <div className="text-red-400 font-semibold">⚔ {enemy.unitName}</div>
           <div className="flex gap-3 text-xs mt-0.5">
             <span className="text-green-400">Att: {enemy.attackDmg * 10}%</span>
             {enemy.counterDmg > 0 && (
               <span className="text-orange-400">Def: {enemy.counterDmg * 10}%</span>
             )}
-            {enemy.counterDmg === 0 && <span className="text-gray-500">No counter</span>}
+            {enemy.counterDmg === 0 && <span className="text-slate-500">No counter</span>}
           </div>
         </button>
       ))}
@@ -189,7 +188,7 @@ export default function ActionMenu() {
       {canCapture && (
         <button
           onClick={handleCapture}
-          className="w-full text-left px-3 py-2 hover:bg-gray-700 transition-colors text-yellow-300 border-b border-gray-800/50"
+          className="w-full text-left px-3 py-2 hover:bg-slate-800 transition-colors text-amber-400 border-b border-slate-800/50"
         >
           🏳 Capture
         </button>
@@ -198,7 +197,7 @@ export default function ActionMenu() {
       {canDigTrench && (
         <button
           onClick={handleDigTrench}
-          className="w-full text-left px-3 py-2 hover:bg-gray-700 transition-colors text-orange-300 border-b border-gray-800/50"
+          className="w-full text-left px-3 py-2 hover:bg-slate-800 transition-colors text-orange-300 border-b border-slate-800/50"
         >
           ⛏ Dig Trench
         </button>
@@ -207,7 +206,7 @@ export default function ActionMenu() {
       {canBuildFob && (
         <button
           onClick={handleBuildFob}
-          className="w-full text-left px-3 py-2 hover:bg-gray-700 transition-colors text-orange-300 border-b border-gray-800/50"
+          className="w-full text-left px-3 py-2 hover:bg-slate-800 transition-colors text-orange-300 border-b border-slate-800/50"
         >
           🏗 Build FOB (¥5,000)
         </button>
@@ -215,14 +214,14 @@ export default function ActionMenu() {
 
       <button
         onClick={handleWait}
-        className="w-full text-left px-3 py-2 hover:bg-gray-700 transition-colors text-gray-300 border-b border-gray-700"
+        className="w-full text-left px-3 py-2 hover:bg-slate-800 transition-colors text-slate-400 border-b border-slate-700"
       >
         ⏸ Wait
       </button>
 
       <button
         onClick={cancelPendingMove}
-        className="w-full text-left px-3 py-2 hover:bg-gray-700 transition-colors text-gray-500"
+        className="w-full text-left px-3 py-2 hover:bg-slate-800 transition-colors text-slate-600 hover:text-slate-400"
       >
         ✕ Cancel
       </button>

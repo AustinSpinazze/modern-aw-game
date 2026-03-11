@@ -1,48 +1,36 @@
-// Fog-of-war overlay renderer.
-// Draws a semi-transparent dark overlay over tiles not visible to the current player.
-// Terrain shows through so the map is readable; enemy units are hidden by UnitRenderer.
-// Layer order: terrain → units → FOG → highlights/overlays → cursor
+// Fog-of-war overlay renderer — STUB.
+//
+// Fog is now rendered by tinting terrain sprites directly in TerrainRenderer
+// (see FOG_TINT constant there).  A separate Pixi Graphics overlay layer was
+// abandoned because setting alpha < 1 on any Container in Pixi v8 creates an
+// intermediate compositing group (offscreen RenderTexture).  In Electron's
+// WebGL renderer that compositing path fails silently, making the entire stage
+// appear blank even though input events continue to work.
+//
+// This class is kept as a no-op so the GameCanvas wiring (fogRendererRef,
+// fogRenderer.getContainer() added to stage) continues to compile unchanged.
 
-import { Container, Graphics } from "pixi.js";
-import { TILE_SIZE, TILE_SCALE } from "./pixi-app";
-
-const DISPLAY = TILE_SIZE * TILE_SCALE; // 48px per tile on screen
-
-// Dark blue-grey tint — terrain readable through it, clearly fogged
-const FOG_COLOR = 0x050510;
-const FOG_ALPHA = 0.65;
+import { Container } from "pixi.js";
 
 export class FogRenderer {
   private container: Container;
-  private graphics: Graphics;
 
   constructor() {
     this.container = new Container();
     this.container.label = "fog";
-    this.graphics = new Graphics();
-    this.container.addChild(this.graphics);
   }
 
   getContainer(): Container {
     return this.container;
   }
 
-  /** Render fog over tiles not visible to the current player.
-   *  Pass null visibilityMap to clear all fog (fog disabled). */
-  render(mapWidth: number, mapHeight: number, visibilityMap: boolean[][] | null): void {
-    this.graphics.clear();
-    if (!visibilityMap) return;
-
-    for (let y = 0; y < mapHeight; y++) {
-      for (let x = 0; x < mapWidth; x++) {
-        if (visibilityMap[y][x]) continue;
-        this.graphics.rect(x * DISPLAY, y * DISPLAY, DISPLAY, DISPLAY);
-        this.graphics.fill({ color: FOG_COLOR, alpha: FOG_ALPHA });
-      }
-    }
+  /** No-op — fog is handled by TerrainRenderer sprite tinting. */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  render(_mapWidth: number, _mapHeight: number, _visibilityMap: boolean[][] | null): void {
+    // intentionally empty
   }
 
   clear(): void {
-    this.graphics.clear();
+    // intentionally empty
   }
 }

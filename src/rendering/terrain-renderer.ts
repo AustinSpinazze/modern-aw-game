@@ -23,6 +23,11 @@ const MAX_CAPTURE_POINTS = 20;
 
 const DISPLAY = TILE_SIZE * TILE_SCALE; // 48px per tile on screen
 
+// Dark blue-grey tint applied to sprites on tiles that are in fog of war.
+// Tinting multiplies each pixel channel, so 0x4a4a6e ≈ 29–43 % brightness with a
+// slight blue cast — visually equivalent to the old 65 % dark overlay approach.
+const FOG_TINT = 0x4a4a6e;
+
 // ─── Bitmask direction constants ───────────────────────────────────────────
 const N = 1,
   E = 2,
@@ -124,13 +129,23 @@ export class TerrainRenderer {
     this.container.removeChildren();
     this.captureOverlay.removeChildren();
 
-    // First pass: draw terrain and buildings
+    // First pass: draw terrain and buildings.
+    // When fog is active, tint each fogged tile's sprites with FOG_TINT so terrain
+    // is dim but still readable. This avoids a separate Graphics overlay layer which
+    // can trigger Pixi v8 compositing-group issues in the Electron renderer.
     for (let y = 0; y < state.map_height; y++) {
       for (let x = 0; x < state.map_width; x++) {
         const tile = getTile(state, x, y)!;
         const px = x * DISPLAY;
         const py = y * DISPLAY;
+        const fogged = visibility != null && !visibility[y][x];
+        const childCountBefore = fogged ? this.container.children.length : 0;
         this.drawTile(state, tile, x, y, px, py);
+        if (fogged) {
+          for (let i = childCountBefore; i < this.container.children.length; i++) {
+            (this.container.children[i] as Sprite).tint = FOG_TINT;
+          }
+        }
       }
     }
 

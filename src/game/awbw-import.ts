@@ -392,10 +392,6 @@ export function importAwbwMap(data: AwbwMapData): GameState {
     }
   }
 
-  // Log import info
-  console.log(`[AWBW Import] Detected ${sortedArmies.length} faction(s):`, sortedArmies);
-  console.log(`[AWBW Import] Mapping to players:`, Object.fromEntries(armyToPlayer));
-
   let state = createGameState({
     match_id: `awbw_import_${Date.now()}`,
     match_seed: generateMatchSeed(),

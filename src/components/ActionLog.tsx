@@ -10,6 +10,13 @@ const TEAM_COLORS: Record<number, string> = {
   3: "text-yellow-400",
 };
 
+const TEAM_BORDER: Record<number, string> = {
+  0: "border-red-400",
+  1: "border-blue-400",
+  2: "border-green-400",
+  3: "border-yellow-400",
+};
+
 const MAX_ENTRIES = 8;
 
 type CommandDict = Record<string, unknown>;
@@ -64,18 +71,25 @@ export default function ActionLog() {
   const recent = [...gameState.command_log].reverse().slice(0, MAX_ENTRIES);
 
   return (
-    <div className="border-t border-gray-700 p-3">
-      <div className="text-gray-500 text-xs uppercase tracking-wide mb-1.5">Recent Actions</div>
+    <div className="border-t border-slate-700 p-3">
+      <div className="text-slate-500 text-xs uppercase tracking-wide font-semibold mb-2">
+        Game Log
+      </div>
       <div className="space-y-0.5">
         {recent.map((cmd, i) => {
           const entry = formatCommand(cmd, gameState.players);
           if (!entry) return null;
-          const colorClass = TEAM_COLORS[entry.playerTeam] ?? "text-gray-400";
+          const colorClass = TEAM_COLORS[entry.playerTeam] ?? "text-slate-400";
+          const borderClass = TEAM_BORDER[entry.playerTeam] ?? "border-slate-400";
           const isEndTurn = (cmd.type as string) === "END_TURN";
           return (
             <div
               key={i}
-              className={`text-xs ${isEndTurn ? "text-gray-600 text-center py-0.5" : colorClass} truncate`}
+              className={`text-xs truncate ${
+                isEndTurn
+                  ? "text-slate-700 text-center py-0.5 border-t border-slate-800 mt-1"
+                  : `${colorClass} border-l-2 ${borderClass} pl-2`
+              }`}
             >
               {entry.text}
             </div>

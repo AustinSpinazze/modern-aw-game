@@ -75,6 +75,28 @@ const LUCK_SETTINGS: Record<MatchConfig["luck"], { min: number; max: number }> =
 
 const SAVED_MAPS_KEY = "modern-aw-saved-maps";
 
+const CONTROLLER_OPTIONS: {
+  value: ControllerType;
+  label: string;
+  desc: string;
+  req?: string;
+}[] = [
+  { value: "human", label: "Human", desc: "You play this army." },
+  { value: "heuristic", label: "Heuristic AI", desc: "Built-in rule-based AI. No internet required." },
+  { value: "anthropic", label: "Claude", desc: "Anthropic API.", req: "Requires API key" },
+  { value: "openai", label: "GPT", desc: "OpenAI API.", req: "Requires API key" },
+  { value: "local_http", label: "Local AI", desc: "Ollama / LM Studio.", req: "Requires local server" },
+];
+
+const PLAYER_BORDER = [
+  "border-red-500",
+  "border-blue-500",
+  "border-green-500",
+  "border-yellow-500",
+];
+
+const STEPS = ["Players", "Map", "Options", "Review"];
+
 function loadSavedMaps(): SavedMap[] {
   try {
     const raw = localStorage.getItem(SAVED_MAPS_KEY);
@@ -89,7 +111,6 @@ function persistSavedMaps(maps: SavedMap[]) {
 }
 
 // ── Tile-ID → minimap color ──────────────────────────────────────────────────
-// Maps raw AWBW tile IDs to display colors without loading game data.
 const FACTION_COLORS = [
   "#e74c3c",
   "#3498db",
@@ -111,19 +132,16 @@ function tileIdToColor(id: number): string {
   if (id === 28) return "#1a5276"; // sea
   if (id >= 29 && id <= 32) return "#76d7c4"; // shoal
   if (id === 33) return "#0e6655"; // reef
-  // Neutral properties (34-37)
   if (id >= 34 && id <= 37) return "#8e44ad";
-  // Faction-owned: groups of 5 per faction starting at 38
   if (id >= 38 && id <= 100) {
     const faction = Math.floor((id - 38) / 5) % 8;
     return FACTION_COLORS[faction];
   }
-  // Extended faction ranges (117+)
   if (id >= 117) {
     const faction = Math.floor((id - 117) / 5) % 8;
     return FACTION_COLORS[faction];
   }
-  return "#8bc34a"; // default plains
+  return "#8bc34a";
 }
 
 // ── Minimap canvas component ──────────────────────────────────────────────────
@@ -156,20 +174,62 @@ function MapMinimap({ preview }: { preview: ParsedPreview }) {
   return (
     <canvas
       ref={canvasRef}
-      className="rounded border border-gray-600 block mx-auto"
+      className="rounded border border-slate-600 block mx-auto"
       style={{ imageRendering: "pixelated", maxWidth: "100%" }}
     />
   );
 }
 
+// ── Step indicator ─────────────────────────────────────────────────────────────
+function StepIndicator({ current }: { current: number }) {
+  return (
+    <div className="flex items-center gap-0">
+      {STEPS.map((label, i) => {
+        const isCompleted = i < current;
+        const isCurrent = i === current;
+        const dotClass = isCompleted
+          ? "w-2.5 h-2.5 rounded-full bg-amber-500/70"
+          : isCurrent
+          ? "w-2.5 h-2.5 rounded-full bg-amber-500"
+          : "w-2.5 h-2.5 rounded-full bg-slate-700 border border-slate-600";
+        const textClass = isCurrent
+          ? "text-amber-400"
+          : isCompleted
+          ? "text-slate-400"
+          : "text-slate-600";
+        return (
+          <div key={label} className="flex items-center">
+            <div className="flex flex-col items-center gap-1 px-3">
+              <div className={dotClass} />
+              <span className={`text-xs font-semibold uppercase tracking-wide ${textClass}`}>
+                {label}
+              </span>
+            </div>
+            {i < STEPS.length - 1 && (
+              <div
+                className={`w-8 h-px mb-4 ${i < current ? "bg-amber-500/50" : "bg-slate-700"}`}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupProps) {
+  // Wizard state
+  const [step, setStep] = useState(0);
+  const [mapMode, setMapMode] = useState<"default" | "awbw" | "saved">("default");
+  const [selectedSavedMapId, setSelectedSavedMapId] = useState<string | null>(null);
+
+  // Existing state
   const [playerCount, setPlayerCount] = useState(2);
   const [players, setPlayers] = useState<PlayerConfig[]>([
     { controllerType: "human", modelId: "" },
     { controllerType: "heuristic", modelId: "" },
   ]);
   const [config, setConfig] = useState<MatchConfig>(DEFAULT_CONFIG);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [loading, setLoading] = useState(false);
   const [awbwText, setAwbwText] = useState("");
   const [awbwError, setAwbwError] = useState("");
@@ -177,7 +237,6 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
   // Saved maps
   const [savedMaps, setSavedMaps] = useState<SavedMap[]>(() => loadSavedMaps());
   const [mapName, setMapName] = useState("");
-  const [showSavedMaps, setShowSavedMaps] = useState(true);
 
   // Electron save-game slots
   const [gameSaves, setGameSaves] = useState<SavedGameMeta[]>([]);
@@ -334,421 +393,638 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
     persistSavedMaps(updated);
   };
 
+  const handleLaunch = async () => {
+    if (mapMode === "awbw" && parsedPreview) {
+      await handleAwbwImport();
+    } else {
+      await handleStart();
+    }
+  };
+
   const playerColors = ["text-red-400", "text-blue-400", "text-green-400", "text-yellow-400"];
 
-  return (
-    <div className="min-h-screen bg-gray-950 text-white flex items-start justify-center p-8 overflow-y-auto">
-      <div className="bg-gray-900 rounded-xl border border-gray-700 w-full max-w-lg shadow-2xl my-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Modern AW</h1>
-            <p className="text-gray-400 text-sm mt-0.5">Configure your match</p>
-          </div>
-          {onOpenSettings && (
-            <button
-              onClick={onOpenSettings}
-              className="text-gray-400 hover:text-white text-sm px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded transition-colors"
-              title="Settings"
-            >
-              ⚙ Settings
-            </button>
-          )}
-        </div>
+  // ── Shared header ────────────────────────────────────────────────────────────
+  const header = (
+    <header className="flex items-center justify-between px-6 py-4 border-b border-slate-800 shrink-0">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => setStep((s) => Math.max(0, s - 1))}
+          className={`text-sm font-semibold transition-colors ${
+            step === 0
+              ? "invisible pointer-events-none text-slate-700"
+              : "text-slate-400 hover:text-white"
+          }`}
+        >
+          ← BACK
+        </button>
+        <span className="text-white font-black tracking-widest text-lg">NEW GAME</span>
+      </div>
+      <div className="flex items-center gap-4">
+        <StepIndicator current={step} />
+        {onOpenSettings && (
+          <button
+            onClick={onOpenSettings}
+            className="text-slate-400 hover:text-white text-sm px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition-colors"
+          >
+            ⚙ Settings
+          </button>
+        )}
+      </div>
+    </header>
+  );
 
-        <div className="p-6 space-y-5">
-          {/* ── Saved Games (Electron only) ──────────────────────────────── */}
-          {gameSaves.length > 0 && (
-            <div className="border border-blue-800/50 bg-blue-950/30 rounded-lg overflow-hidden">
-              <div className="px-4 py-3 border-b border-blue-800/40">
-                <h2 className="text-sm font-semibold text-blue-300">Continue a Saved Game</h2>
-              </div>
-              <div className="divide-y divide-blue-900/30">
-                {gameSaves.map((save) => (
-                  <div key={save.name} className="flex items-center gap-3 px-4 py-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-white font-medium capitalize">
-                        {save.name.replace(/-/g, " ")}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        Turn {save.turnNumber} · {save.playerCount}P ·{" "}
-                        {new Date(save.savedAt).toLocaleString()}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleLoadGame(save.name)}
-                      disabled={loadingGame}
-                      className="shrink-0 px-3 py-1.5 bg-blue-700 hover:bg-blue-600 disabled:opacity-50 text-white text-xs font-medium rounded transition-colors"
-                    >
-                      {loadingGame ? "Loading…" : "Continue"}
-                    </button>
-                    <button
-                      onClick={() => handleDeleteGame(save.name)}
-                      className="shrink-0 px-2 py-1.5 bg-gray-700 hover:bg-red-800 text-gray-400 hover:text-red-300 text-xs rounded transition-colors"
-                      title="Delete save"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Player count */}
-          <div>
-            <label className="text-xs text-gray-400 uppercase tracking-wide">Players</label>
-            <div className="flex gap-2 mt-2">
-              {[2, 3, 4].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => {
-                    setPlayerCount(n);
-                    if (players.length < n) {
-                      setPlayers((prev) => [
-                        ...prev,
-                        ...Array.from({ length: n - prev.length }, () => ({
-                          controllerType: "heuristic" as ControllerType,
-                          modelId: "",
-                        })),
-                      ]);
-                    }
-                  }}
-                  className={`px-4 py-2 rounded font-medium transition-colors ${
-                    playerCount === n
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                  }`}
-                >
-                  {n}P
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Player configs */}
-          <div className="space-y-2">
-            {Array.from({ length: playerCount }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className={`font-bold w-8 shrink-0 ${playerColors[i]}`}>P{i + 1}</div>
-                <select
-                  value={players[i]?.controllerType ?? "human"}
-                  onChange={(e) =>
-                    updatePlayerConfig(i, { controllerType: e.target.value as ControllerType })
-                  }
-                  className="flex-1 bg-gray-800 border border-gray-600 rounded px-3 py-1.5 text-sm text-white"
-                >
-                  <option value="human">Human</option>
-                  <option value="heuristic">Heuristic AI</option>
-                  <option value="anthropic">Claude (Anthropic)</option>
-                  <option value="openai">GPT (OpenAI)</option>
-                  <option value="local_http">Local HTTP (Ollama / DeepSeek / etc.)</option>
-                </select>
-              </div>
-            ))}
-          </div>
-
-          {/* ── Match Settings ─────────────────────────────────────────── */}
-          <div className="border border-gray-700 rounded-lg overflow-hidden">
-            <button
-              onClick={() => setShowAdvanced((v) => !v)}
-              className="w-full flex items-center justify-between px-4 py-3 bg-gray-800/50 hover:bg-gray-800 transition-colors text-sm font-medium text-gray-300"
-            >
-              <span>Match Settings</span>
-              <span className="text-gray-500 text-xs">{showAdvanced ? "▲ Hide" : "▼ Show"}</span>
-            </button>
-
-            {showAdvanced && (
-              <div className="p-4 space-y-4 border-t border-gray-700">
-                {/* Starting funds */}
-                <div>
-                  <label className="text-xs text-gray-400 uppercase tracking-wide block mb-2">
-                    Starting Funds
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {[0, 1000, 2000, 3000, 5000, 10000, 20000].map((v) => (
-                      <button
-                        key={v}
-                        onClick={() => updateConfig({ startingFunds: v })}
-                        className={`px-3 py-1.5 rounded text-sm font-mono transition-colors ${
-                          config.startingFunds === v
-                            ? "bg-yellow-700 text-yellow-200 border border-yellow-600"
-                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                        }`}
-                      >
-                        {v === 0 ? "¥0" : `¥${(v / 1000).toFixed(0)}k`}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Income per turn */}
-                <div>
-                  <label className="text-xs text-gray-400 uppercase tracking-wide block mb-1">
-                    Income Per Property
-                  </label>
-                  <p className="text-xs text-gray-500 mb-2">
-                    Multiplier on base property income (default: ¥1,000/property)
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { label: "×½  (¥500)", value: 0.5 },
-                      { label: "×1  (¥1k)", value: 1 },
-                      { label: "×1.5 (¥1.5k)", value: 1.5 },
-                      { label: "×2  (¥2k)", value: 2 },
-                    ].map(({ label, value }) => (
-                      <button
-                        key={value}
-                        onClick={() => updateConfig({ incomeMultiplier: value })}
-                        className={`px-3 py-1.5 rounded text-sm transition-colors ${
-                          config.incomeMultiplier === value
-                            ? "bg-green-800 text-green-200 border border-green-600"
-                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Luck */}
-                <div>
-                  <label className="text-xs text-gray-400 uppercase tracking-wide block mb-1">
-                    Luck
-                  </label>
-                  <p className="text-xs text-gray-500 mb-2">
-                    Random variance added to each attack roll
-                  </p>
-                  <div className="flex gap-2">
-                    {(["off", "normal", "high"] as const).map((v) => (
-                      <button
-                        key={v}
-                        onClick={() => updateConfig({ luck: v })}
-                        className={`flex-1 py-1.5 rounded text-sm capitalize transition-colors ${
-                          config.luck === v
-                            ? "bg-purple-800 text-purple-200 border border-purple-600"
-                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                        }`}
-                      >
-                        {v}
-                        <span className="block text-xs opacity-60">
-                          {v === "off" ? "0%" : v === "normal" ? "±10%" : "±20%"}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Turn limit */}
-                <div>
-                  <label className="text-xs text-gray-400 uppercase tracking-wide block mb-2">
-                    Turn Limit
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { label: "Unlimited", value: -1 },
-                      { label: "20 turns", value: 20 },
-                      { label: "30 turns", value: 30 },
-                      { label: "50 turns", value: 50 },
-                    ].map(({ label, value }) => (
-                      <button
-                        key={value}
-                        onClick={() => updateConfig({ maxTurns: value })}
-                        className={`px-3 py-1.5 rounded text-sm transition-colors ${
-                          config.maxTurns === value
-                            ? "bg-orange-800 text-orange-200 border border-orange-600"
-                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Fog of War */}
-                <div>
-                  <label className="text-xs text-gray-400 uppercase tracking-wide block mb-2">
-                    Fog of War
-                  </label>
-                  <div className="flex gap-2">
-                    {[
-                      { label: "Off", value: false },
-                      { label: "On", value: true },
-                    ].map(({ label, value }) => (
-                      <button
-                        key={String(value)}
-                        onClick={() => updateConfig({ fogOfWar: value })}
-                        className={`px-3 py-1.5 rounded text-sm transition-colors ${
-                          config.fogOfWar === value
-                            ? "bg-slate-700 text-slate-200 border border-slate-500"
-                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Config summary */}
-                <div className="bg-gray-800 rounded p-3 text-xs text-gray-400 flex flex-wrap gap-x-4 gap-y-1">
-                  <span>
-                    Funds:{" "}
-                    <span className="text-yellow-300 font-mono">
-                      ¥{config.startingFunds.toLocaleString()}
-                    </span>
-                  </span>
-                  <span>
-                    Income: <span className="text-green-300">×{config.incomeMultiplier}</span>
-                  </span>
-                  <span>
-                    Luck: <span className="text-purple-300 capitalize">{config.luck}</span>
-                  </span>
-                  <span>
-                    Turns:{" "}
-                    <span className="text-orange-300">
-                      {config.maxTurns < 0 ? "∞" : config.maxTurns}
-                    </span>
-                  </span>
-                  <span>
-                    Fog: <span className="text-slate-300">{config.fogOfWar ? "On" : "Off"}</span>
+  // ── Step 0: Players ──────────────────────────────────────────────────────────
+  if (step === 0) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+        {header}
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
+          <div className="w-full max-w-xl space-y-6">
+            {/* Saved games (Electron only) */}
+            {gameSaves.length > 0 && (
+              <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-700">
+                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                    Continue a Saved Game
                   </span>
                 </div>
-              </div>
-            )}
-          </div>
-
-          {/* ── AWBW Import ─────────────────────────────────────────────── */}
-          <div>
-            <label className="text-xs text-gray-400 uppercase tracking-wide">Import AWBW Map</label>
-            <textarea
-              value={awbwText}
-              onChange={(e) => {
-                const text = e.target.value;
-                setAwbwText(text);
-                setAwbwError("");
-                if (text.trim()) {
-                  try {
-                    const mapData = parseAwbwMapText(text);
-                    setParsedPreview(
-                      mapData.width > 0
-                        ? { width: mapData.width, height: mapData.height, tiles: mapData.tiles }
-                        : null
-                    );
-                  } catch {
-                    setParsedPreview(null);
-                  }
-                } else {
-                  setParsedPreview(null);
-                }
-              }}
-              placeholder="Paste AWBW map CSV (comma-separated tile IDs, one row per line)"
-              className="w-full mt-2 bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white font-mono h-20 resize-y"
-            />
-
-            {/* Map preview */}
-            {parsedPreview && (
-              <div className="mt-3 space-y-3">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-green-400">
-                    {parsedPreview.width}×{parsedPreview.height} tiles detected
-                  </span>
-                  <span className="text-gray-500">minimap preview</span>
-                </div>
-                <MapMinimap preview={parsedPreview} />
-
-                {/* Save map controls */}
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={mapName}
-                    onChange={(e) => setMapName(e.target.value)}
-                    placeholder="Map name (optional)"
-                    className="flex-1 bg-gray-800 border border-gray-600 rounded px-3 py-1.5 text-sm text-white"
-                    onKeyDown={(e) => e.key === "Enter" && handleSaveMap()}
-                  />
-                  <button
-                    onClick={handleSaveMap}
-                    className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm rounded transition-colors shrink-0"
-                  >
-                    Save Map
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {awbwError && <p className="text-red-400 text-xs mt-1">{awbwError}</p>}
-            <button
-              onClick={handleAwbwImport}
-              disabled={loading || !parsedPreview}
-              className="mt-2 w-full bg-green-700 hover:bg-green-600 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium py-2 rounded transition-colors text-sm"
-            >
-              {loading ? "Importing…" : "Import & Start"}
-            </button>
-          </div>
-
-          {/* ── Saved Maps ──────────────────────────────────────────────── */}
-          {savedMaps.length > 0 && (
-            <div className="border border-gray-700 rounded-lg overflow-hidden">
-              <button
-                onClick={() => setShowSavedMaps((v) => !v)}
-                className="w-full flex items-center justify-between px-4 py-3 bg-gray-800/50 hover:bg-gray-800 transition-colors text-sm font-medium text-gray-300"
-              >
-                <span>
-                  Saved Maps <span className="text-gray-500 font-normal">({savedMaps.length})</span>
-                </span>
-                <span className="text-gray-500 text-xs">{showSavedMaps ? "▲ Hide" : "▼ Show"}</span>
-              </button>
-
-              {showSavedMaps && (
-                <div className="divide-y divide-gray-800 border-t border-gray-700">
-                  {savedMaps.map((map) => (
-                    <div key={map.id} className="flex items-center gap-2 px-4 py-2.5">
+                <div className="divide-y divide-slate-800">
+                  {gameSaves.map((save) => (
+                    <div key={save.name} className="flex items-center gap-3 px-4 py-3">
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm text-white font-medium truncate">{map.name}</div>
-                        <div className="text-xs text-gray-500">
-                          {map.width}×{map.height} · {new Date(map.savedAt).toLocaleDateString()}
+                        <div className="text-sm text-white font-medium capitalize">
+                          {save.name.replace(/-/g, " ")}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          Turn {save.turnNumber} · {save.playerCount}P ·{" "}
+                          {new Date(save.savedAt).toLocaleString()}
                         </div>
                       </div>
                       <button
-                        onClick={() => handleLoadSavedMap(map)}
-                        className="shrink-0 px-2.5 py-1 bg-blue-700 hover:bg-blue-600 text-white text-xs rounded transition-colors"
+                        onClick={() => handleLoadGame(save.name)}
+                        disabled={loadingGame}
+                        className="shrink-0 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 text-xs font-bold rounded transition-colors"
                       >
-                        Load
+                        {loadingGame ? "Loading…" : "Continue"}
                       </button>
                       <button
-                        onClick={() => handleDeleteSavedMap(map.id)}
-                        className="shrink-0 px-2 py-1 bg-gray-700 hover:bg-red-800 text-gray-400 hover:text-red-300 text-xs rounded transition-colors"
+                        onClick={() => handleDeleteGame(save.name)}
+                        className="shrink-0 px-2 py-1.5 bg-slate-700 hover:bg-red-800/60 text-slate-400 hover:text-red-400 text-xs rounded transition-colors"
+                        title="Delete save"
                       >
                         ✕
                       </button>
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Player count */}
+            <div>
+              <div className="text-white font-bold text-base mb-1">Players</div>
+              <p className="text-slate-500 text-sm mb-4">
+                Choose how many players and who controls each army.
+              </p>
+              <div className="inline-flex bg-slate-800 rounded-lg p-1 border border-slate-700 mb-6">
+                {[2, 3, 4].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => {
+                      setPlayerCount(n);
+                      if (players.length < n) {
+                        setPlayers((prev) => [
+                          ...prev,
+                          ...Array.from({ length: n - prev.length }, () => ({
+                            controllerType: "heuristic" as ControllerType,
+                            modelId: "",
+                          })),
+                        ]);
+                      }
+                    }}
+                    className={`px-5 py-2 rounded-md text-sm font-bold transition-colors ${
+                      playerCount === n
+                        ? "bg-amber-500 text-slate-950"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {n}P
+                  </button>
+                ))}
+              </div>
+
+              {/* Player controller cards */}
+              {Array.from({ length: playerCount }).map((_, i) => (
+                <div key={i} className="mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black bg-slate-800 border ${PLAYER_BORDER[i]}`}
+                    >
+                      {i + 1}
+                    </span>
+                    <span className={`text-sm font-bold ${playerColors[i]}`}>Player {i + 1}</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {CONTROLLER_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => updatePlayerConfig(i, { controllerType: opt.value })}
+                        className={`text-left p-3 rounded-lg border transition-colors ${
+                          players[i]?.controllerType === opt.value
+                            ? "bg-amber-500/10 border-amber-500 text-white"
+                            : "bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-500"
+                        }`}
+                      >
+                        <div className="font-semibold text-xs">{opt.label}</div>
+                        <div className="text-xs text-slate-500 mt-0.5 leading-tight">{opt.desc}</div>
+                        {opt.req && <div className="text-xs text-red-400 mt-1">{opt.req}</div>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Continue button */}
+            <div className="flex justify-end">
+              <button
+                onClick={() => setStep(1)}
+                className="px-8 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl transition-colors text-sm"
+              >
+                Continue →
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Step 1: Map ──────────────────────────────────────────────────────────────
+  if (step === 1) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+        {header}
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
+          <div className="w-full max-w-xl space-y-4">
+            <div>
+              <div className="text-white font-bold text-base mb-1">Map</div>
+              <p className="text-slate-500 text-sm mb-4">
+                Select a map for this match.
+              </p>
+            </div>
+
+            {/* Option: Default Skirmish */}
+            <button
+              onClick={() => setMapMode("default")}
+              className={`w-full text-left p-4 rounded-xl border transition-colors ${
+                mapMode === "default"
+                  ? "bg-amber-500/10 border-amber-500"
+                  : "bg-slate-800 border-slate-700 hover:border-slate-500"
+              }`}
+            >
+              <div className="font-bold text-sm text-white">Default Skirmish</div>
+              <div className="text-xs text-slate-400 mt-0.5">
+                {DEFAULT_MAP_WIDTH}×{DEFAULT_MAP_HEIGHT} hand-crafted map · Always available
+              </div>
+            </button>
+
+            {/* Option: Custom AWBW Map */}
+            <div
+              className={`rounded-xl border transition-colors ${
+                mapMode === "awbw"
+                  ? "bg-amber-500/10 border-amber-500"
+                  : "bg-slate-800 border-slate-700"
+              }`}
+            >
+              <button
+                onClick={() => setMapMode("awbw")}
+                className="w-full text-left p-4"
+              >
+                <div className="font-bold text-sm text-white">Custom AWBW Map</div>
+                <div className="text-xs text-slate-400 mt-0.5">
+                  Paste CSV tile data from advancewars.net/maproom
+                </div>
+              </button>
+
+              {mapMode === "awbw" && (
+                <div className="px-4 pb-4 space-y-3 border-t border-slate-700/50">
+                  <textarea
+                    value={awbwText}
+                    onChange={(e) => {
+                      const text = e.target.value;
+                      setAwbwText(text);
+                      setAwbwError("");
+                      if (text.trim()) {
+                        try {
+                          const mapData = parseAwbwMapText(text);
+                          setParsedPreview(
+                            mapData.width > 0
+                              ? { width: mapData.width, height: mapData.height, tiles: mapData.tiles }
+                              : null
+                          );
+                        } catch {
+                          setParsedPreview(null);
+                        }
+                      } else {
+                        setParsedPreview(null);
+                      }
+                    }}
+                    placeholder="Paste AWBW map CSV (comma-separated tile IDs, one row per line)"
+                    className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white font-mono h-20 resize-y focus:border-amber-500 focus:outline-none mt-3"
+                  />
+
+                  {parsedPreview && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-green-400">
+                          {parsedPreview.width}×{parsedPreview.height} tiles detected
+                        </span>
+                        <span className="text-slate-500">minimap preview</span>
+                      </div>
+                      <MapMinimap preview={parsedPreview} />
+
+                      {/* Save map controls */}
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={mapName}
+                          onChange={(e) => setMapName(e.target.value)}
+                          placeholder="Map name (optional)"
+                          className="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white focus:border-amber-500 focus:outline-none"
+                          onKeyDown={(e) => e.key === "Enter" && handleSaveMap()}
+                        />
+                        <button
+                          onClick={handleSaveMap}
+                          className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm rounded-lg transition-colors shrink-0"
+                        >
+                          Save Map
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {awbwError && <p className="text-red-400 text-xs">{awbwError}</p>}
+                </div>
               )}
             </div>
-          )}
-        </div>
 
-        {/* Start */}
-        <div className="px-6 py-4 border-t border-gray-700 space-y-2">
+            {/* Option: Saved Maps */}
+            {savedMaps.length > 0 && (
+              <div
+                className={`rounded-xl border transition-colors ${
+                  mapMode === "saved"
+                    ? "bg-amber-500/10 border-amber-500"
+                    : "bg-slate-800 border-slate-700"
+                }`}
+              >
+                <button
+                  onClick={() => setMapMode("saved")}
+                  className="w-full text-left p-4"
+                >
+                  <div className="font-bold text-sm text-white">Saved Maps</div>
+                  <div className="text-xs text-slate-400 mt-0.5">
+                    {savedMaps.length} saved {savedMaps.length === 1 ? "map" : "maps"} · Click to select
+                  </div>
+                </button>
+
+                {mapMode === "saved" && (
+                  <div className="border-t border-slate-700/50 divide-y divide-slate-800">
+                    {savedMaps.map((map) => (
+                      <div
+                        key={map.id}
+                        className={`flex items-center gap-2 px-4 py-2.5 transition-colors ${
+                          selectedSavedMapId === map.id ? "bg-amber-500/10" : "hover:bg-slate-700/30"
+                        }`}
+                      >
+                        <button
+                          className="flex-1 min-w-0 text-left"
+                          onClick={() => {
+                            handleLoadSavedMap(map);
+                            setSelectedSavedMapId(map.id);
+                            setMapMode("awbw");
+                          }}
+                        >
+                          <div className="text-sm text-white font-medium truncate">{map.name}</div>
+                          <div className="text-xs text-slate-500">
+                            {map.width}×{map.height} · {new Date(map.savedAt).toLocaleDateString()}
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSavedMap(map.id)}
+                          className="shrink-0 px-2 py-1 bg-slate-700 hover:bg-red-800/60 text-slate-400 hover:text-red-400 text-xs rounded transition-colors"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Back + Continue */}
+            <div className="flex justify-between items-center pt-2">
+              <button
+                onClick={() => setStep(0)}
+                className="text-slate-400 hover:text-white text-sm font-semibold transition-colors"
+              >
+                ← Back
+              </button>
+              <button
+                onClick={() => setStep(2)}
+                disabled={mapMode === "awbw" && !parsedPreview}
+                className="px-8 py-3 bg-amber-500 hover:bg-amber-400 disabled:bg-slate-700 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition-colors text-sm"
+              >
+                Continue →
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Step 2: Options ──────────────────────────────────────────────────────────
+  if (step === 2) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+        {header}
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
+          <div className="w-full max-w-xl space-y-5">
+            <div>
+              <div className="text-white font-bold text-base mb-1">Options</div>
+              <p className="text-slate-500 text-sm mb-4">Configure match rules.</p>
+            </div>
+
+            {/* Starting funds */}
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wide block mb-2">
+                Starting Funds
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {[0, 1000, 2000, 3000, 5000, 10000, 20000].map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => updateConfig({ startingFunds: v })}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-mono transition-colors ${
+                      config.startingFunds === v
+                        ? "bg-amber-500 text-slate-950 font-bold"
+                        : "bg-slate-800 text-slate-400 hover:text-white border border-slate-700"
+                    }`}
+                  >
+                    {v === 0 ? "¥0" : `¥${(v / 1000).toFixed(0)}k`}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Income per turn */}
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wide block mb-1">
+                Income Per Property
+              </label>
+              <p className="text-xs text-slate-500 mb-2">
+                Multiplier on base property income (default: ¥1,000/property)
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { label: "×½  (¥500)", value: 0.5 },
+                  { label: "×1  (¥1k)", value: 1 },
+                  { label: "×1.5 (¥1.5k)", value: 1.5 },
+                  { label: "×2  (¥2k)", value: 2 },
+                ].map(({ label, value }) => (
+                  <button
+                    key={value}
+                    onClick={() => updateConfig({ incomeMultiplier: value })}
+                    className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                      config.incomeMultiplier === value
+                        ? "bg-amber-500 text-slate-950 font-bold"
+                        : "bg-slate-800 text-slate-400 hover:text-white border border-slate-700"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Luck */}
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wide block mb-1">
+                Luck
+              </label>
+              <p className="text-xs text-slate-500 mb-2">
+                Random variance added to each attack roll
+              </p>
+              <div className="flex gap-2">
+                {(["off", "normal", "high"] as const).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => updateConfig({ luck: v })}
+                    className={`flex-1 py-1.5 rounded-lg text-sm capitalize transition-colors ${
+                      config.luck === v
+                        ? "bg-amber-500 text-slate-950 font-bold"
+                        : "bg-slate-800 text-slate-400 hover:text-white border border-slate-700"
+                    }`}
+                  >
+                    {v}
+                    <span className="block text-xs opacity-70">
+                      {v === "off" ? "0%" : v === "normal" ? "±10%" : "±20%"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Turn limit */}
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-wide block mb-2">
+                Turn Limit
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { label: "Unlimited", value: -1 },
+                  { label: "20 turns", value: 20 },
+                  { label: "30 turns", value: 30 },
+                  { label: "50 turns", value: 50 },
+                ].map(({ label, value }) => (
+                  <button
+                    key={value}
+                    onClick={() => updateConfig({ maxTurns: value })}
+                    className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                      config.maxTurns === value
+                        ? "bg-amber-500 text-slate-950 font-bold"
+                        : "bg-slate-800 text-slate-400 hover:text-white border border-slate-700"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Fog of War toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm text-white font-medium">Fog of War</div>
+                <div className="text-xs text-slate-500">
+                  Hide enemy units outside vision range
+                </div>
+              </div>
+              <button
+                onClick={() => updateConfig({ fogOfWar: !config.fogOfWar })}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  config.fogOfWar ? "bg-amber-500" : "bg-slate-700"
+                }`}
+              >
+                <span
+                  className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                    config.fogOfWar ? "translate-x-6" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Config summary strip */}
+            <div className="bg-slate-800 rounded-lg p-3 border border-slate-700 text-xs text-slate-400 flex flex-wrap gap-x-4 gap-y-1">
+              <span>
+                Funds:{" "}
+                <span className="text-amber-400 font-mono">
+                  ¥{config.startingFunds.toLocaleString()}
+                </span>
+              </span>
+              <span>
+                Income: <span className="text-slate-300">×{config.incomeMultiplier}</span>
+              </span>
+              <span>
+                Luck: <span className="text-slate-300 capitalize">{config.luck}</span>
+              </span>
+              <span>
+                Turns:{" "}
+                <span className="text-slate-300">
+                  {config.maxTurns < 0 ? "∞" : config.maxTurns}
+                </span>
+              </span>
+              <span>
+                Fog: <span className="text-slate-300">{config.fogOfWar ? "On" : "Off"}</span>
+              </span>
+            </div>
+
+            {/* Back + Continue (Review) */}
+            <div className="flex justify-between items-center pt-2">
+              <button
+                onClick={() => setStep(1)}
+                className="text-slate-400 hover:text-white text-sm font-semibold transition-colors"
+              >
+                ← Back
+              </button>
+              <button
+                onClick={() => setStep(3)}
+                className="px-8 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl transition-colors text-sm"
+              >
+                Review →
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Step 3: Review ───────────────────────────────────────────────────────────
+  const mapLabel =
+    mapMode === "awbw" && parsedPreview
+      ? `Custom AWBW Map (${parsedPreview.width}×${parsedPreview.height})`
+      : mapMode === "saved" && selectedSavedMapId
+      ? (savedMaps.find((m) => m.id === selectedSavedMapId)?.name ?? "Saved Map")
+      : `Default Skirmish (${DEFAULT_MAP_WIDTH}×${DEFAULT_MAP_HEIGHT})`;
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+      {header}
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
+        <div className="w-full max-w-xl space-y-4">
+          <div>
+            <div className="text-white font-bold text-base mb-1">Review</div>
+            <p className="text-slate-500 text-sm mb-4">
+              Confirm your setup and deploy.
+            </p>
+          </div>
+
+          {/* Summary card */}
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-2 text-sm">
+            {/* Players */}
+            {Array.from({ length: playerCount }).map((_, i) => (
+              <div key={i} className="flex justify-between">
+                <span className={`font-medium ${playerColors[i]}`}>Player {i + 1}</span>
+                <span className="text-slate-300 capitalize">
+                  {CONTROLLER_OPTIONS.find((o) => o.value === players[i]?.controllerType)
+                    ?.label ?? players[i]?.controllerType}
+                </span>
+              </div>
+            ))}
+
+            {/* Map */}
+            <div className="border-t border-slate-700 pt-2 mt-2">
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-500">Map</span>
+                <span className="text-slate-300">{mapLabel}</span>
+              </div>
+            </div>
+
+            {/* Match options */}
+            <div className="grid grid-cols-2 gap-1 text-xs">
+              <span className="text-slate-500">Starting funds</span>
+              <span className="text-amber-400 font-mono">
+                ¥{config.startingFunds.toLocaleString()}
+              </span>
+              <span className="text-slate-500">Income</span>
+              <span className="text-slate-300">×{config.incomeMultiplier}</span>
+              <span className="text-slate-500">Luck</span>
+              <span className="text-slate-300 capitalize">{config.luck}</span>
+              <span className="text-slate-500">Turn limit</span>
+              <span className="text-slate-300">
+                {config.maxTurns < 0 ? "Unlimited" : `${config.maxTurns} turns`}
+              </span>
+              <span className="text-slate-500">Fog of war</span>
+              <span className="text-slate-300">{config.fogOfWar ? "On" : "Off"}</span>
+            </div>
+          </div>
+
+          {awbwError && (
+            <p className="text-red-400 text-xs bg-red-950/30 border border-red-900/50 rounded-lg px-3 py-2">
+              {awbwError}
+            </p>
+          )}
+
+          {/* Deploy Forces CTA */}
           <button
-            onClick={handleStart}
+            onClick={handleLaunch}
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 text-white font-bold py-3 rounded-lg transition-colors"
+            className="w-full bg-amber-500 hover:bg-amber-400 disabled:bg-slate-700 disabled:text-slate-500 text-slate-950 font-black py-4 rounded-xl text-lg tracking-wide transition-colors shadow-lg"
           >
-            {loading ? "Loading…" : "Start Match"}
+            {loading ? "Loading…" : "Deploy Forces"}
           </button>
+
+          {/* Secondary actions */}
           <button
             onClick={handleStartTestScenario}
             disabled={loading}
-            className="w-full bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-gray-300 text-sm py-2 rounded-lg transition-colors"
-            title="Minimal 5×5 map for E2E tests (attack + capture)"
+            className="w-full mt-2 text-slate-500 hover:text-slate-300 text-xs py-2 transition-colors"
           >
             Start test scenario
           </button>
+
+          {/* Back */}
+          <div className="flex justify-start pt-1">
+            <button
+              onClick={() => setStep(2)}
+              className="text-slate-400 hover:text-white text-sm font-semibold transition-colors"
+            >
+              ← Back
+            </button>
+          </div>
         </div>
       </div>
     </div>

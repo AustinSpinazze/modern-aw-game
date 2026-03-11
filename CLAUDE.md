@@ -90,6 +90,7 @@ Turn-based tactics game (Advance Wars-inspired) built with Next.js 16 App Router
 - **Don't remove `has_acted: true, has_moved: true` from `applyCommand` results.** Several command handlers in `apply-command.ts` must mark units as acted; missing this breaks the turn loop.
 - **Pixi `Graphics.fill()` / `Graphics.stroke()` changed in Pixi v8.** The API takes an object `{ color, alpha }` not positional args. Don't revert to v7-style calls.
 - **`next.config.ts` uses `turbopack: {}` to silence the webpack/turbopack conflict.** Don't add a `webpack` config block — it conflicts with Turbopack in Next.js 16.
+- **UX improvements: don't change the map or sprites.** Refine only the **menus and chrome surrounding the map** (setup screens, sidebar, top bar, modals, action menu). The Pixi canvas (terrain, units, sprites, highlights, fog, animations) stays untouched; see `docs/UX_IMPROVEMENT_PLAN.md`.
 
 ---
 

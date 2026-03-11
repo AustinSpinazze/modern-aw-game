@@ -78,13 +78,13 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
       onKeyDown={handleKeyDown}
     >
-      <div className="bg-gray-900 border border-gray-600 rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
           <h2 className="text-white font-bold text-lg">Settings</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white text-xl leading-none transition-colors"
+            className="text-slate-400 hover:text-white text-xl leading-none transition-colors"
             aria-label="Close settings"
           >
             ✕
@@ -94,38 +94,38 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
         <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
           {/* Anthropic */}
           <section>
-            <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wide mb-3">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
               Anthropic (Claude)
             </h3>
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-gray-400 block mb-1">API Key</label>
+                <label className="text-xs text-slate-400 block mb-1">API Key</label>
                 <div className="flex gap-2">
                   <input
                     type={showAnthropicKey ? "text" : "password"}
                     value={anthropicKey}
                     onChange={(e) => setAnthropicKey(e.target.value)}
                     placeholder="sk-ant-…"
-                    className="flex-1 bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white font-mono placeholder-gray-600"
+                    className="flex-1 bg-slate-800 border border-slate-700 focus:border-amber-500 focus:outline-none rounded-lg px-3 py-2 text-sm text-white font-mono placeholder-slate-600"
                     autoComplete="off"
                   />
                   <button
                     onClick={() => setShowAnthropicKey((v) => !v)}
-                    className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-400 text-xs rounded transition-colors"
+                    className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-400 text-xs rounded-lg transition-colors"
                   >
                     {showAnthropicKey ? "Hide" : "Show"}
                   </button>
                 </div>
                 {isElectron && (
-                  <p className="text-xs text-green-600 mt-1">Stored encrypted on device</p>
+                  <p className="text-green-500 text-xs mt-1">Stored encrypted on device</p>
                 )}
               </div>
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Model</label>
+                <label className="text-xs text-slate-400 block mb-1">Model</label>
                 <select
                   value={anthropicModel}
                   onChange={(e) => setAnthropicModel(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
                 >
                   {ANTHROPIC_MODELS.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -139,38 +139,38 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
 
           {/* OpenAI */}
           <section>
-            <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wide mb-3">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
               OpenAI (GPT)
             </h3>
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-gray-400 block mb-1">API Key</label>
+                <label className="text-xs text-slate-400 block mb-1">API Key</label>
                 <div className="flex gap-2">
                   <input
                     type={showOpenaiKey ? "text" : "password"}
                     value={openaiKey}
                     onChange={(e) => setOpenaiKey(e.target.value)}
                     placeholder="sk-…"
-                    className="flex-1 bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white font-mono placeholder-gray-600"
+                    className="flex-1 bg-slate-800 border border-slate-700 focus:border-amber-500 focus:outline-none rounded-lg px-3 py-2 text-sm text-white font-mono placeholder-slate-600"
                     autoComplete="off"
                   />
                   <button
                     onClick={() => setShowOpenaiKey((v) => !v)}
-                    className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-400 text-xs rounded transition-colors"
+                    className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-400 text-xs rounded-lg transition-colors"
                   >
                     {showOpenaiKey ? "Hide" : "Show"}
                   </button>
                 </div>
                 {isElectron && (
-                  <p className="text-xs text-green-600 mt-1">Stored encrypted on device</p>
+                  <p className="text-green-500 text-xs mt-1">Stored encrypted on device</p>
                 )}
               </div>
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Model</label>
+                <label className="text-xs text-slate-400 block mb-1">Model</label>
                 <select
                   value={openaiModel}
                   onChange={(e) => setOpenaiModel(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
                 >
                   {OPENAI_MODELS.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -184,28 +184,28 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
 
           {/* Local HTTP */}
           <section>
-            <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wide mb-3">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
               Local AI (Ollama / LM Studio / DeepSeek / Kimi / etc.)
             </h3>
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Server URL</label>
+                <label className="text-xs text-slate-400 block mb-1">Server URL</label>
                 <input
                   type="url"
                   value={localHttpUrl}
                   onChange={(e) => setLocalHttpUrl(e.target.value)}
                   placeholder="http://localhost:11434"
-                  className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white font-mono"
+                  className="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 focus:outline-none rounded-lg px-3 py-2 text-sm text-white font-mono"
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Model name</label>
+                <label className="text-xs text-slate-400 block mb-1">Model name</label>
                 <input
                   type="text"
                   value={localModel}
                   onChange={(e) => setLocalModel(e.target.value)}
                   placeholder="e.g. llama3.2, deepseek-r1:7b, kimi-k2"
-                  className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white font-mono"
+                  className="w-full bg-slate-800 border border-slate-700 focus:border-amber-500 focus:outline-none rounded-lg px-3 py-2 text-sm text-white font-mono"
                 />
               </div>
             </div>
@@ -213,18 +213,20 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-700 flex gap-3">
+        <div className="px-6 py-4 border-t border-slate-700 flex gap-3">
           <button
             onClick={handleSave}
             className={`flex-1 font-bold py-2 rounded-lg transition-colors ${
-              saved ? "bg-green-700 text-green-200" : "bg-blue-600 hover:bg-blue-500 text-white"
+              saved
+                ? "bg-green-600 text-white"
+                : "bg-amber-500 hover:bg-amber-400 text-slate-950"
             }`}
           >
             {saved ? "Saved!" : "Save"}
           </button>
           <button
             onClick={onClose}
-            className="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium py-2 rounded-lg transition-colors"
+            className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 font-medium py-2 rounded-lg transition-colors"
           >
             Cancel
           </button>

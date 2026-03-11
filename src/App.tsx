@@ -43,18 +43,18 @@ class ErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center p-8">
-          <div className="bg-red-900/50 border border-red-600 rounded-xl p-8 max-w-lg">
+        <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-8">
+          <div className="bg-red-900/30 border border-red-700 rounded-xl p-8 max-w-lg">
             <h1 className="text-2xl font-bold text-red-400 mb-4">Something went wrong</h1>
-            <p className="text-gray-300 mb-4">{this.state.error?.message}</p>
+            <p className="text-slate-300 mb-4">{this.state.error?.message}</p>
             <button
               onClick={() => {
                 useGameStore.getState().clearGameState();
                 this.setState({ hasError: false, error: null });
               }}
-              className="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded"
+              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded"
             >
-              Reset & Try Again
+              Reset &amp; Try Again
             </button>
           </div>
         </div>
@@ -68,16 +68,22 @@ type AppView = "setup" | "game";
 
 // Team color config shared across banner and sidebar
 const TEAM_BANNER_BG: Record<number, string> = {
-  0: "bg-red-900/90 border-red-500",
-  1: "bg-blue-900/90 border-blue-500",
-  2: "bg-green-900/90 border-green-500",
-  3: "bg-yellow-900/90 border-yellow-500",
+  0: "bg-slate-900 border-red-500",
+  1: "bg-slate-900 border-blue-500",
+  2: "bg-slate-900 border-green-500",
+  3: "bg-slate-900 border-yellow-500",
 };
 const TEAM_TEXT: Record<number, string> = {
-  0: "text-red-300",
-  1: "text-blue-300",
-  2: "text-green-300",
-  3: "text-yellow-300",
+  0: "text-red-400",
+  1: "text-blue-400",
+  2: "text-green-400",
+  3: "text-yellow-400",
+};
+const TEAM_DOT: Record<number, string> = {
+  0: "bg-red-400",
+  1: "bg-blue-400",
+  2: "bg-green-400",
+  3: "bg-yellow-400",
 };
 
 interface SavedGameFile {
@@ -95,6 +101,8 @@ function AppContent() {
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const handleZoomIn = useCallback(() => {
     zoomIn();
@@ -129,6 +137,18 @@ function AppContent() {
   useEffect(() => {
     useConfigStore.getState().syncFromElectron().catch(console.error);
   }, []);
+
+  // ── Close menu on outside click ─────────────────────────────────────────
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [menuOpen]);
 
   // ── Turn transition banner ──────────────────────────────────────────────
   useEffect(() => {
@@ -343,91 +363,205 @@ function AppContent() {
 
   const isAiTurn = currentPlayer?.controller_type !== "human";
   const isAiProcessing = processingQueue || (isAiTurn && gameState?.phase === "action");
+  const isHumanTurn =
+    currentPlayer?.controller_type === "human" && gameState?.phase === "action";
+  const isAnimating = useGameStore.getState().isAnimating;
+
+  // Compute unit count for current player
+  const unitCount = gameState
+    ? Object.values(gameState.units).filter(
+        (u) => !u.is_loaded && u.owner_id === currentPlayer?.id
+      ).length
+    : 0;
 
   // Game view
   return (
-    <div className="h-screen w-screen bg-gray-950 flex overflow-hidden">
-      {/* Left sidebar */}
-      <aside className="w-56 bg-gray-900 border-r border-gray-700 flex flex-col shrink-0">
-        <div className="px-4 py-3 border-b border-gray-700">
-          <h1 className="text-xl font-bold text-white">Modern AW</h1>
+    <div className="h-screen flex flex-col bg-slate-950">
+      {/* Top bar */}
+      <header className="h-12 shrink-0 flex items-center justify-between px-4 bg-slate-900 border-b border-slate-700 z-20">
+        {/* Left side */}
+        <div className="flex items-center gap-3 text-sm">
+          <span className="text-amber-400 font-black text-sm tracking-widest">MODERN AW</span>
+          <span className="text-slate-600">|</span>
+          {currentPlayer && (
+            <>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`w-2 h-2 rounded-full ${TEAM_DOT[currentPlayer.team] ?? "bg-white"}`}
+                />
+                <span className={`font-semibold ${TEAM_TEXT[currentPlayer.team] ?? "text-white"}`}>
+                  Player {currentPlayer.id + 1}
+                </span>
+              </div>
+              <span className="text-slate-500">·</span>
+              <span className="text-slate-400">
+                Day {gameState?.turn_number ?? 1}
+              </span>
+            </>
+          )}
         </div>
-        <div className="flex-1 overflow-y-auto flex flex-col">
+
+        {/* Right side */}
+        <div className="flex items-center gap-3">
+          {currentPlayer && (
+            <>
+              <span className="text-amber-400 font-mono font-bold text-sm">
+                ¥{currentPlayer.funds.toLocaleString()}
+              </span>
+              <span className="text-slate-400 text-xs">{unitCount} units</span>
+            </>
+          )}
+          {isHumanTurn && !isAnimating && (
+            <button
+              onClick={() => {
+                if (currentPlayer) {
+                  useGameStore.getState().submitCommand({
+                    type: "END_TURN",
+                    player_id: currentPlayer.id,
+                  });
+                }
+              }}
+              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 py-1 text-xs rounded transition-colors"
+            >
+              End Turn
+            </button>
+          )}
+          {/* Menu button */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen((v) => !v)}
+              className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-1 rounded transition-colors"
+            >
+              ≡ Menu
+            </button>
+            {menuOpen && (
+              <div className="bg-slate-800 border border-slate-600 rounded-lg shadow-xl absolute top-full right-0 mt-1 w-44 z-50 overflow-hidden">
+                <button
+                  onClick={() => setMenuOpen(false)}
+                  className="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
+                >
+                  Resume
+                </button>
+                {isHumanTurn && !isAnimating && (
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      if (currentPlayer) {
+                        useGameStore.getState().submitCommand({
+                          type: "END_TURN",
+                          player_id: currentPlayer.id,
+                        });
+                      }
+                    }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-700 transition-colors flex justify-between"
+                  >
+                    <span>End Turn</span>
+                    <span className="text-slate-500 text-xs">E</span>
+                  </button>
+                )}
+                <div className="border-t border-slate-700 my-0.5" />
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setShowSettings(true);
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
+                >
+                  Settings ⚙
+                </button>
+                {window.electronAPI && (
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      handleQuickSave();
+                    }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
+                  >
+                    Save Game
+                  </button>
+                )}
+                <div className="border-t border-slate-700 my-0.5" />
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setShowExitConfirm(true);
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-slate-700 transition-colors"
+                >
+                  Exit Game
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Content area */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left sidebar */}
+        <aside className="w-52 bg-slate-900 border-r border-slate-700 flex flex-col shrink-0 overflow-y-auto">
           <InfoPanel />
           <TileInfoPanel />
           <div className="flex-1" />
           <ActionLog />
-        </div>
-        <div className="p-3 border-t border-gray-700 space-y-2">
-          {window.electronAPI && (
+        </aside>
+
+        {/* Main game area */}
+        <main className="flex-1 relative overflow-hidden">
+          <GameCanvas onFacilityClick={handleFacilityClick} />
+          <ActionMenu />
+
+          {/* Zoom controls */}
+          <div className="absolute bottom-4 right-4 z-10 flex flex-col items-center gap-1">
             <button
-              onClick={handleQuickSave}
-              className="w-full bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm py-2 rounded transition-colors relative"
+              onClick={handleZoomIn}
+              disabled={zoomLevel >= MAX_ZOOM}
+              title="Zoom In (+)"
+              className="w-8 h-8 bg-slate-900/90 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed border border-slate-600 rounded text-white font-bold text-lg leading-none transition-colors flex items-center justify-center backdrop-blur-sm"
             >
-              {saveFeedback ?? "Save Game"}
+              +
             </button>
-          )}
-          <button
-            onClick={() => setShowSettings(true)}
-            className="w-full bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm py-2 rounded transition-colors"
-          >
-            Settings
-          </button>
-          <button
-            onClick={() => setShowExitConfirm(true)}
-            className="w-full bg-gray-700 hover:bg-red-900 hover:text-red-300 text-gray-300 text-sm py-2 rounded transition-colors"
-          >
-            Exit Game
-          </button>
-        </div>
-      </aside>
-
-      {/* Main game area */}
-      <main className="flex-1 relative overflow-hidden">
-        <GameCanvas onFacilityClick={handleFacilityClick} />
-        <ActionMenu />
-
-        {/* Zoom controls */}
-        <div className="absolute bottom-4 right-4 z-10 flex flex-col items-center gap-1">
-          <button
-            onClick={handleZoomIn}
-            disabled={zoomLevel >= MAX_ZOOM}
-            title="Zoom In (+)"
-            className="w-8 h-8 bg-gray-900/90 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed border border-gray-600 rounded text-white font-bold text-lg leading-none transition-colors flex items-center justify-center backdrop-blur-sm"
-          >
-            +
-          </button>
-          <button
-            onClick={handleResetZoom}
-            title="Reset Zoom (0)"
-            className="w-8 h-8 bg-gray-900/90 hover:bg-gray-700 border border-gray-600 rounded text-gray-400 text-xs font-mono leading-none transition-colors flex items-center justify-center backdrop-blur-sm"
-          >
-            {Math.round(zoomLevel * 100)}%
-          </button>
-          <button
-            onClick={handleZoomOut}
-            disabled={zoomLevel <= MIN_ZOOM}
-            title="Zoom Out (-)"
-            className="w-8 h-8 bg-gray-900/90 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed border border-gray-600 rounded text-white font-bold text-xl leading-none transition-colors flex items-center justify-center backdrop-blur-sm"
-          >
-            −
-          </button>
-          <div className="text-gray-600 text-xs mt-1 text-center leading-tight">
-            scroll
-            <br />⌘ drag
-          </div>
-        </div>
-
-        {/* AI thinking overlay */}
-        {isAiProcessing && (
-          <div className="absolute inset-0 pointer-events-none flex items-end justify-center pb-6 z-10">
-            <div className="bg-gray-900/80 border border-gray-600 rounded-full px-4 py-2 text-sm text-gray-300 flex items-center gap-2 backdrop-blur-sm">
-              <span className="inline-block w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
-              AI thinking…
+            <button
+              onClick={handleResetZoom}
+              title="Reset Zoom (0)"
+              className="w-8 h-8 bg-slate-900/90 hover:bg-slate-700 border border-slate-600 rounded text-slate-400 text-xs font-mono leading-none transition-colors flex items-center justify-center backdrop-blur-sm"
+            >
+              {Math.round(zoomLevel * 100)}%
+            </button>
+            <button
+              onClick={handleZoomOut}
+              disabled={zoomLevel <= MIN_ZOOM}
+              title="Zoom Out (-)"
+              className="w-8 h-8 bg-slate-900/90 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed border border-slate-600 rounded text-white font-bold text-xl leading-none transition-colors flex items-center justify-center backdrop-blur-sm"
+            >
+              −
+            </button>
+            <div className="text-slate-600 text-xs mt-1 text-center leading-tight">
+              scroll
+              <br />⌘ drag
             </div>
           </div>
-        )}
-      </main>
+
+          {/* AI thinking overlay */}
+          {isAiProcessing && (
+            <div className="absolute inset-0 pointer-events-none flex items-end justify-center pb-6 z-10">
+              <div className="bg-slate-900/80 border border-slate-600 rounded-full px-4 py-2 text-sm text-slate-300 flex items-center gap-2 backdrop-blur-sm">
+                <span className="inline-block w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
+                AI thinking…
+              </div>
+            </div>
+          )}
+
+          {/* Save feedback toast */}
+          {saveFeedback && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
+              <div className="bg-slate-800 border border-slate-600 rounded px-3 py-1.5 text-xs text-slate-200">
+                {saveFeedback}
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
 
       {/* Buy menu modal */}
       {buyMenuTile && (
@@ -440,9 +574,9 @@ function AppContent() {
       {/* Exit confirmation modal */}
       {showExitConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-gray-600 rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4">
             <h2 className="text-white font-bold text-lg mb-1">Exit Game?</h2>
-            <p className="text-gray-400 text-sm mb-5">All match progress will be lost.</p>
+            <p className="text-slate-400 text-sm mb-5">All match progress will be lost.</p>
             <div className="flex gap-3">
               <button
                 onClick={handleExitGame}
@@ -452,7 +586,7 @@ function AppContent() {
               </button>
               <button
                 onClick={() => setShowExitConfirm(false)}
-                className="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium py-2 rounded-lg transition-colors"
+                className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium py-2 rounded-lg transition-colors"
               >
                 Keep Playing
               </button>
@@ -469,7 +603,7 @@ function AppContent() {
           }`}
         >
           <div
-            className={`border-2 rounded-2xl px-10 py-6 text-center shadow-2xl backdrop-blur-sm ${TEAM_BANNER_BG[bannerTeam] ?? "bg-gray-900/90 border-gray-500"}`}
+            className={`border-2 rounded-2xl px-10 py-6 text-center shadow-2xl backdrop-blur-sm ${TEAM_BANNER_BG[bannerTeam] ?? "bg-slate-900 border-slate-500"}`}
           >
             <div
               className={`text-3xl font-black tracking-wide ${TEAM_TEXT[bannerTeam] ?? "text-white"}`}

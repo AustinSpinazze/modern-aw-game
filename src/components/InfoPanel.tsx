@@ -17,14 +17,7 @@ export default function InfoPanel() {
     2: "text-green-400",
     3: "text-yellow-400",
   };
-  const teamBg: Record<number, string> = {
-    0: "bg-red-900/20 border-red-700/40",
-    1: "bg-blue-900/20 border-blue-700/40",
-    2: "bg-green-900/20 border-green-700/40",
-    3: "bg-yellow-900/20 border-yellow-700/40",
-  };
   const colorClass = teamColors[currentPlayer.team] ?? "text-white";
-  const bgClass = teamBg[currentPlayer.team] ?? "bg-gray-800/20 border-gray-700/40";
 
   const handleEndTurn = () => {
     submitCommand({ type: "END_TURN", player_id: currentPlayer.id });
@@ -32,24 +25,55 @@ export default function InfoPanel() {
 
   const isHumanTurn = gameState.phase === "action" && currentPlayer.controller_type === "human";
 
+  // Combat stats (only computed when fog is off)
+  let combatStats: Array<{ playerId: number; built: number; alive: number; props: number }> | null = null;
+  if (!gameState.fog_of_war) {
+    const builtByPlayer: Record<number, number> = {};
+    for (const cmd of gameState.command_log) {
+      if (cmd.type === "BUY_UNIT" && typeof cmd.player_id === "number") {
+        builtByPlayer[cmd.player_id] = (builtByPlayer[cmd.player_id] ?? 0) + 1;
+      }
+    }
+    const aliveByPlayer: Record<number, number> = {};
+    for (const unit of Object.values(gameState.units)) {
+      aliveByPlayer[unit.owner_id] = (aliveByPlayer[unit.owner_id] ?? 0) + 1;
+    }
+    const propsByPlayer: Record<number, number> = {};
+    for (const row of gameState.tiles) {
+      for (const tile of row) {
+        if (tile.owner_id >= 0) {
+          propsByPlayer[tile.owner_id] = (propsByPlayer[tile.owner_id] ?? 0) + 1;
+        }
+      }
+    }
+    combatStats = gameState.players.map((p) => ({
+      playerId: p.id,
+      built: builtByPlayer[p.id] ?? 0,
+      alive: aliveByPlayer[p.id] ?? 0,
+      props: propsByPlayer[p.id] ?? 0,
+    }));
+  }
+
   return (
     <div className="flex flex-col gap-2 p-3 text-sm">
-      {/* Current player highlight block */}
-      <div className={`rounded-lg border p-2.5 ${bgClass}`}>
+      {/* Current player block */}
+      <div className="bg-slate-800 border border-slate-700 rounded-xl p-3">
         <div className="flex items-baseline justify-between mb-1">
-          <div className={`font-bold text-base ${colorClass}`}>Player {currentPlayer.id + 1}</div>
-          <div className="text-gray-500 text-xs">Turn {gameState.turn_number}</div>
+          <div className={`text-xl font-black ${colorClass}`}>Player {currentPlayer.id + 1}</div>
+          <div className="text-slate-500 text-xs">Turn {gameState.turn_number}</div>
         </div>
-        <div className="text-gray-400 text-xs capitalize mb-1.5">
-          {currentPlayer.controller_type}
+        <div className="mb-2">
+          <span className="bg-slate-700 text-slate-400 text-xs px-2 py-0.5 rounded-full capitalize">
+            {currentPlayer.controller_type}
+          </span>
         </div>
-        <div className="text-yellow-300 font-mono font-bold text-lg">
+        <div className="text-amber-400 font-mono font-bold text-2xl">
           ¥{currentPlayer.funds.toLocaleString()}
         </div>
       </div>
 
       {gameState.phase === "game_over" && (
-        <div className="text-yellow-400 font-bold text-center py-2 bg-yellow-900/30 rounded border border-yellow-700/40">
+        <div className="text-amber-400 font-bold text-center py-2 bg-amber-900/20 rounded border border-amber-700/40">
           Game Over!
           {gameState.winner_id >= 0 && (
             <div className="text-sm font-normal mt-0.5">Player {gameState.winner_id + 1} wins!</div>
@@ -57,16 +81,14 @@ export default function InfoPanel() {
         </div>
       )}
 
-      {/* End Turn button — prominent, at top of actions */}
+      {/* End Turn button */}
       {isHumanTurn && (
         <button
           onClick={handleEndTurn}
-          className="w-full bg-green-700 hover:bg-green-600 active:bg-green-800 text-white font-bold py-2.5 px-4 rounded-lg transition-colors flex items-center justify-between"
+          className="w-full bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-black py-2.5 px-4 rounded-lg transition-colors flex items-center justify-between"
         >
           <span>End Turn</span>
-          <span className="text-green-300 text-xs font-normal opacity-75 border border-green-600 rounded px-1">
-            E
-          </span>
+          <span className="bg-amber-600/50 text-amber-900 text-xs px-1.5 rounded">E</span>
         </button>
       )}
 
@@ -74,9 +96,9 @@ export default function InfoPanel() {
       {(gameState.max_turns > 0 ||
         gameState.income_multiplier !== 1 ||
         gameState.luck_max === 0) && (
-        <div className="border-t border-gray-700 pt-2 px-1">
-          <div className="text-gray-500 text-xs uppercase tracking-wide mb-1">Rules</div>
-          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-400">
+        <div className="border-t border-slate-700 pt-2 px-1">
+          <div className="text-slate-500 text-xs uppercase tracking-wide mb-1">Rules</div>
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-400">
             {gameState.max_turns > 0 && (
               <span>
                 ⏱ {gameState.turn_number}/{gameState.max_turns}
@@ -89,25 +111,61 @@ export default function InfoPanel() {
       )}
 
       {/* Player roster */}
-      <div className="border-t border-gray-700 pt-2">
-        <div className="text-gray-500 text-xs uppercase tracking-wide mb-1">Players</div>
+      <div className="border-t border-slate-700 pt-2">
+        <div className="text-slate-500 text-xs uppercase tracking-wide mb-1">Players</div>
         {gameState.players.map((p) => (
           <div
             key={p.id}
             className={`flex justify-between items-center text-xs py-1 px-1.5 rounded ${
-              p.id === currentPlayer.id ? "bg-gray-800" : ""
+              p.id === currentPlayer.id ? "bg-slate-800" : ""
             } ${p.is_defeated ? "opacity-40 line-through" : ""}`}
           >
             <span className={`font-medium ${teamColors[p.team] ?? "text-white"}`}>
               P{p.id + 1}
               {p.id === currentPlayer.id && (
-                <span className="text-gray-500 font-normal ml-1">◀</span>
+                <span className="text-slate-500 font-normal ml-1">◀</span>
               )}
             </span>
-            <span className="text-yellow-300 font-mono">¥{p.funds.toLocaleString()}</span>
+            <span className="text-amber-400 font-mono">¥{p.funds.toLocaleString()}</span>
           </div>
         ))}
       </div>
+
+      {/* Intel section (fog disabled) */}
+      {combatStats && (
+        <div className="border-t border-slate-700 pt-2">
+          <div className="text-slate-500 text-xs uppercase tracking-wide mb-1">
+            Intel <span className="normal-case text-slate-600">(fog off)</span>
+          </div>
+          <div className="space-y-1.5">
+            {combatStats.map(({ playerId, built, alive, props }) => {
+              const p = gameState.players.find((pl) => pl.id === playerId);
+              if (!p || p.is_defeated) return null;
+              return (
+                <div key={playerId} className="bg-slate-800 rounded-lg px-2.5 py-2">
+                  <div className={`text-xs font-bold mb-1 ${teamColors[p.team] ?? "text-white"}`}>
+                    P{playerId + 1}
+                  </div>
+                  <div className="grid grid-cols-3 gap-1 text-center">
+                    <div>
+                      <div className="text-white font-bold text-sm">{built}</div>
+                      <div className="text-slate-500 text-xs">Built</div>
+                    </div>
+                    <div>
+                      <div className="text-white font-bold text-sm">{alive}</div>
+                      <div className="text-slate-500 text-xs">Alive</div>
+                    </div>
+                    <div>
+                      <div className="text-amber-400 font-bold text-sm">{props}</div>
+                      <div className="text-slate-500 text-xs">Props</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
