@@ -140,7 +140,7 @@ export class TerrainRenderer {
         const py = y * DISPLAY;
         const fogged = visibility != null && !visibility[y][x];
         const childCountBefore = fogged ? this.container.children.length : 0;
-        this.drawTile(state, tile, x, y, px, py);
+        this.drawTile(state, tile, x, y, px, py, fogged);
         if (fogged) {
           for (let i = childCountBefore; i < this.container.children.length; i++) {
             (this.container.children[i] as Sprite).tint = FOG_TINT;
@@ -173,14 +173,18 @@ export class TerrainRenderer {
     x: number,
     y: number,
     px: number,
-    py: number
+    py: number,
+    fogged = false
   ): void {
     const terrainType = tile.terrain_type;
 
     if (isBuilding(terrainType)) {
-      // Buildings: draw plains underneath, then the building
+      // Buildings: draw plains underneath, then the building.
+      // In fog of war, render as neutral (owner_id = -1) so the enemy's
+      // captured buildings aren't revealed — matching Advance Wars rules.
+      const effectiveOwner = fogged ? -1 : tile.owner_id;
       this.drawTerrainSprite("plains", px, py);
-      this.drawBuildingSprite(terrainType, tile.owner_id, px, py);
+      this.drawBuildingSprite(terrainType, effectiveOwner, px, py);
     } else if (TRANSPARENT_TERRAIN.has(terrainType)) {
       // Mountains/forests have transparency - draw plains first
       this.drawTerrainSprite("plains", px, py);

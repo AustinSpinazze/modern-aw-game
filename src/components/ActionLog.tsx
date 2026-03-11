@@ -1,7 +1,31 @@
-// Recent action log for the sidebar — shows last N commands in human-readable form.
+// Recent action log for the sidebar — shows categorised commands with filter chips.
 
+import { useState, useMemo } from "react";
 import { useGameStore } from "../store/game-store";
-import { getUnitData } from "../game/data-loader";
+
+type FilterCategory = "MOVE" | "ATTACK" | "CAPTURE" | "BUILD" | "SYSTEM";
+
+const CATEGORY_MAP: Record<string, FilterCategory> = {
+  MOVE: "MOVE",
+  WAIT: "MOVE",
+  RESUPPLY: "MOVE",
+  ATTACK: "ATTACK",
+  CAPTURE: "CAPTURE",
+  BUY_UNIT: "BUILD",
+  BUILD_FOB: "BUILD",
+  DIG_TRENCH: "BUILD",
+  END_TURN: "SYSTEM",
+  SUBMERGE: "SYSTEM",
+  SURFACE: "SYSTEM",
+};
+
+const CATEGORY_STYLE: Record<FilterCategory, { active: string; inactive: string; badge: string }> = {
+  MOVE:    { active: "bg-blue-500/20 text-blue-300 border-blue-500/50",       inactive: "text-slate-600 border-slate-700 bg-transparent", badge: "bg-blue-500/20 text-blue-300 border-blue-500/40" },
+  ATTACK:  { active: "bg-red-500/20 text-red-300 border-red-500/50",          inactive: "text-slate-600 border-slate-700 bg-transparent", badge: "bg-red-500/20 text-red-300 border-red-500/40" },
+  CAPTURE: { active: "bg-yellow-500/20 text-yellow-300 border-yellow-500/50", inactive: "text-slate-600 border-slate-700 bg-transparent", badge: "bg-yellow-500/20 text-yellow-300 border-yellow-500/40" },
+  BUILD:   { active: "bg-green-500/20 text-green-300 border-green-500/50",    inactive: "text-slate-600 border-slate-700 bg-transparent", badge: "bg-green-500/20 text-green-300 border-green-500/40" },
+  SYSTEM:  { active: "bg-slate-500/20 text-slate-400 border-slate-500/50",    inactive: "text-slate-600 border-slate-700 bg-transparent", badge: "bg-slate-500/20 text-slate-400 border-slate-500/40" },
+};
 
 const TEAM_COLORS: Record<number, string> = {
   0: "text-red-400",
@@ -10,91 +34,150 @@ const TEAM_COLORS: Record<number, string> = {
   3: "text-yellow-400",
 };
 
-const TEAM_BORDER: Record<number, string> = {
-  0: "border-red-400",
-  1: "border-blue-400",
-  2: "border-green-400",
-  3: "border-yellow-400",
-};
-
-const MAX_ENTRIES = 8;
-
 type CommandDict = Record<string, unknown>;
 
-function formatCommand(
-  cmd: CommandDict,
-  players: { id: number; team: number }[]
-): { text: string; playerTeam: number } | null {
-  const playerId = (cmd.player_id as number) ?? -1;
-  const player = players.find((p) => p.id === playerId);
-  const team = player?.team ?? 0;
-  const pName = `P${playerId + 1}`;
-
-  switch (cmd.type as string) {
-    case "MOVE": {
-      const unitType = (cmd.unit_type as string) ?? "";
-      const unitName = unitType ? (getUnitData(unitType)?.name ?? unitType) : "Unit";
-      return { text: `${pName} moved ${unitName}`, playerTeam: team };
-    }
-    case "ATTACK":
-      return { text: `${pName} attacked`, playerTeam: team };
-    case "CAPTURE":
-      return { text: `${pName} capturing…`, playerTeam: team };
-    case "BUY_UNIT": {
-      const unitType = (cmd.unit_type as string) ?? "";
-      const unitName = getUnitData(unitType)?.name ?? unitType;
-      return { text: `${pName} deployed ${unitName}`, playerTeam: team };
-    }
+function formatEntry(cmd: CommandDict, playerName: string): string {
+  const type = cmd.type as string;
+  switch (type) {
+    case "MOVE":
+      return `${playerName} moved unit`;
     case "WAIT":
-      return { text: `${pName} waited`, playerTeam: team };
-    case "DIG_TRENCH":
-      return { text: `${pName} dug trench`, playerTeam: team };
-    case "BUILD_FOB":
-      return { text: `${pName} built FOB`, playerTeam: team };
+      return `${playerName} waited`;
+    case "ATTACK": {
+      const dmg = cmd.damage_dealt as number | undefined;
+      return dmg !== undefined
+        ? `${playerName} attacked — ${dmg} HP damage`
+        : `${playerName} attacked`;
+    }
+    case "CAPTURE":
+      return `${playerName} capturing property`;
+    case "BUY_UNIT":
+      return `${playerName} deployed unit`;
     case "END_TURN":
-      return { text: `── P${playerId + 1} ended turn ──`, playerTeam: team };
-    case "SUBMERGE":
-      return { text: `${pName} submerged`, playerTeam: team };
-    case "SURFACE":
-      return { text: `${pName} surfaced`, playerTeam: team };
+      return `${playerName} ended turn`;
+    case "BUILD_FOB":
+      return `${playerName} built FOB`;
+    case "DIG_TRENCH":
+      return `${playerName} dug trench`;
     case "RESUPPLY":
-      return { text: `${pName} resupplied`, playerTeam: team };
+      return `${playerName} resupplied`;
+    case "SUBMERGE":
+      return `${playerName} submerged`;
+    case "SURFACE":
+      return `${playerName} surfaced`;
     default:
-      return null;
+      return `${playerName}: ${type}`;
   }
 }
 
 export default function ActionLog() {
   const gameState = useGameStore((s) => s.gameState);
+
+  const [activeFilters, setActiveFilters] = useState<Set<FilterCategory>>(
+    new Set(["MOVE", "ATTACK", "CAPTURE", "BUILD", "SYSTEM"])
+  );
+
+  function toggleFilter(cat: FilterCategory) {
+    setActiveFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) {
+        // Don't allow deselecting all filters
+        if (next.size > 1) next.delete(cat);
+      } else {
+        next.add(cat);
+      }
+      return next;
+    });
+  }
+
+  const entries = useMemo(() => {
+    if (!gameState) return [];
+    const log = gameState.command_log ?? [];
+    let day = 1;
+    const result: Array<{
+      day: number;
+      category: FilterCategory;
+      text: string;
+      playerTeam: number;
+    }> = [];
+
+    for (const cmd of log) {
+      const type = (cmd as CommandDict).type as string;
+      const playerId = (cmd as CommandDict).player_id as number;
+      const player = gameState.players.find((p) => p.id === playerId);
+      const playerName = player ? `P${gameState.players.indexOf(player) + 1}` : "?";
+      const playerTeam = player ? player.team : 0;
+
+      if (type === "END_TURN") {
+        result.push({
+          day,
+          category: "SYSTEM",
+          text: `${playerName} ended turn`,
+          playerTeam,
+        });
+        day++;
+      } else {
+        const category = CATEGORY_MAP[type] ?? "SYSTEM";
+        result.push({
+          day,
+          category,
+          text: formatEntry(cmd as CommandDict, playerName),
+          playerTeam,
+        });
+      }
+    }
+
+    return result.reverse();
+  }, [gameState]);
+
+  const filteredEntries = entries.filter((e) => activeFilters.has(e.category));
+
   if (!gameState || gameState.command_log.length === 0) return null;
 
-  const recent = [...gameState.command_log].reverse().slice(0, MAX_ENTRIES);
-
   return (
-    <div className="border-t border-slate-700 p-3">
-      <div className="text-slate-500 text-xs uppercase tracking-wide font-semibold mb-2">
-        Game Log
+    <div className="border-t border-slate-600/50 flex flex-col shrink-0" style={{ height: "200px" }}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 pt-2 pb-1 shrink-0">
+        <span className="text-slate-400 text-[10px] font-semibold uppercase tracking-widest">
+          Game Log
+        </span>
+        <span className="text-slate-600 text-[10px] font-mono">{filteredEntries.length} events</span>
       </div>
-      <div className="space-y-0.5">
-        {recent.map((cmd, i) => {
-          const entry = formatCommand(cmd, gameState.players);
-          if (!entry) return null;
-          const colorClass = TEAM_COLORS[entry.playerTeam] ?? "text-slate-400";
-          const borderClass = TEAM_BORDER[entry.playerTeam] ?? "border-slate-400";
-          const isEndTurn = (cmd.type as string) === "END_TURN";
-          return (
-            <div
-              key={i}
-              className={`text-xs truncate ${
-                isEndTurn
-                  ? "text-slate-700 text-center py-0.5 border-t border-slate-800 mt-1"
-                  : `${colorClass} border-l-2 ${borderClass} pl-2`
-              }`}
-            >
-              {entry.text}
+
+      {/* Filter chips */}
+      <div className="flex gap-1 px-2 pb-1.5 shrink-0 flex-wrap">
+        {(["MOVE", "ATTACK", "CAPTURE", "BUILD", "SYSTEM"] as FilterCategory[]).map((cat) => (
+          <button
+            key={cat}
+            onClick={() => toggleFilter(cat)}
+            className={`text-[9px] px-1.5 py-0.5 rounded border font-mono transition-colors ${
+              activeFilters.has(cat) ? CATEGORY_STYLE[cat].active : CATEGORY_STYLE[cat].inactive
+            }`}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      {/* Scrollable entries */}
+      <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5 font-mono">
+        {filteredEntries.length === 0 ? (
+          <p className="text-slate-700 text-[10px] px-1 pt-1">No events yet</p>
+        ) : (
+          filteredEntries.map((entry, i) => (
+            <div key={i} className="flex items-center gap-1.5 text-[10px] min-w-0">
+              <span className="text-slate-600 shrink-0 w-5 text-right">D{entry.day}</span>
+              <span
+                className={`shrink-0 px-1 py-px rounded border text-[8px] leading-4 ${CATEGORY_STYLE[entry.category].badge}`}
+              >
+                {entry.category.slice(0, 3)}
+              </span>
+              <span className={`truncate ${TEAM_COLORS[entry.playerTeam] ?? "text-slate-400"}`}>
+                {entry.text}
+              </span>
             </div>
-          );
-        })}
+          ))
+        )}
       </div>
     </div>
   );

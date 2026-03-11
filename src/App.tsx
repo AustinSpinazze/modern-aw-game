@@ -8,6 +8,9 @@ import ActionMenu from "./components/ActionMenu";
 import BuyMenu from "./components/BuyMenu";
 import ActionLog from "./components/ActionLog";
 import SettingsModal from "./components/SettingsModal";
+import MainMenu from "./components/MainMenu";
+import TurnTransitionOverlay from "./components/TurnTransitionOverlay";
+import type { SavedGameMeta } from "./types";
 import { useGameStore } from "./store/game-store";
 import { useGame } from "./hooks/useGame";
 import { useConfigStore } from "./store/config-store";
@@ -64,15 +67,9 @@ class ErrorBoundary extends Component<
   }
 }
 
-type AppView = "setup" | "game";
+type AppView = "menu" | "setup" | "game";
 
 // Team color config shared across banner and sidebar
-const TEAM_BANNER_BG: Record<number, string> = {
-  0: "bg-slate-900 border-red-500",
-  1: "bg-slate-900 border-blue-500",
-  2: "bg-slate-900 border-green-500",
-  3: "bg-slate-900 border-yellow-500",
-};
 const TEAM_TEXT: Record<number, string> = {
   0: "text-red-400",
   1: "text-blue-400",
@@ -85,6 +82,12 @@ const TEAM_DOT: Record<number, string> = {
   2: "bg-green-400",
   3: "bg-yellow-400",
 };
+const TEAM_RING: Record<number, string> = {
+  0: "ring-red-500",
+  1: "ring-blue-500",
+  2: "ring-green-500",
+  3: "ring-yellow-500",
+};
 
 interface SavedGameFile {
   version: number;
@@ -95,7 +98,7 @@ interface SavedGameFile {
 }
 
 function AppContent() {
-  const [view, setView] = useState<AppView>("setup");
+  const [view, setView] = useState<AppView>("menu");
   const [buyMenuTile, setBuyMenuTile] = useState<{ x: number; y: number } | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1.0);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -103,6 +106,20 @@ function AppContent() {
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Saved games list (for main menu)
+  const [gameSaves, setGameSaves] = useState<SavedGameMeta[]>([]);
+
+  // Turn timer state
+  const [turnStartTime, setTurnStartTime] = useState<number | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState<number>(0);
+
+  // Load saves list for main menu
+  useEffect(() => {
+    if (window.electronAPI?.listSaves) {
+      window.electronAPI.listSaves().then(setGameSaves).catch(console.error);
+    }
+  }, []);
 
   const handleZoomIn = useCallback(() => {
     zoomIn();
@@ -170,8 +187,9 @@ function AppContent() {
         setBannerText(winner ? `Player ${winner.id + 1} Wins!` : "Draw!");
         setBannerTeam(winner?.team ?? 0);
       } else if (player) {
-        setBannerText(`Player ${player.id + 1}'s Turn`);
+        setBannerText(`Player ${player.id + 1}`);
         setBannerTeam(player.team);
+        setTurnStartTime(Date.now());
       }
 
       setBannerVisible(true);
@@ -181,6 +199,30 @@ function AppContent() {
     prevPlayerIndexRef.current = newIndex;
     prevPhaseRef.current = newPhase;
   }, [gameState, view]);
+
+  // ── Turn timer countdown ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!gameState || !turnStartTime) return;
+    const limit = gameState.turn_time_limit ?? 0;
+    if (limit <= 0) return;
+
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - turnStartTime) / 1000);
+      const remaining = Math.max(0, limit - elapsed);
+      setTimeRemaining(remaining);
+      if (remaining === 0) {
+        const store = useGameStore.getState();
+        if (!store.isAnimating && !store.processingQueue) {
+          const player = gameState.players[gameState.current_player_index];
+          if (player) {
+            store.submitCommand({ type: "END_TURN", player_id: player.id });
+          }
+        }
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [gameState, turnStartTime]);
 
   // ── Auto-save after each turn end ──────────────────────────────────────
   useEffect(() => {
@@ -313,6 +355,32 @@ function AppContent() {
     setView("game");
   }, []);
 
+  const handleLoadGame = useCallback(async (name: string) => {
+    try {
+      await loadGameData();
+      const raw = (await window.electronAPI!.loadGame(name)) as { state?: GameState } | null;
+      if (!raw?.state) return;
+      useGameStore.getState().setGameState(raw.state);
+      prevPlayerIndexRef.current = -1;
+      prevPhaseRef.current = "";
+      prevTurnNumberRef.current = -1;
+      setView("game");
+    } catch (e) {
+      console.error("Failed to load save:", e);
+    }
+  }, []);
+
+  const handleDeleteSave = useCallback(async (name: string) => {
+    try {
+      if (window.electronAPI?.deleteSave) {
+        await window.electronAPI.deleteSave(name);
+      }
+      setGameSaves((prev) => prev.filter((s) => s.name !== name));
+    } catch {
+      setGameSaves((prev) => prev.filter((s) => s.name !== name));
+    }
+  }, []);
+
   const handleQuickSave = useCallback(async () => {
     if (!gameState || !window.electronAPI) return;
     const saveData: SavedGameFile = {
@@ -344,14 +412,35 @@ function AppContent() {
     // preventing the "Cannot read properties of null (reading 'next')" crash that
     // occurred when Pixi's display-list traversal read from a null game state.
     flushSync(() => {
-      setView("setup");
+      setView("menu");
       setBuyMenuTile(null);
       setBannerVisible(false);
       setShowExitConfirm(false);
     });
     useGameStore.getState().clearGameState();
+    // Refresh save list when returning to menu
+    if (window.electronAPI?.listSaves) {
+      window.electronAPI.listSaves().then(setGameSaves).catch(console.error);
+    }
   }, []);
 
+  // ── Menu view ──────────────────────────────────────────────────────────
+  if (view === "menu") {
+    return (
+      <>
+        <MainMenu
+          onNewGame={() => setView("setup")}
+          onContinue={handleLoadGame}
+          onSettings={() => setShowSettings(true)}
+          onDeleteSave={handleDeleteSave}
+          saves={gameSaves}
+        />
+        {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      </>
+    );
+  }
+
+  // ── Setup view ─────────────────────────────────────────────────────────
   if (view === "setup") {
     return (
       <>
@@ -367,16 +456,9 @@ function AppContent() {
     currentPlayer?.controller_type === "human" && gameState?.phase === "action";
   const isAnimating = useGameStore.getState().isAnimating;
 
-  // Compute unit count for current player
-  const unitCount = gameState
-    ? Object.values(gameState.units).filter(
-        (u) => !u.is_loaded && u.owner_id === currentPlayer?.id
-      ).length
-    : 0;
-
   // Game view
   return (
-    <div className="h-screen flex flex-col bg-slate-950">
+    <div className={`h-screen flex flex-col bg-slate-950 ring-2 ring-inset ${TEAM_RING[currentPlayer?.team ?? 0] ?? "ring-slate-700"}`}>
       {/* Top bar */}
       <header className="h-12 shrink-0 flex items-center justify-between px-4 bg-slate-900 border-b border-slate-700 z-20">
         {/* Left side */}
@@ -403,13 +485,11 @@ function AppContent() {
 
         {/* Right side */}
         <div className="flex items-center gap-3">
-          {currentPlayer && (
-            <>
-              <span className="text-amber-400 font-mono font-bold text-sm">
-                ¥{currentPlayer.funds.toLocaleString()}
-              </span>
-              <span className="text-slate-400 text-xs">{unitCount} units</span>
-            </>
+          {/* Turn timer */}
+          {(gameState?.turn_time_limit ?? 0) > 0 && (
+            <span className={`font-mono text-sm font-bold tabular-nums ${timeRemaining < 30 ? "text-red-400" : "text-slate-300"}`}>
+              {Math.floor(timeRemaining / 60)}:{String(timeRemaining % 60).padStart(2, "0")}
+            </span>
           )}
           {isHumanTurn && !isAnimating && (
             <button
@@ -595,24 +675,14 @@ function AppContent() {
         </div>
       )}
 
-      {/* Turn transition banner */}
-      {bannerText && (
-        <div
-          className={`fixed inset-0 pointer-events-none z-50 flex items-center justify-center transition-opacity duration-300 ${
-            bannerVisible ? "opacity-100" : "opacity-0"
-          }`}
-        >
-          <div
-            className={`border-2 rounded-2xl px-10 py-6 text-center shadow-2xl backdrop-blur-sm ${TEAM_BANNER_BG[bannerTeam] ?? "bg-slate-900 border-slate-500"}`}
-          >
-            <div
-              className={`text-3xl font-black tracking-wide ${TEAM_TEXT[bannerTeam] ?? "text-white"}`}
-            >
-              {bannerText}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Turn transition overlay */}
+      <TurnTransitionOverlay
+        visible={bannerVisible}
+        playerName={bannerText ?? ""}
+        dayNumber={gameState?.turn_number ?? 1}
+        team={bannerTeam}
+        isHumanTurn={isHumanTurn}
+      />
     </div>
   );
 }

@@ -66,6 +66,7 @@ export function createGameState(partial?: Partial<GameState>): GameState {
     income_multiplier: 1,
     max_turns: -1,
     fog_of_war: false,
+    turn_time_limit: 0,
     ...partial,
   };
 }
@@ -244,5 +245,6 @@ export function stateFromDict(data: unknown): GameState | null {
     income_multiplier: typeof s.income_multiplier === "number" ? s.income_multiplier : 1,
     max_turns: typeof s.max_turns === "number" ? s.max_turns : -1,
     fog_of_war: typeof s.fog_of_war === "boolean" ? s.fog_of_war : false,
+    turn_time_limit: typeof s.turn_time_limit === "number" ? s.turn_time_limit : 0,
   } as GameState;
 }

@@ -1,6 +1,6 @@
 // Pre-game lobby: configure players, map, and match rules.
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { ControllerType, GameState } from "../game/types";
 import {
   createGameState,
@@ -27,6 +27,7 @@ interface MatchConfig {
   luck: "off" | "normal" | "high";
   maxTurns: number;
   fogOfWar: boolean;
+  turnTimeLimit: number;
 }
 
 interface SavedMap {
@@ -44,13 +45,6 @@ interface ParsedPreview {
   tiles: number[][];
 }
 
-interface SavedGameMeta {
-  name: string;
-  savedAt: string;
-  turnNumber: number;
-  playerCount: number;
-}
-
 interface MatchSetupProps {
   onMatchStart: () => void;
   onOpenSettings?: () => void;
@@ -65,6 +59,7 @@ const DEFAULT_CONFIG: MatchConfig = {
   luck: "normal",
   maxTurns: -1,
   fogOfWar: false,
+  turnTimeLimit: 0,
 };
 
 const LUCK_SETTINGS: Record<MatchConfig["luck"], { min: number; max: number }> = {
@@ -238,43 +233,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
   const [savedMaps, setSavedMaps] = useState<SavedMap[]>(() => loadSavedMaps());
   const [mapName, setMapName] = useState("");
 
-  // Electron save-game slots
-  const [gameSaves, setGameSaves] = useState<SavedGameMeta[]>([]);
-  const [loadingGame, setLoadingGame] = useState(false);
-
   const setGameState = useGameStore((s) => s.setGameState);
-
-  // Load save list from Electron on mount
-  useEffect(() => {
-    if (!window.electronAPI) return;
-    window.electronAPI.listSaves().then(setGameSaves).catch(console.error);
-  }, []);
-
-  const handleLoadGame = useCallback(
-    async (name: string) => {
-      if (!window.electronAPI) return;
-      setLoadingGame(true);
-      try {
-        await loadGameData();
-        const raw = (await window.electronAPI.loadGame(name)) as { state?: GameState } | null;
-        if (raw?.state) {
-          setGameState(raw.state);
-          onMatchStart();
-        }
-      } catch (e) {
-        console.error("Failed to load save:", e);
-      } finally {
-        setLoadingGame(false);
-      }
-    },
-    [setGameState, onMatchStart]
-  );
-
-  const handleDeleteGame = useCallback(async (name: string) => {
-    if (!window.electronAPI) return;
-    await window.electronAPI.deleteSave(name);
-    setGameSaves((prev) => prev.filter((s) => s.name !== name));
-  }, []);
 
   const updatePlayerConfig = (index: number, patch: Partial<PlayerConfig>) => {
     setPlayers((prev) => prev.map((p, i) => (i === index ? { ...p, ...patch } : p)));
@@ -293,6 +252,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
       income_multiplier: config.incomeMultiplier,
       max_turns: config.maxTurns,
       fog_of_war: config.fogOfWar,
+      turn_time_limit: config.turnTimeLimit,
     };
   };
 
@@ -440,46 +400,6 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
         {header}
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
           <div className="w-full max-w-xl space-y-6">
-            {/* Saved games (Electron only) */}
-            {gameSaves.length > 0 && (
-              <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden">
-                <div className="px-4 py-3 border-b border-slate-700">
-                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
-                    Continue a Saved Game
-                  </span>
-                </div>
-                <div className="divide-y divide-slate-800">
-                  {gameSaves.map((save) => (
-                    <div key={save.name} className="flex items-center gap-3 px-4 py-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm text-white font-medium capitalize">
-                          {save.name.replace(/-/g, " ")}
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          Turn {save.turnNumber} · {save.playerCount}P ·{" "}
-                          {new Date(save.savedAt).toLocaleString()}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => handleLoadGame(save.name)}
-                        disabled={loadingGame}
-                        className="shrink-0 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 text-xs font-bold rounded transition-colors"
-                      >
-                        {loadingGame ? "Loading…" : "Continue"}
-                      </button>
-                      <button
-                        onClick={() => handleDeleteGame(save.name)}
-                        className="shrink-0 px-2 py-1.5 bg-slate-700 hover:bg-red-800/60 text-slate-400 hover:text-red-400 text-xs rounded transition-colors"
-                        title="Delete save"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Player count */}
             <div>
               <div className="text-white font-bold text-base mb-1">Players</div>
@@ -886,6 +806,29 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
               </button>
             </div>
 
+            {/* Turn Timer */}
+            <div>
+              <label className="text-white font-semibold text-sm block mb-1">Turn Timer</label>
+              <p className="text-slate-400 text-xs mb-2">
+                Auto-end turn when time expires (0 = no limit)
+              </p>
+              <div className="flex gap-2 flex-wrap">
+                {[0, 30, 60, 120, 300].map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setConfig((c) => ({ ...c, turnTimeLimit: s }))}
+                    className={`px-3 py-1.5 text-xs rounded-lg border font-mono transition-colors ${
+                      config.turnTimeLimit === s
+                        ? "bg-amber-500/10 border-amber-500 text-amber-400"
+                        : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500"
+                    }`}
+                  >
+                    {s === 0 ? "Off" : s < 60 ? `${s}s` : `${s / 60}m`}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Config summary strip */}
             <div className="bg-slate-800 rounded-lg p-3 border border-slate-700 text-xs text-slate-400 flex flex-wrap gap-x-4 gap-y-1">
               <span>
@@ -908,6 +851,16 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
               </span>
               <span>
                 Fog: <span className="text-slate-300">{config.fogOfWar ? "On" : "Off"}</span>
+              </span>
+              <span>
+                Timer:{" "}
+                <span className="text-slate-300">
+                  {config.turnTimeLimit === 0
+                    ? "Off"
+                    : config.turnTimeLimit < 60
+                    ? `${config.turnTimeLimit}s`
+                    : `${config.turnTimeLimit / 60}m`}
+                </span>
               </span>
             </div>
 
@@ -989,6 +942,14 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
               </span>
               <span className="text-slate-500">Fog of war</span>
               <span className="text-slate-300">{config.fogOfWar ? "On" : "Off"}</span>
+              <span className="text-slate-500">Turn timer</span>
+              <span className="text-slate-300">
+                {config.turnTimeLimit === 0
+                  ? "Off"
+                  : config.turnTimeLimit < 60
+                  ? `${config.turnTimeLimit}s`
+                  : `${config.turnTimeLimit / 60}m`}
+              </span>
             </div>
           </div>
 
