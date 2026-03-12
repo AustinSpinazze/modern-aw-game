@@ -112,7 +112,18 @@ function AppContent() {
 
   // Turn timer state
   const [turnStartTime, setTurnStartTime] = useState<number | null>(null);
-  const [timeRemaining, setTimeRemaining] = useState<number>(0);
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null); // null = not yet ticking
+  // Mirror of timeRemaining as a ref so the turn-change effect always reads the
+  // latest value without needing it in the dependency array (avoids stale closure).
+  const timeRemainingRef = useRef<number | null>(null);
+  // Per-player carryover bank: seconds saved from ending a turn early.
+  // Keyed by player ID so each player accumulates their own unused time.
+  const pendingCarryoverRef = useRef<Record<number, number>>({});
+  // Prevents the auto-end-turn from firing more than once per turn
+  const timerAutoEndedRef = useRef(false);
+  // Timer pause state
+  const [timerPaused, setTimerPaused] = useState(false);
+  const pausedAtRef = useRef<number | null>(null);
 
   // Load saves list for main menu
   useEffect(() => {
@@ -155,7 +166,34 @@ function AppContent() {
     useConfigStore.getState().syncFromElectron().catch(console.error);
   }, []);
 
-  // ── Close menu on outside click ─────────────────────────────────────────
+  // ── Timer pause / resume / reset helpers ────────────────────────────────
+  const resetTimerState = useCallback(() => {
+    pausedAtRef.current = null;
+    timeRemainingRef.current = null;
+    pendingCarryoverRef.current = {};
+    timerAutoEndedRef.current = false;
+    setTimerPaused(false);
+    setTimeRemaining(null);
+    setTurnStartTime(null);
+  }, []);
+
+  const pauseTimer = useCallback(() => {
+    if (pausedAtRef.current !== null) return; // already paused
+    pausedAtRef.current = Date.now();
+    setTimerPaused(true);
+  }, []);
+
+  const resumeTimer = useCallback(() => {
+    if (pausedAtRef.current === null) return; // not paused
+    const pauseDuration = Date.now() - pausedAtRef.current;
+    pausedAtRef.current = null;
+    // Shift turnStartTime forward by however long we were paused so elapsed
+    // time doesn't count the pause duration.
+    setTurnStartTime((prev) => (prev !== null ? prev + pauseDuration : null));
+    setTimerPaused(false);
+  }, []);
+
+  // ── Close menu on outside click ──────────────────────────────────────────
   useEffect(() => {
     if (!menuOpen) return;
     const handleOutside = (e: MouseEvent) => {
@@ -166,6 +204,16 @@ function AppContent() {
     document.addEventListener("mousedown", handleOutside);
     return () => document.removeEventListener("mousedown", handleOutside);
   }, [menuOpen]);
+
+  // ── Auto-pause timer while the menu dropdown is open ────────────────────
+  useEffect(() => {
+    if (view !== "game") return;
+    if (menuOpen) {
+      pauseTimer();
+    } else {
+      resumeTimer();
+    }
+  }, [menuOpen, view, pauseTimer, resumeTimer]);
 
   // ── Turn transition banner ──────────────────────────────────────────────
   useEffect(() => {
@@ -189,7 +237,31 @@ function AppContent() {
       } else if (player) {
         setBannerText(`Player ${player.id + 1}`);
         setBannerTeam(player.team);
-        setTurnStartTime(Date.now());
+        timerAutoEndedRef.current = false;
+
+        // Save whatever time the outgoing player had left into their carryover bank.
+        const prevPlayer = gameState.players[prevPlayerIndexRef.current];
+        if (
+          prevPlayer &&
+          timeRemainingRef.current !== null &&
+          timeRemainingRef.current > 0
+        ) {
+          pendingCarryoverRef.current[prevPlayer.id] =
+            (pendingCarryoverRef.current[prevPlayer.id] ?? 0) +
+            timeRemainingRef.current;
+        }
+        timeRemainingRef.current = null;
+        setTimeRemaining(null);
+
+        // Only start a countdown for human turns.
+        // Carry over this player's own banked seconds (chess-style increment).
+        if (player.controller_type === "human") {
+          const carryover = pendingCarryoverRef.current[player.id] ?? 0;
+          delete pendingCarryoverRef.current[player.id];
+          setTurnStartTime(Date.now() + carryover * 1000);
+        } else {
+          setTurnStartTime(null);
+        }
       }
 
       setBannerVisible(true);
@@ -200,17 +272,38 @@ function AppContent() {
     prevPhaseRef.current = newPhase;
   }, [gameState, view]);
 
-  // ── Turn timer countdown ────────────────────────────────────────────────
+  // ── Initialize timer when game view first loads (turn 1) ───────────────
   useEffect(() => {
-    if (!gameState || !turnStartTime) return;
+    if (view !== "game" || !gameState) return;
     const limit = gameState.turn_time_limit ?? 0;
     if (limit <= 0) return;
+    const player = gameState.players[gameState.current_player_index];
+    if (player?.controller_type !== "human") return;
+    timerAutoEndedRef.current = false;
+    timeRemainingRef.current = null;
+    pendingCarryoverRef.current = {};
+    setTimeRemaining(null);
+    setTurnStartTime(Date.now());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]); // only fire when entering game view, not on every state update
+
+  // ── Turn timer countdown ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!gameState || !turnStartTime || timerPaused) return;
+    const limit = gameState.turn_time_limit ?? 0;
+    if (limit <= 0) return;
+
+    const currentPlayer = gameState.players[gameState.current_player_index];
+    // Only count down on human turns — AI ends its own turn
+    if (currentPlayer?.controller_type !== "human") return;
 
     const interval = setInterval(() => {
       const elapsed = Math.floor((Date.now() - turnStartTime) / 1000);
       const remaining = Math.max(0, limit - elapsed);
+      timeRemainingRef.current = remaining;
       setTimeRemaining(remaining);
-      if (remaining === 0) {
+      if (remaining === 0 && !timerAutoEndedRef.current) {
+        timerAutoEndedRef.current = true; // fire only once per turn
         const store = useGameStore.getState();
         if (!store.isAnimating && !store.processingQueue) {
           const player = gameState.players[gameState.current_player_index];
@@ -222,7 +315,7 @@ function AppContent() {
     }, 500);
 
     return () => clearInterval(interval);
-  }, [gameState, turnStartTime]);
+  }, [gameState, turnStartTime, timerPaused]);
 
   // ── Auto-save after each turn end ──────────────────────────────────────
   useEffect(() => {
@@ -348,11 +441,45 @@ function AppContent() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [view]);
 
+  // Snapshot the game state at match start so Rematch can restore it
+  const initialGameStateRef = useRef<GameState | null>(null);
+
   const handleMatchStart = useCallback(() => {
     prevPlayerIndexRef.current = -1;
     prevPhaseRef.current = "";
     prevTurnNumberRef.current = -1;
+    initialGameStateRef.current = useGameStore.getState().gameState;
     setView("game");
+  }, []);
+
+  const handleRematch = useCallback(() => {
+    if (!initialGameStateRef.current) return;
+    useGameStore.getState().setGameState(initialGameStateRef.current);
+    prevPlayerIndexRef.current = -1;
+    prevPhaseRef.current = "";
+    prevTurnNumberRef.current = -1;
+    resetTimerState();
+    setView("game");
+  }, [resetTimerState]);
+
+  const handleResign = useCallback(() => {
+    const state = useGameStore.getState().gameState;
+    if (!state) return;
+    const currentPlayer = state.players[state.current_player_index];
+    if (!currentPlayer) return;
+    // Mark the resigning player as defeated and find remaining active players
+    const updatedPlayers = state.players.map((p) =>
+      p.id === currentPlayer.id ? { ...p, is_defeated: true } : p
+    );
+    const survivors = updatedPlayers.filter((p) => !p.is_defeated);
+    const winnerId = survivors.length === 1 ? survivors[0].id : -1;
+    useGameStore.getState().setGameState({
+      ...state,
+      players: updatedPlayers,
+      phase: "game_over",
+      winner_id: winnerId,
+    });
+    setMenuOpen(false);
   }, []);
 
   const handleLoadGame = useCallback(async (name: string) => {
@@ -364,11 +491,12 @@ function AppContent() {
       prevPlayerIndexRef.current = -1;
       prevPhaseRef.current = "";
       prevTurnNumberRef.current = -1;
+      resetTimerState();
       setView("game");
     } catch (e) {
       console.error("Failed to load save:", e);
     }
-  }, []);
+  }, [resetTimerState]);
 
   const handleDeleteSave = useCallback(async (name: string) => {
     try {
@@ -411,6 +539,7 @@ function AppContent() {
     // flushSync unmounts all game components synchronously before we touch Zustand,
     // preventing the "Cannot read properties of null (reading 'next')" crash that
     // occurred when Pixi's display-list traversal read from a null game state.
+    resetTimerState();
     flushSync(() => {
       setView("menu");
       setBuyMenuTile(null);
@@ -422,7 +551,7 @@ function AppContent() {
     if (window.electronAPI?.listSaves) {
       window.electronAPI.listSaves().then(setGameSaves).catch(console.error);
     }
-  }, []);
+  }, [resetTimerState]);
 
   // ── Menu view ──────────────────────────────────────────────────────────
   if (view === "menu") {
@@ -460,23 +589,23 @@ function AppContent() {
   return (
     <div className={`h-screen flex flex-col bg-slate-950 ring-2 ring-inset ${TEAM_RING[currentPlayer?.team ?? 0] ?? "ring-slate-700"}`}>
       {/* Top bar */}
-      <header className="h-12 shrink-0 flex items-center justify-between px-4 bg-slate-900 border-b border-slate-700 z-20">
+      <header className="h-14 shrink-0 flex items-center justify-between px-4 bg-slate-900 border-b border-slate-700 z-20">
         {/* Left side */}
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-amber-400 font-black text-sm tracking-widest">MODERN AW</span>
+        <div className="flex items-center gap-3">
+          <span className="text-amber-400 font-black text-base tracking-widest">MODERN AW</span>
           <span className="text-slate-600">|</span>
           {currentPlayer && (
             <>
               <div className="flex items-center gap-1.5">
                 <span
-                  className={`w-2 h-2 rounded-full ${TEAM_DOT[currentPlayer.team] ?? "bg-white"}`}
+                  className={`w-2.5 h-2.5 rounded-full ${TEAM_DOT[currentPlayer.team] ?? "bg-white"}`}
                 />
-                <span className={`font-semibold ${TEAM_TEXT[currentPlayer.team] ?? "text-white"}`}>
+                <span className={`font-semibold text-base ${TEAM_TEXT[currentPlayer.team] ?? "text-white"}`}>
                   Player {currentPlayer.id + 1}
                 </span>
               </div>
               <span className="text-slate-500">·</span>
-              <span className="text-slate-400">
+              <span className="text-slate-400 text-base">
                 Day {gameState?.turn_number ?? 1}
               </span>
             </>
@@ -486,31 +615,25 @@ function AppContent() {
         {/* Right side */}
         <div className="flex items-center gap-3">
           {/* Turn timer */}
-          {(gameState?.turn_time_limit ?? 0) > 0 && (
-            <span className={`font-mono text-sm font-bold tabular-nums ${timeRemaining < 30 ? "text-red-400" : "text-slate-300"}`}>
-              {Math.floor(timeRemaining / 60)}:{String(timeRemaining % 60).padStart(2, "0")}
-            </span>
-          )}
-          {isHumanTurn && !isAnimating && (
-            <button
-              onClick={() => {
-                if (currentPlayer) {
-                  useGameStore.getState().submitCommand({
-                    type: "END_TURN",
-                    player_id: currentPlayer.id,
-                  });
-                }
-              }}
-              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 py-1 text-xs rounded transition-colors"
-            >
-              End Turn
-            </button>
+          {(gameState?.turn_time_limit ?? 0) > 0 && isHumanTurn && timeRemaining !== null && (
+            <div className="flex items-center gap-1.5">
+              <span className={`font-mono text-base font-bold tabular-nums ${timeRemaining < 10 ? "text-red-400 animate-pulse" : timeRemaining < 30 ? "text-red-400" : "text-slate-300"}`}>
+                {Math.floor(timeRemaining / 60)}:{String(timeRemaining % 60).padStart(2, "0")}
+              </span>
+              <button
+                onClick={() => (timerPaused ? resumeTimer() : pauseTimer())}
+                title={timerPaused ? "Resume timer" : "Pause timer"}
+                className="text-slate-400 hover:text-slate-200 transition-colors text-xs px-1"
+              >
+                {timerPaused ? "▶" : "⏸"}
+              </button>
+            </div>
           )}
           {/* Menu button */}
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-1 rounded transition-colors"
+              className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm px-4 py-1.5 rounded transition-colors"
             >
               ≡ Menu
             </button>
@@ -561,6 +684,14 @@ function AppContent() {
                   </button>
                 )}
                 <div className="border-t border-slate-700 my-0.5" />
+                {isHumanTurn && gameState?.phase === "action" && (
+                  <button
+                    onClick={handleResign}
+                    className="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-slate-700 transition-colors"
+                  >
+                    Resign
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setMenuOpen(false);
@@ -578,14 +709,6 @@ function AppContent() {
 
       {/* Content area */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left sidebar */}
-        <aside className="w-52 bg-slate-900 border-r border-slate-700 flex flex-col shrink-0 overflow-y-auto">
-          <InfoPanel />
-          <TileInfoPanel />
-          <div className="flex-1" />
-          <ActionLog />
-        </aside>
-
         {/* Main game area */}
         <main className="flex-1 relative overflow-hidden">
           <GameCanvas onFacilityClick={handleFacilityClick} />
@@ -641,6 +764,14 @@ function AppContent() {
             </div>
           )}
         </main>
+
+        {/* Right sidebar */}
+        <aside className="w-60 bg-slate-900 border-l border-slate-700 flex flex-col shrink-0 overflow-y-auto">
+          <InfoPanel />
+          <TileInfoPanel />
+          <div className="flex-1" />
+          <ActionLog />
+        </aside>
       </div>
 
       {/* Buy menu modal */}
@@ -656,7 +787,7 @@ function AppContent() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4">
             <h2 className="text-white font-bold text-lg mb-1">Exit Game?</h2>
-            <p className="text-slate-400 text-sm mb-5">All match progress will be lost.</p>
+            <p className="text-slate-400 text-sm mb-5">Any moves made this turn will be lost. The game was autosaved at the start of this turn.</p>
             <div className="flex gap-3">
               <button
                 onClick={handleExitGame}
@@ -677,12 +808,67 @@ function AppContent() {
 
       {/* Turn transition overlay */}
       <TurnTransitionOverlay
-        visible={bannerVisible}
+        visible={bannerVisible && gameState?.phase !== "game_over"}
         playerName={bannerText ?? ""}
         dayNumber={gameState?.turn_number ?? 1}
         team={bannerTeam}
         isHumanTurn={isHumanTurn}
       />
+
+      {/* Victory screen — persistent until dismissed */}
+      {gameState?.phase === "game_over" && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-600 rounded-2xl shadow-2xl px-14 py-12 text-center min-w-[360px]">
+            {/* Decorative top line */}
+            <div className={`h-[3px] w-full rounded-full mb-8 ${
+              gameState.winner_id >= 0
+                ? (["bg-red-500","bg-blue-500","bg-green-500","bg-yellow-500"][gameState.players.find(p=>p.id===gameState.winner_id)?.team ?? 0] ?? "bg-amber-500")
+                : "bg-slate-600"
+            }`} />
+
+            <p className="text-slate-400 tracking-[0.35em] text-xs uppercase mb-3">Game Over</p>
+
+            {gameState.winner_id >= 0 ? (
+              <>
+                <h2 className={`text-5xl font-black tracking-wider uppercase mb-2 ${
+                  (["text-red-400","text-blue-400","text-green-400","text-yellow-400"][gameState.players.find(p=>p.id===gameState.winner_id)?.team ?? 0] ?? "text-amber-400")
+                }`}>
+                  Player {gameState.winner_id + 1}
+                </h2>
+                <p className="text-slate-300 tracking-widest text-sm uppercase mb-8">Wins!</p>
+              </>
+            ) : (
+              <>
+                <h2 className="text-5xl font-black tracking-wider uppercase mb-2 text-slate-400">Draw</h2>
+                <p className="text-slate-500 text-sm uppercase tracking-widest mb-8">No winner</p>
+              </>
+            )}
+
+            <div className="flex gap-3 justify-center">
+              {initialGameStateRef.current && (
+                <button
+                  onClick={handleRematch}
+                  className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm rounded-lg transition-colors"
+                >
+                  Rematch
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  useGameStore.getState().clearGameState?.();
+                  setView("menu");
+                }}
+                className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold text-sm rounded-lg transition-colors"
+              >
+                Main Menu
+              </button>
+            </div>
+
+            {/* Decorative bottom line */}
+            <div className="h-[3px] w-full rounded-full mt-8 bg-slate-700" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

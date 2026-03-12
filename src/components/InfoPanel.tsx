@@ -55,25 +55,25 @@ export default function InfoPanel() {
   }
 
   return (
-    <div className="flex flex-col gap-2 p-3 text-sm">
+    <div className="flex flex-col gap-3 p-4 text-base">
       {/* Current player block */}
-      <div className="bg-slate-700 border border-slate-600 rounded-xl p-3">
-        <div className="flex items-baseline justify-between mb-1">
-          <div className={`text-xl font-black ${colorClass}`}>Player {currentPlayer.id + 1}</div>
-          <div className="text-slate-300 text-xs">Turn {gameState.turn_number}</div>
+      <div className="bg-slate-700 border border-slate-600 rounded-xl p-4">
+        <div className="flex items-baseline justify-between mb-2">
+          <div className={`text-2xl font-black ${colorClass}`}>Player {currentPlayer.id + 1}</div>
+          <div className="text-slate-300 text-sm">Turn {gameState.turn_number}</div>
         </div>
-        <div className="mb-2">
-          <span className="bg-slate-600 text-slate-300 text-xs px-2 py-0.5 rounded-full capitalize">
+        <div className="mb-3">
+          <span className="bg-slate-600 text-slate-300 text-sm px-2.5 py-0.5 rounded-full capitalize">
             {currentPlayer.controller_type}
           </span>
         </div>
-        <div className="text-amber-400 font-mono font-bold text-2xl">
+        <div className="text-amber-400 font-mono font-bold text-3xl">
           ¥{currentPlayer.funds.toLocaleString()}
         </div>
       </div>
 
       {gameState.phase === "game_over" && (
-        <div className="text-amber-400 font-bold text-center py-2 bg-amber-900/20 rounded border border-amber-700/40">
+        <div className="text-amber-400 font-bold text-center py-2 bg-amber-900/20 rounded border border-amber-700/40 text-base">
           Game Over!
           {gameState.winner_id >= 0 && (
             <div className="text-sm font-normal mt-0.5">Player {gameState.winner_id + 1} wins!</div>
@@ -85,10 +85,10 @@ export default function InfoPanel() {
       {isHumanTurn && (
         <button
           onClick={handleEndTurn}
-          className="w-full bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-black py-2.5 px-4 rounded-lg transition-colors flex items-center justify-between"
+          className="w-full bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-black py-3 px-4 rounded-lg transition-colors flex items-center justify-between text-base"
         >
           <span>End Turn</span>
-          <span className="bg-amber-600/50 text-amber-900 text-xs px-1.5 rounded">E</span>
+          <span className="bg-amber-600/50 text-amber-900 text-sm px-2 rounded">E</span>
         </button>
       )}
 
@@ -96,9 +96,9 @@ export default function InfoPanel() {
       {(gameState.max_turns > 0 ||
         gameState.income_multiplier !== 1 ||
         gameState.luck_max === 0) && (
-        <div className="border-t border-slate-600 pt-2 px-1">
-          <div className="text-slate-300 text-xs uppercase tracking-wide mb-1">Rules</div>
-          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-300">
+        <div className="border-t border-slate-600 pt-3 px-1">
+          <div className="text-slate-300 text-xs uppercase tracking-wide mb-1.5">Rules</div>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-slate-300">
             {gameState.max_turns > 0 && (
               <span>
                 ⏱ {gameState.turn_number}/{gameState.max_turns}
@@ -111,52 +111,52 @@ export default function InfoPanel() {
       )}
 
       {/* Player roster */}
-      <div className="border-t border-slate-600 pt-2">
-        <div className="text-slate-300 text-xs uppercase tracking-wide mb-1">Players</div>
+      <div className="border-t border-slate-600 pt-3">
+        <div className="text-slate-300 text-xs uppercase tracking-wide mb-1.5">Players</div>
         {gameState.players.map((p) => (
           <div
             key={p.id}
-            className={`flex justify-between items-center text-xs py-1 px-1.5 rounded ${
+            className={`flex justify-between items-center text-sm py-1.5 px-2 rounded ${
               p.id === currentPlayer.id ? "bg-slate-700" : ""
             } ${p.is_defeated ? "opacity-40 line-through" : ""}`}
           >
-            <span className={`font-medium ${teamColors[p.team] ?? "text-white"}`}>
+            <span className={`font-semibold ${teamColors[p.team] ?? "text-white"}`}>
               P{p.id + 1}
               {p.id === currentPlayer.id && (
                 <span className="text-slate-300 font-normal ml-1">◀</span>
               )}
             </span>
-            <span className="text-amber-400 font-mono">¥{p.funds.toLocaleString()}</span>
+            <span className="text-amber-400 font-mono text-sm">¥{p.funds.toLocaleString()}</span>
           </div>
         ))}
       </div>
 
       {/* Intel section (fog disabled) */}
       {combatStats && (
-        <div className="border-t border-slate-600 pt-2">
-          <div className="text-slate-300 text-xs uppercase tracking-wide mb-1">
+        <div className="border-t border-slate-600 pt-3">
+          <div className="text-slate-300 text-xs uppercase tracking-wide mb-1.5">
             Intel <span className="normal-case text-slate-400">(fog off)</span>
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {combatStats.map(({ playerId, built, alive, props }) => {
               const p = gameState.players.find((pl) => pl.id === playerId);
               if (!p || p.is_defeated) return null;
               return (
-                <div key={playerId} className="bg-slate-700 rounded-lg px-2.5 py-2">
-                  <div className={`text-xs font-bold mb-1 ${teamColors[p.team] ?? "text-white"}`}>
+                <div key={playerId} className="bg-slate-700 rounded-lg px-3 py-2.5">
+                  <div className={`text-sm font-bold mb-1.5 ${teamColors[p.team] ?? "text-white"}`}>
                     P{playerId + 1}
                   </div>
                   <div className="grid grid-cols-3 gap-1 text-center">
                     <div>
-                      <div className="text-white font-bold text-sm">{built}</div>
+                      <div className="text-white font-bold text-base">{built}</div>
                       <div className="text-slate-300 text-xs">Built</div>
                     </div>
                     <div>
-                      <div className="text-white font-bold text-sm">{alive}</div>
+                      <div className="text-white font-bold text-base">{alive}</div>
                       <div className="text-slate-300 text-xs">Alive</div>
                     </div>
                     <div>
-                      <div className="text-amber-400 font-bold text-sm">{props}</div>
+                      <div className="text-amber-400 font-bold text-base">{props}</div>
                       <div className="text-slate-300 text-xs">Props</div>
                     </div>
                   </div>

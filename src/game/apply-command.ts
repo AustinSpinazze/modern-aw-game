@@ -285,13 +285,23 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
       // Increment turn when cycling back to player 0
       const newTurn = nextIndex === 0 ? state.turn_number + 1 : state.turn_number;
 
-      // Reset all units of new current player
+      // Reset all units of new current player and heal units on allied buildings
       const newPlayerId = state.players[nextIndex].id;
+      const HEALING_BUILDINGS = new Set(["city", "factory", "airport", "port", "hq"]);
       const updatedUnits = { ...state.units };
       for (const uid in updatedUnits) {
         const unit = updatedUnits[uid];
         if (unit.owner_id === newPlayerId) {
-          updatedUnits[uid] = { ...unit, has_moved: false, has_acted: false };
+          let healedHp = unit.hp;
+          const standingTile = getTile(state, unit.x, unit.y);
+          if (
+            standingTile &&
+            HEALING_BUILDINGS.has(standingTile.terrain_type) &&
+            standingTile.owner_id === newPlayerId
+          ) {
+            healedHp = Math.min(10, unit.hp + 2);
+          }
+          updatedUnits[uid] = { ...unit, hp: healedHp, has_moved: false, has_acted: false };
         }
       }
 

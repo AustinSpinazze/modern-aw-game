@@ -355,6 +355,7 @@ export class TerrainRenderer {
     g.rect(px + 4, py + 4, DISPLAY - 8, DISPLAY - 8);
     g.fill(baseColor);
     g.stroke({ color: borderColor, width: 3 });
+    this.container.addChild(g);
   }
 
   /**

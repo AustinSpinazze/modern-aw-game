@@ -4,6 +4,104 @@ This file tracks significant changes made by AI agents (Claude Code, Cursor, etc
 
 ---
 
+## 2026-03-11 (Session 12) — UI Polish: Timer Fixes, Pause, Resign, Victory Screen
+
+**Session:** Claude Code (claude-sonnet-4-6)
+**Status:** ✅ COMPLETE
+
+### Summary
+
+Fixed chess-style timer carryover, added timer pause support, added a resign action, and added a persistent victory/defeat screen with rematch and main menu options.
+
+### Bug Fixes
+
+1. **Chess-style timer carryover not accumulating** — Carryover was being consumed on the AI's turn transition instead of the human's. Fixed by introducing a per-player carryover bank (`pendingCarryoverRef: Record<number, number>`) so each player's unused time is saved and only applied when that player's next human turn starts.
+
+2. **Timer showing 0:00 immediately / freezing game** — Three separate bugs: `timeRemaining` was initialized to `0`, auto-end-turn fired on AI turns, and the guard ref wasn't one-shot. All fixed.
+
+3. **Timer not starting on turn 1** — The turn-change effect skipped the first turn because `prevPlayerIndexRef` started at `-1`. Fixed with a separate `useEffect` on `[view]` that initializes the clock when entering game view.
+
+4. **Exit confirmation message inaccurate** — Changed from "All match progress will be lost" to "Any moves made this turn will be lost. The game was autosaved at the start of this turn."
+
+### Features Added
+
+1. **Timer pause / resume** — Players can manually pause the turn timer via a ⏸/▶ button next to the clock. Auto-pauses when the Menu dropdown is opened and resumes when it closes. Pause duration is excluded from elapsed time by shifting `turnStartTime` forward.
+
+2. **Resign** — "Resign" option added to the in-game Menu dropdown (only shown during the human player's action phase). Marks the current player as defeated, finds the surviving winner, and transitions to game over.
+
+3. **Persistent victory screen** — When `phase === "game_over"`, a full-screen overlay renders with the winner's faction color, "Player N Wins!" heading, and two buttons:
+   - **Rematch** — restores the initial game state snapshot taken at match start
+   - **Main Menu** — clears game state and returns to the main menu
+
+4. **Timer state reset on exit/load/rematch** — Added `resetTimerState()` helper that clears all timer-related state (`timerPaused`, `pausedAtRef`, `pendingCarryoverRef`, `timeRemainingRef`, `turnStartTime`, `timeRemaining`). Called in `handleExitGame`, `handleLoadGame`, and `handleRematch` to prevent stale timer state from bleeding into subsequent games.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/App.tsx` | Timer carryover fix, pause/resume, resign, victory screen, `resetTimerState` helper |
+
+---
+
+## 2026-03-11 (Session 11) — UI Overhaul: Main Menu, HUD, Timer, Fog Fixes, Game Mechanics
+
+**Session:** Claude Code (claude-sonnet-4-6)
+**Status:** ✅ COMPLETE
+
+### Summary
+
+Large UI and game mechanic session covering: blank canvas fix, main menu, HUD cleanup, turn timer, fog of war building fix, unit healing, resign flow groundwork, and turn transition overlay.
+
+### Bug Fixes
+
+1. **Blank canvas with fog of war on new game** — React StrictMode called `initPixiApp` twice concurrently, creating two WebGL contexts on the same canvas, causing shader compilation failure. Fixed with a sequential `_currentInit` promise chain in `pixi-app.ts` so the second call waits for the first to settle before starting.
+
+2. **Enemy HQ not visible in fog** — The neutral spritesheet has no HQ frame, so `drawBuildingSprite` fell through to `drawBuildingFallback`, which had a pre-existing bug (missing `this.container.addChild(g)`). Fixed both: the building ownership masking (`effectiveOwner = fogged ? -1 : tile.owner_id`) and the missing `addChild`.
+
+3. **Enemy captured buildings visible in fog** — Fogged buildings now always render as neutral (`effectiveOwner = -1`) so the enemy's captured properties aren't revealed through fog.
+
+4. **Unit healing not working** — `END_TURN` handler now heals units on allied buildings (+2 HP, capped at 10) at the start of the new player's turn. Healing buildings: city, factory, airport, port, hq.
+
+5. **Duplicate End Turn button** — Removed the End Turn button from the top bar; it exists only in the InfoPanel sidebar.
+
+6. **Timer showing 0:00 immediately and freezing** — Stale closure bug where the auto-end-turn interval read the wrong value. Fixed with `timeRemainingRef` mirror ref and `timerAutoEndedRef` one-shot guard.
+
+### Features Added
+
+1. **Main Menu** (`MainMenu.tsx`) — Full-screen main menu with "MODERN AW" title, numbered navigation items (New Game, Continue, Settings). "Continue" expands inline to list saved games with Load/Delete buttons. Saves moved out of MatchSetup into App-level state.
+
+2. **Turn Transition Overlay** (`TurnTransitionOverlay.tsx`) — Full-screen overlay with faction-colored corner brackets, player name, day number, and "Your Turn" / "Enemy Turn" label. Shown for 1.6s on each turn change.
+
+3. **Chess-style turn timer with increment** — Turn timer configured in MatchSetup (Off / 30s / 1m / 2m / 5m). Unused time carries forward to the player's next turn (chess increment). Auto-ends turn when clock hits zero.
+
+4. **Improved ActionLog** — Filter buttons (MOVE, ATTACK, CAPTURE, BUILD, SYSTEM), day tracking via END_TURN counting, category badges, team-colored player names.
+
+5. **Faction border ring** — Outer game div has a team-colored `ring-2 ring-inset` that updates as the current player changes.
+
+6. **Sidebar moved to right** — Sidebar changed from left (`border-r`) to right (`border-l`) side. Font sizes increased throughout InfoPanel.
+
+7. **Log cleanup** — Removed all debug `console.log` calls from `pixi-app.ts` and `terrain-renderer.ts`; kept `console.error` for genuine failures.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/rendering/pixi-app.ts` | Sequential `_currentInit` promise chain; removed debug logs |
+| `src/rendering/terrain-renderer.ts` | Fog building ownership masking; fixed missing `addChild` in fallback |
+| `src/game/apply-command.ts` | Unit healing on allied buildings in `END_TURN` |
+| `src/game/types.ts` | Added `turn_time_limit: number` to `GameState` |
+| `src/game/game-state.ts` | Default `turn_time_limit: 0` in `createGameState` and `stateFromDict` |
+| `src/types.ts` | New file — shared `SavedGameMeta` interface |
+| `src/components/MainMenu.tsx` | New file — main menu screen |
+| `src/components/TurnTransitionOverlay.tsx` | New file — turn transition overlay |
+| `src/components/ActionLog.tsx` | Rewritten with filters, day tracking, badges |
+| `src/components/InfoPanel.tsx` | Lighter palette, larger fonts |
+| `src/components/MatchSetup.tsx` | Removed saves section; added `turnTimeLimit` option |
+| `src/components/GameCanvas.tsx` | Added `.catch(() => {})` on StrictMode first-init rejection |
+| `src/App.tsx` | Main menu routing, saves state, timer logic, faction ring, sidebar right |
+
+---
+
 ## 2026-03-09 (Session 10) — Electron Phase 2: Save/Load + Settings + Encrypted API Keys
 
 **Session:** Cursor (Claude Sonnet 4.6)
