@@ -106,6 +106,12 @@ function validateAttack(cmd: CmdAttack, state: GameState): ValidationResult {
   if (attacker.has_acted) return fail("Unit has already acted");
   if (attacker.is_loaded) return fail("Unit is loaded in transport");
 
+  const attackerData = getUnitData(attacker.unit_type);
+  const weapon = attackerData?.weapons[cmd.weapon_index];
+  if (weapon && weapon.min_range > 1 && attacker.has_moved) {
+    return fail("Indirect units cannot move and attack in the same turn");
+  }
+
   const target = getUnit(state, cmd.target_id);
   if (!target) return fail("Target not found");
   if (target.owner_id === attacker.owner_id) return fail("Cannot attack friendly unit");

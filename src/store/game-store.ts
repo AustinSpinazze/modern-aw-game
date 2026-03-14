@@ -12,6 +12,7 @@ import {
 import { validateCommand } from "../game/validators";
 import { applyCommand } from "../game/apply-command";
 import { getReachableTiles, getAttackableTiles, findPath } from "../game/pathfinding";
+import { getUnitData } from "../game/data-loader";
 import { computeVisibility } from "../game/visibility";
 
 /** Returns the player ID whose fog should be shown on screen.
@@ -198,23 +199,29 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
     const path = findPath(gameState, selectedUnit, dest.x, dest.y);
 
-    // Compute attackable tiles from the pending destination
+    // Compute attackable tiles from the pending destination.
+    // Indirect units (min_range > 1) can only attack from their current position — no overlay when moving.
     const { visibilityMap } = get();
-    const allAttackable = getAttackableTiles(
-      gameState,
-      selectedUnit,
-      dest.x,
-      dest.y,
-      0,
-      visibilityMap ?? undefined
-    );
+    const unitData = getUnitData(selectedUnit.unit_type);
+    const isIndirect = unitData?.weapons.some((w) => w.min_range > 1) ?? false;
+    const isMovingAway = dest.x !== selectedUnit.x || dest.y !== selectedUnit.y;
 
-    // Only keep tiles that have an enemy unit on them
     const currentPlayer = gameState.players[gameState.current_player_index];
-    const attackableWithEnemies = allAttackable.filter((tile) => {
-      const unitOnTile = getUnitAt(gameState, tile.x, tile.y);
-      return unitOnTile && unitOnTile.owner_id !== currentPlayer?.id;
-    });
+    let attackableWithEnemies: Vec2[] = [];
+    if (!(isIndirect && isMovingAway)) {
+      const allAttackable = getAttackableTiles(
+        gameState,
+        selectedUnit,
+        dest.x,
+        dest.y,
+        0,
+        visibilityMap ?? undefined
+      );
+      attackableWithEnemies = allAttackable.filter((tile) => {
+        const unitOnTile = getUnitAt(gameState, tile.x, tile.y);
+        return unitOnTile && unitOnTile.owner_id !== currentPlayer?.id;
+      });
+    }
 
     set({
       pendingMove: dest,

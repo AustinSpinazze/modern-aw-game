@@ -138,6 +138,11 @@ export default function ActionMenu() {
   // Build a temp attacker at pending position for damage calc
   const tempAttacker = { ...selectedUnit, x: pendingMove.x, y: pendingMove.y };
 
+  // Indirect units (any weapon with min_range > 1) cannot attack after moving
+  const isIndirect = unitData.weapons.some((w) => w.min_range > 1);
+  const unitWouldMove =
+    pendingMove.x !== selectedUnit.x || pendingMove.y !== selectedUnit.y;
+
   // Find attackable enemies with damage preview
   type EnemyEntry = {
     unitId: number;
@@ -148,7 +153,7 @@ export default function ActionMenu() {
   };
 
   const attackableEnemies: EnemyEntry[] = [];
-  if (unitData.weapons.length > 0) {
+  if (unitData.weapons.length > 0 && !(isIndirect && unitWouldMove)) {
     for (let wi = 0; wi < unitData.weapons.length; wi++) {
       const attackTiles = getAttackableTiles(
         gameState,
