@@ -14,6 +14,7 @@ import { generateMatchSeed } from "../game/rng";
 import { loadGameData } from "../game/data-loader";
 import { parseAwbwMapText, importAwbwMap } from "../game/awbw-import";
 import { buildTestScenarioState } from "../game/test-scenario";
+import { applyIncome } from "../game/economy";
 import { useGameStore } from "../store/game-store";
 
 interface PlayerConfig {
@@ -315,6 +316,10 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
         players: state.players.map((p) => ({ ...p, funds: config.startingFunds })),
       };
       state = applyConfigToState(state);
+      // Apply turn-1 income to the first player (matching Advance Wars rules)
+      if (state.players.length > 0) {
+        state = applyIncome(state, state.players[0].id);
+      }
       setGameState(state);
       onMatchStart();
     } catch (e) {
@@ -1126,6 +1131,12 @@ function buildDefaultGameState(playerConfigs: PlayerConfig[], startingFunds: num
         y: u.y,
       })
     );
+  }
+
+  // Apply turn-1 income to the first player so all players collect income
+  // before their first turn (matching Advance Wars rules).
+  if (state.players.length > 0) {
+    state = applyIncome(state, state.players[0].id);
   }
 
   return state;
