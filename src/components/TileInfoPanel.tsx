@@ -45,7 +45,7 @@ const UNIT_ABBREV: Record<string, string> = {
 function StatCell({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="bg-white px-3 py-2">
-      <div className="text-gray-400 text-xs uppercase tracking-wide mb-0.5">{label}</div>
+      <div className="text-gray-400 text-sm uppercase tracking-wide mb-0.5">{label}</div>
       {children}
     </div>
   );
@@ -84,7 +84,7 @@ function UnitStatBlock({ unit, gameState }: { unit: UnitState; gameState: GameSt
         </div>
         <div>
           <div className="text-gray-900 font-bold text-sm leading-tight">{unitData.name}</div>
-          <div className={`text-xs ${TEAM_TEXT[unit.owner_id] ?? "text-gray-700"}`}>
+          <div className={`text-sm ${TEAM_TEXT[unit.owner_id] ?? "text-gray-700"}`}>
             Player {unit.owner_id + 1}
           </div>
         </div>
@@ -151,7 +151,7 @@ function UnitStatBlock({ unit, gameState }: { unit: UnitState; gameState: GameSt
 
       {/* Weapon name */}
       {weaponLabel && weaponRange && (
-        <div className="mt-2 flex items-center justify-between text-xs">
+        <div className="mt-2 flex items-center justify-between text-sm">
           <span className="text-gray-400 uppercase tracking-wide">{weaponLabel}</span>
           <span className="text-gray-600">{weaponRange}</span>
         </div>
@@ -161,8 +161,8 @@ function UnitStatBlock({ unit, gameState }: { unit: UnitState; gameState: GameSt
       {unitTerrainData && (
         <div className="mt-2 flex items-center justify-between">
           <div>
-            <span className="text-gray-400 text-xs uppercase tracking-wide">Terrain Def</span>
-            <span className="text-gray-400 text-xs ml-1.5">{unitTerrainData.name}</span>
+            <span className="text-gray-400 text-sm uppercase tracking-wide">Terrain Def</span>
+            <span className="text-gray-400 text-sm ml-1.5">{unitTerrainData.name}</span>
           </div>
           <div className="flex items-center gap-1">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -179,12 +179,12 @@ function UnitStatBlock({ unit, gameState }: { unit: UnitState; gameState: GameSt
       {(unit.has_moved || unit.has_acted) && (
         <div className="flex gap-1.5 mt-2">
           {unit.has_moved && (
-            <span className="text-xs text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full">
+            <span className="text-sm text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full">
               Moved
             </span>
           )}
           {unit.has_acted && (
-            <span className="text-xs text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full">
+            <span className="text-sm text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full">
               Acted
             </span>
           )}
@@ -194,13 +194,13 @@ function UnitStatBlock({ unit, gameState }: { unit: UnitState; gameState: GameSt
       {/* Cargo */}
       {unitData.transport && unitData.transport.capacity > 0 && (
         <div className="mt-2 border-t border-gray-200 pt-2">
-          <div className="text-gray-400 text-xs uppercase tracking-wide mb-1">Cargo</div>
+          <div className="text-gray-400 text-sm uppercase tracking-wide mb-1">Cargo</div>
           {gameState.fog_of_war ? (
             <div className="flex gap-1">
               {Array.from({ length: unitData.transport.capacity }).map((_, i) => (
                 <span
                   key={i}
-                  className="text-xs text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded"
+                  className="text-sm text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded"
                 >
                   {i < unit.cargo.length ? "?" : "—"}
                 </span>
@@ -209,13 +209,13 @@ function UnitStatBlock({ unit, gameState }: { unit: UnitState; gameState: GameSt
           ) : (
             <div className="flex flex-col gap-0.5">
               {unit.cargo.length === 0 ? (
-                <span className="text-xs text-gray-400">Empty</span>
+                <span className="text-sm text-gray-400">Empty</span>
               ) : (
                 unit.cargo.map((cargoId) => {
                   const cargoUnit = getUnit(gameState, cargoId);
                   const cargoData = cargoUnit ? getUnitData(cargoUnit.unit_type) : null;
                   return (
-                    <span key={cargoId} className="text-xs text-teal-600">
+                    <span key={cargoId} className="text-sm text-teal-600">
                       {cargoData?.name ?? cargoUnit?.unit_type ?? `Unit ${cargoId}`}
                     </span>
                   );
@@ -259,9 +259,9 @@ export default function TileInfoPanel() {
   // Empty tile — show terrain info
   return (
     <div className="p-3 text-sm border-t border-gray-200">
-      <div className="text-gray-400 text-xs uppercase tracking-wide font-semibold mb-2">
+      <div className="text-gray-400 text-sm uppercase tracking-wide font-semibold mb-2">
         Tile{" "}
-        <span className="text-gray-400 text-xs font-mono normal-case">
+        <span className="text-gray-400 text-sm font-mono normal-case">
           ({hoveredTile.x}, {hoveredTile.y})
         </span>
       </div>
@@ -276,14 +276,14 @@ export default function TileInfoPanel() {
                 className={`w-2.5 h-2.5 rounded-full ${i < terrainData.defense_stars ? "bg-amber-400" : "bg-gray-200"}`}
               />
             ))}
-            <span className="text-gray-400 text-xs ml-1">Def</span>
+            <span className="text-gray-400 text-sm ml-1">Def</span>
           </div>
-          {tile.has_trench && <div className="text-amber-500 text-xs">⛏ Trench (+2 def)</div>}
+          {tile.has_trench && <div className="text-amber-500 text-sm">⛏ Trench (+2 def)</div>}
           {tile.has_fob && (
-            <div className="text-orange-500 text-xs">🏗 FOB (HP: {tile.fob_hp})</div>
+            <div className="text-orange-500 text-sm">🏗 FOB (HP: {tile.fob_hp})</div>
           )}
           {terrainData.is_property && (
-            <div className="text-xs mt-1">
+            <div className="text-sm mt-1">
               Owner:{" "}
               <span className="text-amber-500">
                 {tile.owner_id === -1 ? "Neutral" : `Player ${tile.owner_id + 1}`}
@@ -292,7 +292,7 @@ export default function TileInfoPanel() {
           )}
           {terrainData.is_property && tile.capture_points < 20 && (
             <div className="mt-1">
-              <div className="text-xs text-orange-500 font-medium">⚔ Being Captured</div>
+              <div className="text-sm text-orange-500 font-medium">⚔ Being Captured</div>
               <div className="flex items-center gap-2 mt-0.5">
                 <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
                   <div
@@ -300,7 +300,7 @@ export default function TileInfoPanel() {
                     style={{ width: `${((20 - tile.capture_points) / 20) * 100}%` }}
                   />
                 </div>
-                <span className="text-orange-500 text-xs">{20 - tile.capture_points}/20</span>
+                <span className="text-orange-500 text-sm">{20 - tile.capture_points}/20</span>
               </div>
             </div>
           )}

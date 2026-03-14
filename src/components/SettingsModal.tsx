@@ -94,12 +94,12 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
         <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
           {/* Anthropic */}
           <section>
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">
               Anthropic (Claude)
             </h3>
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-slate-400 block mb-1">API Key</label>
+                <label className="text-sm text-slate-400 block mb-1">API Key</label>
                 <div className="flex gap-2">
                   <input
                     type={showAnthropicKey ? "text" : "password"}
@@ -111,17 +111,17 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
                   />
                   <button
                     onClick={() => setShowAnthropicKey((v) => !v)}
-                    className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-400 text-xs rounded-lg transition-colors"
+                    className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-400 text-sm rounded-lg transition-colors"
                   >
                     {showAnthropicKey ? "Hide" : "Show"}
                   </button>
                 </div>
                 {isElectron && (
-                  <p className="text-green-500 text-xs mt-1">Stored encrypted on device</p>
+                  <p className="text-green-500 text-sm mt-1">Stored encrypted on device</p>
                 )}
               </div>
               <div>
-                <label className="text-xs text-slate-400 block mb-1">Model</label>
+                <label className="text-sm text-slate-400 block mb-1">Model</label>
                 <select
                   value={anthropicModel}
                   onChange={(e) => setAnthropicModel(e.target.value)}
@@ -139,12 +139,12 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
 
           {/* OpenAI */}
           <section>
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">
               OpenAI (GPT)
             </h3>
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-slate-400 block mb-1">API Key</label>
+                <label className="text-sm text-slate-400 block mb-1">API Key</label>
                 <div className="flex gap-2">
                   <input
                     type={showOpenaiKey ? "text" : "password"}
@@ -156,17 +156,17 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
                   />
                   <button
                     onClick={() => setShowOpenaiKey((v) => !v)}
-                    className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-400 text-xs rounded-lg transition-colors"
+                    className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-400 text-sm rounded-lg transition-colors"
                   >
                     {showOpenaiKey ? "Hide" : "Show"}
                   </button>
                 </div>
                 {isElectron && (
-                  <p className="text-green-500 text-xs mt-1">Stored encrypted on device</p>
+                  <p className="text-green-500 text-sm mt-1">Stored encrypted on device</p>
                 )}
               </div>
               <div>
-                <label className="text-xs text-slate-400 block mb-1">Model</label>
+                <label className="text-sm text-slate-400 block mb-1">Model</label>
                 <select
                   value={openaiModel}
                   onChange={(e) => setOpenaiModel(e.target.value)}
@@ -184,12 +184,12 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
 
           {/* Local HTTP */}
           <section>
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">
               Local AI (Ollama / LM Studio / DeepSeek / Kimi / etc.)
             </h3>
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-slate-400 block mb-1">Server URL</label>
+                <label className="text-sm text-slate-400 block mb-1">Server URL</label>
                 <input
                   type="url"
                   value={localHttpUrl}
@@ -199,7 +199,7 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
                 />
               </div>
               <div>
-                <label className="text-xs text-slate-400 block mb-1">Model name</label>
+                <label className="text-sm text-slate-400 block mb-1">Model name</label>
                 <input
                   type="text"
                   value={localModel}

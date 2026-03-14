@@ -159,10 +159,10 @@ export default function ActionLog() {
     <div className="border-t border-gray-200 flex flex-col shrink-0" style={{ height: "200px" }}>
       {/* Header */}
       <div className="flex items-center justify-between px-3 pt-2 pb-1 shrink-0">
-        <span className="text-gray-500 text-[10px] font-semibold uppercase tracking-widest">
+        <span className="text-gray-500 text-xs font-semibold uppercase tracking-widest">
           Game Log
         </span>
-        <span className="text-gray-400 text-[10px] font-mono">{filteredEntries.length} events</span>
+        <span className="text-gray-400 text-xs font-mono">{filteredEntries.length} events</span>
       </div>
 
       {/* Filter chips */}
@@ -171,7 +171,7 @@ export default function ActionLog() {
           <button
             key={cat}
             onClick={() => toggleFilter(cat)}
-            className={`text-[9px] px-1.5 py-0.5 rounded border font-mono transition-colors ${
+            className={`text-[11px] px-1.5 py-0.5 rounded border font-mono transition-colors ${
               activeFilters.has(cat) ? CATEGORY_STYLE[cat].active : CATEGORY_STYLE[cat].inactive
             }`}
           >
@@ -183,13 +183,13 @@ export default function ActionLog() {
       {/* Scrollable entries */}
       <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5 font-mono">
         {filteredEntries.length === 0 ? (
-          <p className="text-gray-400 text-[10px] px-1 pt-1">No events yet</p>
+          <p className="text-gray-400 text-xs px-1 pt-1">No events yet</p>
         ) : (
           filteredEntries.map((entry, i) => (
-            <div key={i} className="flex items-center gap-1.5 text-[10px] min-w-0">
+            <div key={i} className="flex items-center gap-1.5 text-xs min-w-0">
               <span className="text-gray-400 shrink-0 w-5 text-right">D{entry.day}</span>
               <span
-                className={`shrink-0 px-1 py-px rounded border text-[8px] leading-4 ${CATEGORY_STYLE[entry.category].badge}`}
+                className={`shrink-0 px-1 py-px rounded border text-[10px] leading-4 ${CATEGORY_STYLE[entry.category].badge}`}
               >
                 {entry.category.slice(0, 3)}
               </span>

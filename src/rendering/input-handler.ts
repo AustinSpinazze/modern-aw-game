@@ -5,21 +5,32 @@ import { TILE_SIZE, TILE_SCALE } from "./pixi-app";
 import type { Vec2 } from "../game/types";
 
 export type TileCallback = (pos: Vec2) => void;
+export type TileRightClickCallback = (pos: Vec2 | null) => void;
 
 export class InputHandler {
   private app: Application;
   private onTileClick: TileCallback;
   private onTileHover: TileCallback;
+  private onTileRightClick: TileRightClickCallback;
   private mapWidth = 0;
   private mapHeight = 0;
 
-  constructor(app: Application, onTileClick: TileCallback, onTileHover: TileCallback) {
+  constructor(
+    app: Application,
+    onTileClick: TileCallback,
+    onTileHover: TileCallback,
+    onTileRightClick: TileRightClickCallback
+  ) {
     this.app = app;
     this.onTileClick = onTileClick;
     this.onTileHover = onTileHover;
+    this.onTileRightClick = onTileRightClick;
 
     this.app.canvas.addEventListener("click", this.handleClick);
     this.app.canvas.addEventListener("mousemove", this.handleMove);
+    this.app.canvas.addEventListener("mousedown", this.handleMouseDown);
+    this.app.canvas.addEventListener("mouseup", this.handleMouseUp);
+    this.app.canvas.addEventListener("contextmenu", this.suppressContextMenu);
   }
 
   setMapSize(width: number, height: number): void {
@@ -30,6 +41,9 @@ export class InputHandler {
   destroy(): void {
     this.app.canvas.removeEventListener("click", this.handleClick);
     this.app.canvas.removeEventListener("mousemove", this.handleMove);
+    this.app.canvas.removeEventListener("mousedown", this.handleMouseDown);
+    this.app.canvas.removeEventListener("mouseup", this.handleMouseUp);
+    this.app.canvas.removeEventListener("contextmenu", this.suppressContextMenu);
   }
 
   private handleClick = (e: MouseEvent): void => {
@@ -40,6 +54,22 @@ export class InputHandler {
   private handleMove = (e: MouseEvent): void => {
     const pos = this.eventToTile(e);
     if (pos) this.onTileHover(pos);
+  };
+
+  private handleMouseDown = (e: MouseEvent): void => {
+    if (e.button !== 2) return;
+    const pos = this.eventToTile(e);
+    if (pos) this.onTileRightClick(pos);
+  };
+
+  private handleMouseUp = (e: MouseEvent): void => {
+    if (e.button !== 2) return;
+    this.onTileRightClick(null); // null signals "release — clear preview"
+  };
+
+  // Suppress the browser context menu while right-click is used for range preview
+  private suppressContextMenu = (e: MouseEvent): void => {
+    e.preventDefault();
   };
 
   private eventToTile(e: MouseEvent): Vec2 | null {

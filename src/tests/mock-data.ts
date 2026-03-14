@@ -6,18 +6,18 @@ import type { UnitData, TerrainData } from "../game/types";
 export const MOCK_UNITS: Record<string, UnitData> = {
   infantry: {
     id: "infantry", name: "Infantry", domain: "ground", move_type: "foot",
-    move_points: 3, vision: 2, cost: 1000, hp: 10, can_capture: true,
+    move_points: 3, vision: 2, cost: 1000, can_capture: true,
     tags: ["infantry_class"],
     weapons: [{
       id: "machine_gun", name: "Machine Gun",
       min_range: 1, max_range: 1, can_counterattack: true, ammo: -1,
       damage_table: { infantry: 55, mech: 45, recon: 12, tank: 5, md_tank: 1, artillery: 15, t_copter: 30, b_copter: 7 },
     }],
-    transport: null as unknown as undefined, special_actions: [],
+    special_actions: [],
   },
   mech: {
     id: "mech", name: "Mech", domain: "ground", move_type: "mech",
-    move_points: 2, vision: 2, cost: 3000, hp: 10, can_capture: true,
+    move_points: 2, vision: 2, cost: 3000, can_capture: true,
     tags: ["infantry_class"],
     weapons: [
       {
@@ -31,11 +31,11 @@ export const MOCK_UNITS: Record<string, UnitData> = {
         damage_table: { infantry: 65, mech: 55, tank: 6, t_copter: 35 },
       },
     ],
-    transport: null as unknown as undefined, special_actions: [],
+    special_actions: [],
   },
   tank: {
     id: "tank", name: "Tank", domain: "ground", move_type: "tread",
-    move_points: 6, vision: 3, cost: 7000, hp: 10, can_capture: false,
+    move_points: 6, vision: 3, cost: 7000, can_capture: false,
     tags: ["heavy_vehicle"],
     weapons: [
       {
@@ -49,22 +49,22 @@ export const MOCK_UNITS: Record<string, UnitData> = {
         damage_table: { infantry: 75, mech: 70, tank: 6, t_copter: 40 },
       },
     ],
-    transport: null as unknown as undefined, special_actions: [],
+    special_actions: [],
   },
   artillery: {
     id: "artillery", name: "Artillery", domain: "ground", move_type: "tread",
-    move_points: 5, vision: 1, cost: 6000, hp: 10, can_capture: false,
+    move_points: 5, vision: 1, cost: 6000, can_capture: false,
     tags: ["indirect"],
     weapons: [{
       id: "cannon", name: "Cannon",
       min_range: 2, max_range: 3, can_counterattack: false, ammo: 9,
       damage_table: { infantry: 90, mech: 85, tank: 70, artillery: 75 },
     }],
-    transport: null as unknown as undefined, special_actions: [],
+    special_actions: [],
   },
   apc: {
     id: "apc", name: "APC", domain: "ground", move_type: "tread",
-    move_points: 6, vision: 1, cost: 5000, hp: 10,
+    move_points: 6, vision: 1, cost: 5000,
     fuel: 70, fuel_per_turn: 1,
     can_capture: false, tags: ["light_vehicle", "transport"],
     weapons: [],
@@ -73,18 +73,18 @@ export const MOCK_UNITS: Record<string, UnitData> = {
   },
   recon: {
     id: "recon", name: "Recon", domain: "ground", move_type: "tires",
-    move_points: 8, vision: 5, cost: 4000, hp: 10, can_capture: false,
+    move_points: 8, vision: 5, cost: 4000, can_capture: false,
     tags: ["light_vehicle"],
     weapons: [{
       id: "machine_gun", name: "Machine Gun",
       min_range: 1, max_range: 1, can_counterattack: true, ammo: -1,
       damage_table: { infantry: 70, mech: 65, tank: 6 },
     }],
-    transport: null as unknown as undefined, special_actions: [],
+    special_actions: [],
   },
   t_copter: {
     id: "t_copter", name: "Chinook", domain: "air", move_type: "air",
-    move_points: 6, vision: 2, cost: 5000, hp: 10,
+    move_points: 6, vision: 2, cost: 5000,
     fuel: 99, fuel_per_turn: 2,
     can_capture: false, tags: ["helicopter", "transport"],
     weapons: [],
@@ -93,7 +93,7 @@ export const MOCK_UNITS: Record<string, UnitData> = {
   },
   b_copter: {
     id: "b_copter", name: "Apache", domain: "air", move_type: "air",
-    move_points: 6, vision: 3, cost: 9000, hp: 10,
+    move_points: 6, vision: 3, cost: 9000,
     fuel: 99, fuel_per_turn: 2,
     can_capture: false, tags: ["helicopter"],
     weapons: [
@@ -108,11 +108,11 @@ export const MOCK_UNITS: Record<string, UnitData> = {
         damage_table: { infantry: 75, mech: 75, tank: 6, t_copter: 65 },
       },
     ],
-    transport: null as unknown as undefined, special_actions: [],
+    special_actions: [],
   },
   fighter: {
     id: "fighter", name: "Fighter", domain: "air", move_type: "air",
-    move_points: 9, vision: 2, cost: 20000, hp: 10,
+    move_points: 9, vision: 2, cost: 20000,
     fuel: 99, fuel_per_turn: 5,
     can_capture: false, tags: ["plane"],
     weapons: [{
@@ -120,11 +120,11 @@ export const MOCK_UNITS: Record<string, UnitData> = {
       min_range: 1, max_range: 1, can_counterattack: true, ammo: 9,
       damage_table: { t_copter: 100, b_copter: 100, fighter: 55, bomber: 100 },
     }],
-    transport: null as unknown as undefined, special_actions: [],
+    special_actions: [],
   },
   submarine: {
     id: "submarine", name: "Sub", domain: "sea", move_type: "ship",
-    move_points: 5, vision: 5, cost: 20000, hp: 10,
+    move_points: 5, vision: 5, cost: 20000,
     fuel: 60, fuel_per_turn: 1,
     can_capture: false, tags: ["ship"],
     weapons: [{
@@ -132,11 +132,11 @@ export const MOCK_UNITS: Record<string, UnitData> = {
       min_range: 1, max_range: 1, can_counterattack: true, ammo: 6,
       damage_table: { submarine: 55, lander: 95, cruiser: 25 },
     }],
-    transport: null as unknown as undefined, special_actions: ["submerge", "surface"],
+    special_actions: ["submerge", "surface"],
   },
   lander: {
     id: "lander", name: "Lander", domain: "sea", move_type: "trans",
-    move_points: 6, vision: 1, cost: 12000, hp: 10,
+    move_points: 6, vision: 1, cost: 12000,
     fuel: 99, fuel_per_turn: 1,
     can_capture: false, tags: ["ship", "transport"],
     weapons: [],

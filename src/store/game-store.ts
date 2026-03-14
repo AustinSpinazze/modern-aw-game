@@ -52,6 +52,11 @@ interface GameStore {
   isAnimating: boolean; // true while a movement animation is playing
   pendingAction: GameCommand | null; // action to execute after animation
 
+  // Range preview (right-click on any visible unit)
+  previewUnit: UnitState | null;
+  previewReachableTiles: Vec2[];
+  previewAttackableTiles: Vec2[];
+
   // Command queue for external commands (AI/enemy)
   commandQueue: QueuedCommand[];
   processingQueue: boolean;
@@ -69,6 +74,8 @@ interface GameStore {
   submitCommand: (cmd: GameCommand) => { success: boolean; error?: string };
   resetSelection: () => void;
   cancelPendingMove: () => void;
+
+  setPreviewUnit: (unit: UnitState | null) => void;
 
   // Queue system for AI/external commands
   queueCommands: (commands: GameCommand[]) => void;
@@ -93,6 +100,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   animationPath: [],
   isAnimating: false,
   pendingAction: null,
+  previewUnit: null,
+  previewReachableTiles: [],
+  previewAttackableTiles: [],
   commandQueue: [],
   processingQueue: false,
 
@@ -128,6 +138,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       animationPath: [],
       isAnimating: false,
       pendingAction: null,
+      previewUnit: null,
+      previewReachableTiles: [],
+      previewAttackableTiles: [],
       commandQueue: [],
       processingQueue: false,
     });
@@ -162,6 +175,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       pendingMove: null,
       pendingPath: [],
       hoverPath: [],
+      previewUnit: null,
+      previewReachableTiles: [],
+      previewAttackableTiles: [],
     });
   },
 
@@ -375,6 +391,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       hoverPath: [],
       isAnimating: false,
       pendingAction: null,
+      previewUnit: null,
+      previewReachableTiles: [],
+      previewAttackableTiles: [],
     }),
 
   cancelPendingMove: () => {
@@ -394,6 +413,42 @@ export const useGameStore = create<GameStore>((set, get) => ({
       hoverPath: [],
       reachableTiles: reachable,
       attackableTiles: [], // Don't show attack squares until destination is clicked
+    });
+  },
+
+  setPreviewUnit: (unit) => {
+    const { gameState } = get();
+    if (!unit || !gameState) {
+      set({ previewUnit: null, previewReachableTiles: [], previewAttackableTiles: [] });
+      return;
+    }
+
+    // Movement range — full geometric range ignoring fog
+    const reachable = unit.has_moved ? [] : getReachableTiles(gameState, unit);
+
+    // Combined attack envelope: union of attack range from every reachable position
+    const unitData = getUnitData(unit.unit_type);
+    const weaponCount = unitData?.weapons.length ?? 0;
+    const attackableSet = new Set<string>();
+    const allAttackable: Vec2[] = [];
+    const positions: Vec2[] = [{ x: unit.x, y: unit.y }, ...reachable];
+
+    for (const pos of positions) {
+      for (let wi = 0; wi < (weaponCount || 1); wi++) {
+        for (const t of getAttackableTiles(gameState, unit, pos.x, pos.y, wi)) {
+          const key = `${t.x},${t.y}`;
+          if (!attackableSet.has(key)) {
+            attackableSet.add(key);
+            allAttackable.push(t);
+          }
+        }
+      }
+    }
+
+    set({
+      previewUnit: unit,
+      previewReachableTiles: reachable,
+      previewAttackableTiles: allAttackable,
     });
   },
 

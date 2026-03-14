@@ -47,7 +47,7 @@ export default function BuyMenu({ facilityX, facilityY, onClose }: BuyMenuProps)
         <div className="flex justify-between items-center px-5 py-4 border-b border-gray-100 shrink-0">
           <div>
             <h2 className="text-gray-900 font-bold">Purchase Unit</h2>
-            <div className="text-gray-400 text-xs capitalize">
+            <div className="text-gray-400 text-sm capitalize">
               {terrainData?.name ?? tile.terrain_type}
             </div>
           </div>
@@ -80,7 +80,7 @@ export default function BuyMenu({ facilityX, facilityY, onClose }: BuyMenuProps)
                     <div className={`font-semibold ${canBuy ? "text-gray-900" : "text-gray-400"}`}>
                       {unitData.name}
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
+                    <div className="flex items-center gap-2 text-sm text-gray-400 mt-0.5">
                       <span className="capitalize">{unitData.move_type}</span>
                       <span>·</span>
                       <span>{unitData.move_points} MP</span>
@@ -102,8 +102,8 @@ export default function BuyMenu({ facilityX, facilityY, onClose }: BuyMenuProps)
                     >
                       ¥{unitData.cost.toLocaleString()}
                     </div>
-                    {isExpanded && <div className="text-gray-400 text-xs">▲ Less</div>}
-                    {!isExpanded && <div className="text-gray-300 text-xs">▼ More</div>}
+                    {isExpanded && <div className="text-gray-400 text-sm">▲ Less</div>}
+                    {!isExpanded && <div className="text-gray-300 text-sm">▼ More</div>}
                   </div>
                 </div>
 
@@ -111,14 +111,14 @@ export default function BuyMenu({ facilityX, facilityY, onClose }: BuyMenuProps)
                 {isExpanded && (
                   <div className="px-4 pb-3 bg-gray-50 space-y-2">
                     {/* Weapons */}
-                    <div className="text-xs text-gray-400 uppercase tracking-wide pt-1">
+                    <div className="text-sm text-gray-400 uppercase tracking-wide pt-1">
                       Weapons
                     </div>
                     {unitData.weapons.length === 0 && (
-                      <div className="text-xs text-gray-400 italic">No weapons (transport)</div>
+                      <div className="text-sm text-gray-400 italic">No weapons (transport)</div>
                     )}
                     {primaryWeapon && (
-                      <div className="text-xs">
+                      <div className="text-sm">
                         <span className="text-orange-500 font-medium">
                           {(primaryWeapon as any).name ??
                             primaryWeapon.id
@@ -134,7 +134,7 @@ export default function BuyMenu({ facilityX, facilityY, onClose }: BuyMenuProps)
                       </div>
                     )}
                     {secondaryWeapon && (
-                      <div className="text-xs">
+                      <div className="text-sm">
                         <span className="text-yellow-600 font-medium">
                           {(secondaryWeapon as any).name ??
                             secondaryWeapon.id
@@ -149,7 +149,7 @@ export default function BuyMenu({ facilityX, facilityY, onClose }: BuyMenuProps)
                     )}
 
                     {/* Stats grid */}
-                    <div className="grid grid-cols-3 gap-2 text-xs pt-1">
+                    <div className="grid grid-cols-3 gap-2 text-sm pt-1">
                       <div>
                         <div className="text-gray-400 uppercase tracking-wide">Move</div>
                         <div className="text-gray-900 font-medium">{unitData.move_points}</div>

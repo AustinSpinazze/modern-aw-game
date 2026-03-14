@@ -205,7 +205,7 @@ function StepIndicator({ current }: { current: number }) {
           <div key={label} className="flex items-center">
             <div className="flex flex-col items-center gap-1 px-3">
               <div className={dotClass} />
-              <span className={`text-xs font-semibold uppercase tracking-wide ${textClass}`}>
+              <span className={`text-sm font-semibold uppercase tracking-wide ${textClass}`}>
                 {label}
               </span>
             </div>
@@ -464,11 +464,11 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                             : "bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-500"
                         }`}
                       >
-                        <div className="font-semibold text-xs">{opt.label}</div>
-                        <div className="text-xs text-slate-500 mt-0.5 leading-tight">
+                        <div className="font-semibold text-sm">{opt.label}</div>
+                        <div className="text-sm text-slate-500 mt-0.5 leading-tight">
                           {opt.desc}
                         </div>
-                        {opt.req && <div className="text-xs text-red-400 mt-1">{opt.req}</div>}
+                        {opt.req && <div className="text-sm text-red-400 mt-1">{opt.req}</div>}
                       </button>
                     ))}
                   </div>
@@ -513,7 +513,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
               }`}
             >
               <div className="font-bold text-sm text-white">Default Skirmish</div>
-              <div className="text-xs text-slate-400 mt-0.5">
+              <div className="text-sm text-slate-400 mt-0.5">
                 {DEFAULT_MAP_WIDTH}×{DEFAULT_MAP_HEIGHT} hand-crafted map · Always available
               </div>
             </button>
@@ -528,7 +528,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
             >
               <button onClick={() => setMapMode("awbw")} className="w-full text-left p-4">
                 <div className="font-bold text-sm text-white">Custom AWBW Map</div>
-                <div className="text-xs text-slate-400 mt-0.5">
+                <div className="text-sm text-slate-400 mt-0.5">
                   Paste CSV tile data from advancewars.net/maproom
                 </div>
               </button>
@@ -566,7 +566,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
 
                   {parsedPreview && (
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center justify-between text-sm">
                         <span className="text-green-400">
                           {parsedPreview.width}×{parsedPreview.height} tiles detected
                         </span>
@@ -594,7 +594,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                     </div>
                   )}
 
-                  {awbwError && <p className="text-red-400 text-xs">{awbwError}</p>}
+                  {awbwError && <p className="text-red-400 text-sm">{awbwError}</p>}
                 </div>
               )}
             </div>
@@ -610,7 +610,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
               >
                 <button onClick={() => setMapMode("saved")} className="w-full text-left p-4">
                   <div className="font-bold text-sm text-white">Saved Maps</div>
-                  <div className="text-xs text-slate-400 mt-0.5">
+                  <div className="text-sm text-slate-400 mt-0.5">
                     {savedMaps.length} saved {savedMaps.length === 1 ? "map" : "maps"} · Click to
                     select
                   </div>
@@ -636,13 +636,13 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                           }}
                         >
                           <div className="text-sm text-white font-medium truncate">{map.name}</div>
-                          <div className="text-xs text-slate-500">
+                          <div className="text-sm text-slate-500">
                             {map.width}×{map.height} · {new Date(map.savedAt).toLocaleDateString()}
                           </div>
                         </button>
                         <button
                           onClick={() => handleDeleteSavedMap(map.id)}
-                          className="shrink-0 px-2 py-1 bg-slate-700 hover:bg-red-800/60 text-slate-400 hover:text-red-400 text-xs rounded transition-colors"
+                          className="shrink-0 px-2 py-1 bg-slate-700 hover:bg-red-800/60 text-slate-400 hover:text-red-400 text-sm rounded transition-colors"
                         >
                           ✕
                         </button>
@@ -689,7 +689,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
 
             {/* Starting funds */}
             <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wide block mb-2">
+              <label className="text-sm text-slate-400 uppercase tracking-wide block mb-2">
                 Starting Funds
               </label>
               <div className="flex flex-wrap gap-2">
@@ -711,10 +711,10 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
 
             {/* Income per turn */}
             <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wide block mb-1">
+              <label className="text-sm text-slate-400 uppercase tracking-wide block mb-1">
                 Income Per Property
               </label>
-              <p className="text-xs text-slate-500 mb-2">
+              <p className="text-sm text-slate-500 mb-2">
                 Multiplier on base property income (default: ¥1,000/property)
               </p>
               <div className="flex flex-wrap gap-2">
@@ -741,10 +741,10 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
 
             {/* Luck */}
             <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wide block mb-1">
+              <label className="text-sm text-slate-400 uppercase tracking-wide block mb-1">
                 Luck
               </label>
-              <p className="text-xs text-slate-500 mb-2">
+              <p className="text-sm text-slate-500 mb-2">
                 Random variance added to each attack roll
               </p>
               <div className="flex gap-2">
@@ -759,7 +759,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                     }`}
                   >
                     {v}
-                    <span className="block text-xs opacity-70">
+                    <span className="block text-sm opacity-70">
                       {v === "off" ? "0%" : v === "normal" ? "±10%" : "±20%"}
                     </span>
                   </button>
@@ -769,7 +769,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
 
             {/* Turn limit */}
             <div>
-              <label className="text-xs text-slate-400 uppercase tracking-wide block mb-2">
+              <label className="text-sm text-slate-400 uppercase tracking-wide block mb-2">
                 Turn Limit
               </label>
               <div className="flex flex-wrap gap-2">
@@ -798,7 +798,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm text-white font-medium">Fog of War</div>
-                <div className="text-xs text-slate-500">Hide enemy units outside vision range</div>
+                <div className="text-sm text-slate-500">Hide enemy units outside vision range</div>
               </div>
               <button
                 onClick={() => updateConfig({ fogOfWar: !config.fogOfWar })}
@@ -817,7 +817,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
             {/* Turn Timer */}
             <div>
               <label className="text-white font-semibold text-sm block mb-1">Turn Timer</label>
-              <p className="text-slate-400 text-xs mb-2">
+              <p className="text-slate-400 text-sm mb-2">
                 Auto-end turn when time expires (0 = no limit)
               </p>
               <div className="flex gap-2 flex-wrap">
@@ -825,7 +825,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                   <button
                     key={s}
                     onClick={() => setConfig((c) => ({ ...c, turnTimeLimit: s }))}
-                    className={`px-3 py-1.5 text-xs rounded-lg border font-mono transition-colors ${
+                    className={`px-3 py-1.5 text-sm rounded-lg border font-mono transition-colors ${
                       config.turnTimeLimit === s
                         ? "bg-amber-500/10 border-amber-500 text-amber-400"
                         : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500"
@@ -838,7 +838,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
             </div>
 
             {/* Config summary strip */}
-            <div className="bg-slate-800 rounded-lg p-3 border border-slate-700 text-xs text-slate-400 flex flex-wrap gap-x-4 gap-y-1">
+            <div className="bg-slate-800 rounded-lg p-3 border border-slate-700 text-sm text-slate-400 flex flex-wrap gap-x-4 gap-y-1">
               <span>
                 Funds:{" "}
                 <span className="text-amber-400 font-mono">
@@ -926,14 +926,14 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
 
             {/* Map */}
             <div className="border-t border-slate-700 pt-2 mt-2">
-              <div className="flex justify-between text-xs">
+              <div className="flex justify-between text-sm">
                 <span className="text-slate-500">Map</span>
                 <span className="text-slate-300">{mapLabel}</span>
               </div>
             </div>
 
             {/* Match options */}
-            <div className="grid grid-cols-2 gap-1 text-xs">
+            <div className="grid grid-cols-2 gap-1 text-sm">
               <span className="text-slate-500">Starting funds</span>
               <span className="text-amber-400 font-mono">
                 ¥{config.startingFunds.toLocaleString()}
@@ -960,7 +960,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
           </div>
 
           {awbwError && (
-            <p className="text-red-400 text-xs bg-red-950/30 border border-red-900/50 rounded-lg px-3 py-2">
+            <p className="text-red-400 text-sm bg-red-950/30 border border-red-900/50 rounded-lg px-3 py-2">
               {awbwError}
             </p>
           )}
@@ -978,7 +978,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
           <button
             onClick={handleStartTestScenario}
             disabled={loading}
-            className="w-full mt-2 text-slate-500 hover:text-slate-300 text-xs py-2 transition-colors"
+            className="w-full mt-2 text-slate-500 hover:text-slate-300 text-sm py-2 transition-colors"
           >
             Start test scenario
           </button>

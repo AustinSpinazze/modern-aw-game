@@ -84,9 +84,13 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     pendingPath,
     animationPath,
     isAnimating,
+    previewUnit,
+    previewReachableTiles,
+    previewAttackableTiles,
     selectUnit,
     setHoveredTile,
     setPendingMove,
+    setPreviewUnit,
     submitCommand,
     resetSelection,
     onAnimationComplete,
@@ -296,7 +300,27 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
           useGameStore.getState().setHoveredTile(pos);
         };
 
-        inputHandlerRef.current = new InputHandler(app, handleTileClick, handleTileHover);
+        const handleTileRightClick = (pos: Vec2 | null) => {
+          if (!pos) {
+            // Right mouse button released — clear preview
+            useGameStore.getState().setPreviewUnit(null);
+            return;
+          }
+          const state = useGameStore.getState().gameState;
+          if (!state) return;
+          const unit = getUnitAt(state, pos.x, pos.y);
+          // Only preview units that are visible (respect fog)
+          const vis = useGameStore.getState().visibilityMap;
+          const isVisible = !vis || vis[pos.y]?.[pos.x] === true;
+          useGameStore.getState().setPreviewUnit(unit && isVisible ? unit : null);
+        };
+
+        inputHandlerRef.current = new InputHandler(
+          app,
+          handleTileClick,
+          handleTileHover,
+          handleTileRightClick
+        );
 
         // Signal that Pixi is ready — this triggers the render effect below
         // with the current gameState (which is already set by the time we get here)
@@ -563,12 +587,14 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
 
     if (selectedUnit) {
       highlights.drawSelected([{ x: selectedUnit.x, y: selectedUnit.y }]);
-    }
-    if (reachableTiles.length > 0) {
-      highlights.drawReachable(reachableTiles);
-    }
-    if (attackableTiles.length > 0) {
-      highlights.drawAttackable(attackableTiles);
+      if (reachableTiles.length > 0) highlights.drawReachable(reachableTiles);
+      if (attackableTiles.length > 0) highlights.drawAttackable(attackableTiles);
+    } else if (previewUnit) {
+      // Range preview (right-click) — show when no unit is actively selected
+      highlights.drawSelected([{ x: previewUnit.x, y: previewUnit.y }]);
+      if (previewReachableTiles.length > 0) highlights.drawPreviewReachable(previewReachableTiles);
+      if (previewAttackableTiles.length > 0)
+        highlights.drawPreviewAttackable(previewAttackableTiles);
     }
 
     // Draw path arrow - use pendingPath if clicked, otherwise use hoverPath
@@ -594,6 +620,9 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     pendingPath,
     isAnimating,
     queueAnimatingUnitId,
+    previewUnit,
+    previewReachableTiles,
+    previewAttackableTiles,
   ]);
 
   return (
