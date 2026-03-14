@@ -144,7 +144,9 @@ export default function InfoPanel() {
               if (!p || p.is_defeated) return null;
               return (
                 <div key={playerId} className="bg-gray-100 rounded-lg px-3 py-2.5">
-                  <div className={`text-sm font-bold mb-1.5 ${teamColors[p.team] ?? "text-gray-900"}`}>
+                  <div
+                    className={`text-sm font-bold mb-1.5 ${teamColors[p.team] ?? "text-gray-900"}`}
+                  >
                     P{playerId + 1}
                   </div>
                   <div className="grid grid-cols-3 gap-1 text-center">

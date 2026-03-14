@@ -268,9 +268,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const transport = getUnit(state, actionCmd.transport_id);
       if (transport && transport.x === pendingMove.x && transport.y === pendingMove.y) {
         const path = findPath(state, selectedUnit, transport.x, transport.y);
-        effectivePendingMove = path.length >= 2
-          ? path[path.length - 2]
-          : { x: selectedUnit.x, y: selectedUnit.y };
+        effectivePendingMove =
+          path.length >= 2 ? path[path.length - 2] : { x: selectedUnit.x, y: selectedUnit.y };
       }
     }
 

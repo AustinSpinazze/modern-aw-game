@@ -174,7 +174,7 @@
       "cost": 5000,
       "hp": 10,
       "fuel": 70,
-      "fuel_per_turn": 0,
+      "fuel_per_turn": 1,
       "can_capture": false,
       "tags": ["light_vehicle", "transport"],
       "weapons": [],

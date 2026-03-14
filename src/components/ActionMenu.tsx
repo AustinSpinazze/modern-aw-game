@@ -102,7 +102,11 @@ export default function ActionMenu() {
       const cargoId = selectedUnit.cargo[i];
       const cargoUnit = getUnit(gameState, cargoId);
       const cargoData = cargoUnit ? getUnitData(cargoUnit.unit_type) : null;
-      cargoUnits.push({ unitId: cargoId, unitName: cargoData?.name ?? `Slot ${i + 1}`, cargoIndex: i });
+      cargoUnits.push({
+        unitId: cargoId,
+        unitName: cargoData?.name ?? `Slot ${i + 1}`,
+        cargoIndex: i,
+      });
     }
   }
 
@@ -112,7 +116,12 @@ export default function ActionMenu() {
     const cargoUnit = getUnit(gameState, cargoId);
     const cargoData = cargoUnit ? getUnitData(cargoUnit.unit_type) : null;
     const moveType = cargoData?.move_type ?? "foot";
-    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as [number, number][]) {
+    for (const [dx, dy] of [
+      [-1, 0],
+      [1, 0],
+      [0, -1],
+      [0, 1],
+    ] as [number, number][]) {
       const tx = pendingMove.x + dx;
       const ty = pendingMove.y + dy;
       if (tx < 0 || tx >= gameState.map_width || ty < 0 || ty >= gameState.map_height) continue;
@@ -346,44 +355,47 @@ export default function ActionMenu() {
       )}
 
       {/* Get in: board an adjacent transport */}
-      {unloadingCargoIndex === null && getInTransports.map(({ transportId, transportName }) => (
-        <button
-          key={`getin-${transportId}`}
-          onClick={() =>
-            startMoveAnimation({
-              type: "LOAD",
-              player_id: currentPlayer.id,
-              transport_id: transportId,
-              unit_id: selectedUnit.id,
-            })
-          }
-          className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors text-teal-600 border-b border-gray-100"
-        >
-          ↑ Load
-        </button>
-      ))}
+      {unloadingCargoIndex === null &&
+        getInTransports.map(({ transportId, transportName }) => (
+          <button
+            key={`getin-${transportId}`}
+            onClick={() =>
+              startMoveAnimation({
+                type: "LOAD",
+                player_id: currentPlayer.id,
+                transport_id: transportId,
+                unit_id: selectedUnit.id,
+              })
+            }
+            className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors text-teal-600 border-b border-gray-100"
+          >
+            ↑ Load
+          </button>
+        ))}
 
       {/* Load adjacent units */}
-      {unloadingCargoIndex === null && loadableUnits.map(({ unitId, unitName }) => (
-        <button
-          key={`load-${unitId}`}
-          onClick={() => handleLoad(unitId)}
-          className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors text-teal-600 border-b border-gray-100"
-        >
-          ↑ Load {unitName}
-        </button>
-      ))}
+      {unloadingCargoIndex === null &&
+        loadableUnits.map(({ unitId, unitName }) => (
+          <button
+            key={`load-${unitId}`}
+            onClick={() => handleLoad(unitId)}
+            className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors text-teal-600 border-b border-gray-100"
+          >
+            ↑ Load {unitName}
+          </button>
+        ))}
 
       {/* Unload cargo slots */}
-      {unloadingCargoIndex === null && cargoUnits.map(({ unitId, unitName, cargoIndex }) => (
-        <button
-          key={`unload-${unitId}`}
-          onClick={() => setUnloadingCargoIndex(cargoIndex)}
-          className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors text-teal-600 border-b border-gray-100"
-        >
-          ↓ Unload {unitName}
-        </button>
-      ))}
+      {unloadingCargoIndex === null &&
+        cargoUnits.map(({ unitId, unitName, cargoIndex }) => (
+          <button
+            key={`unload-${unitId}`}
+            onClick={() => setUnloadingCargoIndex(cargoIndex)}
+            className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors text-teal-600 border-b border-gray-100"
+          >
+            ↓ Unload {unitName}
+          </button>
+        ))}
 
       <button
         onClick={handleWait}

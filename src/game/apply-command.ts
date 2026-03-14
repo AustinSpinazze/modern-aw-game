@@ -315,20 +315,35 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
 
           // Fuel consumption at start of turn for air/naval units
           const fuelUpdate: { fuel?: number } = {};
+          let crashed = false;
           if (unit.fuel !== undefined) {
             const unitDataForFuel = getUnitData(unit.unit_type);
             const fuelPerTurn = unitDataForFuel?.fuel_per_turn ?? 0;
             if (fuelPerTurn > 0) {
               const newFuel = Math.max(0, unit.fuel - fuelPerTurn);
               fuelUpdate.fuel = newFuel;
-              // 1 HP damage if unit ran out of fuel this turn
               if (newFuel === 0 && unit.fuel > 0) {
-                healedHp = Math.max(1, healedHp - 1);
+                const domain = unitDataForFuel?.domain;
+                // Air units crash and are destroyed when out of fuel
+                // Submerged submarines also crash (can't surface without fuel)
+                if (domain === "air" || unit.is_submerged) {
+                  crashed = true;
+                }
               }
             }
           }
 
-          updatedUnits[uid] = { ...unit, hp: healedHp, has_moved: false, has_acted: false, ...fuelUpdate };
+          if (crashed) {
+            delete updatedUnits[uid];
+          } else {
+            updatedUnits[uid] = {
+              ...unit,
+              hp: healedHp,
+              has_moved: false,
+              has_acted: false,
+              ...fuelUpdate,
+            };
+          }
         }
       }
 

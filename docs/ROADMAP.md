@@ -13,6 +13,8 @@ Last Updated: 2026-03-09
 - **Save/Load:** Save Game / Continue a Saved Game in UI; IPC save/load/list/delete; serialization tests.
 - **Camera:** Pan (Ctrl/Cmd + drag) and zoom in/out/reset in GameCanvas and App.
 - **Tests:** Vitest (unit + game-state-serialization + visibility), E2E (Playwright), game-test and electron.test.
+- **Transport:** Load/unload (APC, T-Copter, Lander, Carrier) with UI; LOAD/UNLOAD commands.
+- **Fuel:** Air/naval fuel consumption, resupply, 0 fuel = no move; fuel in UI.
 
 The sections below still list some of these as planned; checkmarks and "In Progress" have been updated to match the codebase.
 
@@ -124,7 +126,7 @@ A modern Advance Wars-inspired turn-based strategy game that:
 ### Camera / Large Maps
 
 - [x] Map panning (Ctrl/Cmd + drag) and zoom in/out/reset
-- [ ] Camera follow during movement (if map larger than viewport)
+- [ ] **Camera follow** — Camera follow during unit movement when map is larger than viewport; smooth transitions to keep moving unit in view.
 
 ---
 
@@ -144,21 +146,21 @@ A modern Advance Wars-inspired turn-based strategy game that:
 
 - [ ] Skirmish vs AI (local)
 - [ ] Hot-seat multiplayer (same device)
-- [ ] Online multiplayer (Partykit)
+- [ ] **Online multiplayer (Partykit)** — Full online play; create/join rooms; state sync; web or desktop client.
 - [ ] Map editor
 
 ### Map Features
 
 - [x] Larger map support with camera panning and zoom in/out (implemented)
 - [ ] Minimap
-- [ ] Map preview before game start
+- [ ] **Map preview before game start** — Show map (name, dimensions, minimap or thumbnail) before deploying so players can confirm the battlefield.
 - [ ] **Shoal coastline auto-tiling** — WarsWorld only ships one `shoal.png`; AWBW uses 4+ tile IDs (29–32) for different coastline orientations. Add directional shoal sprites (or source from AWBW) and bitmask auto-tiling (like roads/rivers) so coastlines render as proper beach edges instead of uniform yellow blocks.
 
 ### Advanced Gameplay
 
-- [ ] Transport load/unload (APC, T-Copter, Lander)
-- [ ] Indirect fire (Artillery, Rocket range attacks)
-- [ ] Fuel consumption for air/sea units
+- [x] **Transport load/unload** (APC, T-Copter, Lander, Carrier) — Load/unload UI; LOAD/UNLOAD commands; cargo/is_loaded; validators.
+- [x] **Fuel mechanics** — Air/naval fuel consumption; resupply; 0 fuel = no move; per-turn consumption; fuel in UI.
+- [ ] **Indirect fire** — Artillery, Rocket (and other indirect units) can attack at range (min_range > 1 or max_range > 1); no counterattack from target; line-of-fire or range-only rules per AW.
 - [ ] Ammo management
 - [ ] Supply from APC/cities
 - [ ] Weather effects (rain, snow, clear)
@@ -176,11 +178,14 @@ A modern Advance Wars-inspired turn-based strategy game that:
 
 ## 🎨 UX Polish & Improvements
 
-### Visual Polish
+### Optional polish (visual & feedback)
 
+- [ ] **Camera follow** during unit movement (see Camera / Large Maps)
 - [ ] Smooth camera transitions
 - [ ] Screen shake on explosions
+- [ ] Damage numbers or health bar feedback during combat
 - [ ] Particle effects (smoke, fire)
+- [ ] AI thinking indicator (clear “AI is deciding…” state)
 - [ ] Day/night cycle visual
 - [ ] Weather visual effects
 
@@ -282,15 +287,53 @@ A modern Advance Wars-inspired turn-based strategy game that:
 | ~~Save/Load~~           | ~~High~~   | ~~Low~~    | ✅ Done   | -     |
 | ~~Combat animations~~   | ~~Medium~~ | ~~Low~~    | ✅ Done   | -     |
 | ~~Fog of War~~          | ~~High~~   | ~~Medium~~ | ✅ Done   | -     |
-| Transport mechanics     | Medium     | Medium     | 🟡 Medium | 5     |
-| Audio/SFX               | Medium     | Low        | 🟡 Medium | 6     |
-| Map editor              | Medium     | High       | 🟢 Low    | 7     |
-| Shoal coastline tiles   | Medium     | Medium     | 🟡 Medium | 8     |
-| Custom units (units.md) | High       | High       | 🟢 Low    | 9     |
-| New buildings/tiles     | Medium     | Medium     | 🟢 Low    | 10    |
+| ~~Transport mechanics~~ | ~~Medium~~ | ~~Medium~~ | ✅ Done   | -     |
+| ~~Fuel mechanics~~      | ~~Medium~~ | ~~Medium~~ | ✅ Done   | -     |
+| Indirect fire           | High       | Medium     | 🟡 Medium | 7     |
+| Camera follow           | Medium     | Low        | 🟡 Medium | 8     |
+| Optional polish         | Low        | Low–Medium | 🟢 Low    | 9     |
+| Online multiplayer      | High       | High       | 🟡 Medium | 10    |
+| Map preview             | Medium     | Low        | 🟡 Medium | 11    |
+| Map editor              | Medium     | High       | 🟢 Low    | 12    |
+| Shoal coastline tiles   | Medium     | Medium     | 🟡 Medium | 13    |
+| Custom units (units.md) | High       | High       | 🟢 Low    | 14    |
+| New buildings/tiles     | Medium     | Medium     | 🟢 Low    | 15    |
+| Audio/SFX               | Medium     | Low        | 🟢 Low    | 16    |
 
 > **Note:** Electron migration comes before Audio because it enables local AI play with secure API key storage.
 > **Known gap:** WarsWorld assets only include one shoal sprite; coastlines render as uniform yellow. See Map Features → Shoal coastline auto-tiling.
+
+---
+
+## 📜 Feature list (planned / backlog)
+
+Single list of all planned features for easy reference. Order follows Priority Matrix where applicable.
+
+| #   | Feature                    | Notes                                                                          |
+| --- | -------------------------- | ------------------------------------------------------------------------------ |
+| –   | ~~Transport mechanics~~    | ✅ Done — Load/unload APC, T-Copter, Lander, Carrier; UI.                      |
+| –   | ~~Fuel mechanics~~         | ✅ Done — Air/naval fuel; resupply; 0 fuel = no move.                          |
+| 7   | Indirect fire              | Artillery, Rocket range attacks; no counter from target.                       |
+| 8   | Camera follow              | Camera follows moving unit when map larger than viewport.                      |
+| 9   | Optional polish            | Damage numbers, screen shake, AI thinking indicator, smooth camera, particles. |
+| 10  | Online multiplayer         | Partykit; create/join rooms; state sync.                                       |
+| 11  | Map preview                | Show map (name, size, thumbnail) before game start.                            |
+| 12  | Map editor                 | Create and edit maps in-app.                                                   |
+| 13  | Shoal coastline tiles      | Directional shoal sprites + auto-tiling.                                       |
+| 14  | Custom units (units.md)    | 30 designs; data + sprites.                                                    |
+| 15  | New buildings/tiles        | Radar, supply depot, new terrain.                                              |
+| 16  | Audio/SFX                  | In-game sounds and music. (Last.)                                              |
+| –   | Hot-seat multiplayer       | Same device, pass-and-play.                                                    |
+| –   | Minimap                    | In-game minimap.                                                               |
+| –   | Ammo management            | Track and display ammo; resupply rules.                                        |
+| –   | Supply from APC/cities     | Supply range and mechanics.                                                    |
+| –   | Weather effects            | Rain, snow, clear; affect movement/vision.                                     |
+| –   | UX refinement (menus)      | Per docs/UX_IMPROVEMENT_PLAN.md; map/sprites unchanged.                        |
+| –   | Multiple AI difficulty     | AI personalities / difficulty levels.                                          |
+| –   | Unit info panel            | Stats, HP, ammo, fuel at a glance.                                             |
+| –   | Damage preview             | Before attacking.                                                              |
+| –   | Undo last move             | Before confirming action.                                                      |
+| –   | Colorblind / accessibility | Team indicators, high contrast, etc.                                           |
 
 ---
 

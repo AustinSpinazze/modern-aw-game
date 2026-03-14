@@ -156,18 +156,13 @@ export default function ActionLog() {
   if (!gameState || gameState.command_log.length === 0) return null;
 
   return (
-    <div
-      className="border-t border-gray-200 flex flex-col shrink-0"
-      style={{ height: "200px" }}
-    >
+    <div className="border-t border-gray-200 flex flex-col shrink-0" style={{ height: "200px" }}>
       {/* Header */}
       <div className="flex items-center justify-between px-3 pt-2 pb-1 shrink-0">
         <span className="text-gray-500 text-[10px] font-semibold uppercase tracking-widest">
           Game Log
         </span>
-        <span className="text-gray-400 text-[10px] font-mono">
-          {filteredEntries.length} events
-        </span>
+        <span className="text-gray-400 text-[10px] font-mono">{filteredEntries.length} events</span>
       </div>
 
       {/* Filter chips */}

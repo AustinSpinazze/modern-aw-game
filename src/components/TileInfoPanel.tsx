@@ -125,7 +125,9 @@ function UnitStatBlock({ unit, gameState }: { unit: UnitState; gameState: GameSt
         <StatCell label="Fuel">
           {hasFuel ? (
             <div className="flex items-baseline gap-1">
-              <span className={`font-bold text-xl ${unit.fuel! <= 10 ? "text-red-500" : "text-gray-900"}`}>
+              <span
+                className={`font-bold text-xl ${unit.fuel! <= 10 ? "text-red-500" : "text-gray-900"}`}
+              >
                 {unit.fuel}
               </span>
               <span className="text-gray-400 text-xs">/{unitData.fuel}</span>
@@ -196,7 +198,10 @@ function UnitStatBlock({ unit, gameState }: { unit: UnitState; gameState: GameSt
           {gameState.fog_of_war ? (
             <div className="flex gap-1">
               {Array.from({ length: unitData.transport.capacity }).map((_, i) => (
-                <span key={i} className="text-xs text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded">
+                <span
+                  key={i}
+                  className="text-xs text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded"
+                >
                   {i < unit.cargo.length ? "?" : "—"}
                 </span>
               ))}
