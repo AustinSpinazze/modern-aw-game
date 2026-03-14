@@ -86,6 +86,12 @@ function validateMove(cmd: CmdMove, state: GameState): ValidationResult {
     return fail("Destination occupied by friendly unit");
   }
 
+  // Fuel-using units cannot move when out of fuel
+  const unitData = getUnitData(unit.unit_type);
+  if (unit.fuel === 0 && unitData?.fuel !== undefined) {
+    return fail("Unit is out of fuel");
+  }
+
   if (!isDestinationReachable(state, unit, cmd.dest_x, cmd.dest_y)) {
     return fail("Destination not reachable");
   }

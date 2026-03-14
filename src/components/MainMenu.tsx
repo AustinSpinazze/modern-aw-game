@@ -11,7 +11,13 @@ interface MainMenuProps {
 
 const VERSION = "v1.0.0";
 
-export default function MainMenu({ onNewGame, onContinue, onSettings, onDeleteSave, saves }: MainMenuProps) {
+export default function MainMenu({
+  onNewGame,
+  onContinue,
+  onSettings,
+  onDeleteSave,
+  saves,
+}: MainMenuProps) {
   const [showSaves, setShowSaves] = useState(false);
   const [deletingName, setDeletingName] = useState<string | null>(null);
 
@@ -53,9 +59,7 @@ export default function MainMenu({ onNewGame, onContinue, onSettings, onDeleteSa
           Modern AW
         </h1>
         <div className="w-20 h-[3px] bg-amber-500 mx-auto my-4 rounded-full" />
-        <p className="text-slate-500 tracking-[0.35em] text-xs uppercase font-medium">
-          Reimagined
-        </p>
+        <p className="text-slate-500 tracking-[0.35em] text-xs uppercase font-medium">Reimagined</p>
       </div>
 
       {/* Menu list */}
@@ -81,28 +85,25 @@ export default function MainMenu({ onNewGame, onContinue, onSettings, onDeleteSa
               : "bg-slate-100/30 text-slate-600 cursor-default"
           }`}
         >
-          <span className={`font-mono text-xs w-5 shrink-0 ${hasSaves ? "text-slate-500" : "text-slate-600"}`}>
+          <span
+            className={`font-mono text-xs w-5 shrink-0 ${hasSaves ? "text-slate-500" : "text-slate-600"}`}
+          >
             02
           </span>
-          <span className={`font-black tracking-widest text-sm flex-1 text-left ${hasSaves ? "text-slate-900" : "text-slate-600"}`}>
+          <span
+            className={`font-black tracking-widest text-sm flex-1 text-left ${hasSaves ? "text-slate-900" : "text-slate-600"}`}
+          >
             Continue
           </span>
-          {hasSaves && (
-            <span className="text-slate-500 text-xs">{showSaves ? "▲" : "▼"}</span>
-          )}
-          {!hasSaves && (
-            <span className="text-slate-600 text-[10px]">No saves</span>
-          )}
+          {hasSaves && <span className="text-slate-500 text-xs">{showSaves ? "▲" : "▼"}</span>}
+          {!hasSaves && <span className="text-slate-600 text-[10px]">No saves</span>}
         </button>
 
         {/* Inline saves panel */}
         {showSaves && hasSaves && (
           <div className="border-x border-slate-700/50 bg-slate-50/95 divide-y divide-slate-200/50">
             {saves.map((save) => (
-              <div
-                key={save.name}
-                className="flex items-center gap-3 px-5 py-3"
-              >
+              <div key={save.name} className="flex items-center gap-3 px-5 py-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-slate-900 text-sm font-semibold capitalize">{save.name}</p>
                   <p className="text-slate-500 text-xs">

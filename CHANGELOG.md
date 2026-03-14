@@ -37,8 +37,8 @@ Fixed chess-style timer carryover, added timer pause support, added a resign act
 
 ### Files Changed
 
-| File | Change |
-|------|--------|
+| File          | Change                                                                              |
+| ------------- | ----------------------------------------------------------------------------------- |
 | `src/App.tsx` | Timer carryover fix, pause/resume, resign, victory screen, `resetTimerState` helper |
 
 ---
@@ -84,21 +84,21 @@ Large UI and game mechanic session covering: blank canvas fix, main menu, HUD cl
 
 ### Files Changed
 
-| File | Change |
-|------|--------|
-| `src/rendering/pixi-app.ts` | Sequential `_currentInit` promise chain; removed debug logs |
-| `src/rendering/terrain-renderer.ts` | Fog building ownership masking; fixed missing `addChild` in fallback |
-| `src/game/apply-command.ts` | Unit healing on allied buildings in `END_TURN` |
-| `src/game/types.ts` | Added `turn_time_limit: number` to `GameState` |
-| `src/game/game-state.ts` | Default `turn_time_limit: 0` in `createGameState` and `stateFromDict` |
-| `src/types.ts` | New file — shared `SavedGameMeta` interface |
-| `src/components/MainMenu.tsx` | New file — main menu screen |
-| `src/components/TurnTransitionOverlay.tsx` | New file — turn transition overlay |
-| `src/components/ActionLog.tsx` | Rewritten with filters, day tracking, badges |
-| `src/components/InfoPanel.tsx` | Lighter palette, larger fonts |
-| `src/components/MatchSetup.tsx` | Removed saves section; added `turnTimeLimit` option |
-| `src/components/GameCanvas.tsx` | Added `.catch(() => {})` on StrictMode first-init rejection |
-| `src/App.tsx` | Main menu routing, saves state, timer logic, faction ring, sidebar right |
+| File                                       | Change                                                                   |
+| ------------------------------------------ | ------------------------------------------------------------------------ |
+| `src/rendering/pixi-app.ts`                | Sequential `_currentInit` promise chain; removed debug logs              |
+| `src/rendering/terrain-renderer.ts`        | Fog building ownership masking; fixed missing `addChild` in fallback     |
+| `src/game/apply-command.ts`                | Unit healing on allied buildings in `END_TURN`                           |
+| `src/game/types.ts`                        | Added `turn_time_limit: number` to `GameState`                           |
+| `src/game/game-state.ts`                   | Default `turn_time_limit: 0` in `createGameState` and `stateFromDict`    |
+| `src/types.ts`                             | New file — shared `SavedGameMeta` interface                              |
+| `src/components/MainMenu.tsx`              | New file — main menu screen                                              |
+| `src/components/TurnTransitionOverlay.tsx` | New file — turn transition overlay                                       |
+| `src/components/ActionLog.tsx`             | Rewritten with filters, day tracking, badges                             |
+| `src/components/InfoPanel.tsx`             | Lighter palette, larger fonts                                            |
+| `src/components/MatchSetup.tsx`            | Removed saves section; added `turnTimeLimit` option                      |
+| `src/components/GameCanvas.tsx`            | Added `.catch(() => {})` on StrictMode first-init rejection              |
+| `src/App.tsx`                              | Main menu routing, saves state, timer logic, faction ring, sidebar right |
 
 ---
 

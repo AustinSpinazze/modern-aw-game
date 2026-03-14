@@ -217,9 +217,7 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
           <button
             onClick={handleSave}
             className={`flex-1 font-bold py-2 rounded-lg transition-colors ${
-              saved
-                ? "bg-green-600 text-white"
-                : "bg-amber-500 hover:bg-amber-400 text-slate-950"
+              saved ? "bg-green-600 text-white" : "bg-amber-500 hover:bg-amber-400 text-slate-950"
             }`}
           >
             {saved ? "Saved!" : "Save"}

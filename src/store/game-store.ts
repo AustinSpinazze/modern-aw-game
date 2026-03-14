@@ -261,16 +261,30 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     let state = gameState;
 
+    // For LOAD: if pendingMove is the transport's tile, redirect movement to the tile just before
+    // the transport (infantry moves adjacent, then loads). This matches the AW click-onto-transport flow.
+    let effectivePendingMove = pendingMove;
+    if (actionCmd.type === "LOAD" && pendingMove && !selectedUnit.has_moved) {
+      const transport = getUnit(state, actionCmd.transport_id);
+      if (transport && transport.x === pendingMove.x && transport.y === pendingMove.y) {
+        const path = findPath(state, selectedUnit, transport.x, transport.y);
+        effectivePendingMove = path.length >= 2
+          ? path[path.length - 2]
+          : { x: selectedUnit.x, y: selectedUnit.y };
+      }
+    }
+
     // If there's a pending move to a different tile and unit hasn't moved yet, apply MOVE first
     const isInPlace =
-      !pendingMove || (pendingMove.x === selectedUnit.x && pendingMove.y === selectedUnit.y);
-    if (pendingMove && !selectedUnit.has_moved && !isInPlace) {
+      !effectivePendingMove ||
+      (effectivePendingMove.x === selectedUnit.x && effectivePendingMove.y === selectedUnit.y);
+    if (effectivePendingMove && !selectedUnit.has_moved && !isInPlace) {
       const moveCmd = {
         type: "MOVE" as const,
         player_id: currentPlayer.id,
         unit_id: selectedUnit.id,
-        dest_x: pendingMove.x,
-        dest_y: pendingMove.y,
+        dest_x: effectivePendingMove.x,
+        dest_y: effectivePendingMove.y,
       };
 
       const moveResult = validateCommand(moveCmd, state);

@@ -19,6 +19,7 @@ import { getUnitData } from "./data-loader";
 import { executeCombat, executeSelfDestruct, damageFob } from "./combat";
 import { applyIncome } from "./economy";
 import { FOB_COST } from "./economy";
+import { findPath } from "./pathfinding";
 
 export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
   let state = stateIn;
@@ -34,11 +35,19 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
         state = updateTile(state, unit.x, unit.y, { capture_points: 20 });
       }
 
-      state = updateUnit(state, cmd.unit_id, {
+      // Consume 1 fuel per tile traversed for air/naval units
+      const movePatch: { x: number; y: number; has_moved: boolean; fuel?: number } = {
         x: cmd.dest_x,
         y: cmd.dest_y,
         has_moved: true,
-      });
+      };
+      if (unit.fuel !== undefined && getUnitData(unit.unit_type)?.fuel !== undefined) {
+        const path = findPath(state, unit, cmd.dest_x, cmd.dest_y);
+        const tilesTraversed = Math.max(0, path.length - 1);
+        movePatch.fuel = Math.max(0, unit.fuel - tilesTraversed);
+      }
+
+      state = updateUnit(state, cmd.unit_id, movePatch);
       break;
     }
 
@@ -147,6 +156,7 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
         ammo,
         cargo: [],
         is_loaded: false,
+        ...(unitData?.fuel !== undefined ? { fuel: unitData.fuel } : {}),
       });
 
       const cost = unitData?.cost ?? 0;
@@ -159,6 +169,7 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
       const transport = getUnit(state, cmd.transport_id)!;
       state = updateUnit(state, cmd.transport_id, {
         cargo: [...transport.cargo, cmd.unit_id],
+        has_acted: true,
       });
       state = updateUnit(state, cmd.unit_id, {
         is_loaded: true,
@@ -257,8 +268,8 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
           }
           const patch: Partial<typeof target> = { ammo: fullAmmo };
           // Restore fuel if the unit tracks it
-          if (target.fuel !== undefined && "fuel" in targetData) {
-            patch.fuel = (targetData as unknown as { fuel: number }).fuel;
+          if (target.fuel !== undefined && targetData.fuel !== undefined) {
+            patch.fuel = targetData.fuel;
           }
           state = updateUnit(state, cmd.target_id, patch);
         }
@@ -301,7 +312,23 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
           ) {
             healedHp = Math.min(10, unit.hp + 2);
           }
-          updatedUnits[uid] = { ...unit, hp: healedHp, has_moved: false, has_acted: false };
+
+          // Fuel consumption at start of turn for air/naval units
+          const fuelUpdate: { fuel?: number } = {};
+          if (unit.fuel !== undefined) {
+            const unitDataForFuel = getUnitData(unit.unit_type);
+            const fuelPerTurn = unitDataForFuel?.fuel_per_turn ?? 0;
+            if (fuelPerTurn > 0) {
+              const newFuel = Math.max(0, unit.fuel - fuelPerTurn);
+              fuelUpdate.fuel = newFuel;
+              // 1 HP damage if unit ran out of fuel this turn
+              if (newFuel === 0 && unit.fuel > 0) {
+                healedHp = Math.max(1, healedHp - 1);
+              }
+            }
+          }
+
+          updatedUnits[uid] = { ...unit, hp: healedHp, has_moved: false, has_acted: false, ...fuelUpdate };
         }
       }
 

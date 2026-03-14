@@ -216,7 +216,7 @@
       "is_property": true,
       "can_capture": true,
       "income": 1000,
-      "can_produce": ["lander", "cruiser", "submarine", "carrier"],
+      "can_produce": ["lander", "cruiser", "submarine", "battleship", "carrier"],
       "movement_costs": {
         "foot": 1,
         "mech": 1,

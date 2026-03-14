@@ -44,26 +44,34 @@ export default function TurnTransitionOverlay({
       <div className="absolute inset-0 bg-black/65 backdrop-blur-sm" />
 
       {/* Card */}
-      <div
-        className={`relative transition-all duration-300 ${
-          visible ? "scale-100" : "scale-95"
-        }`}
-      >
+      <div className={`relative transition-all duration-300 ${visible ? "scale-100" : "scale-95"}`}>
         {/* Corner brackets */}
-        <div className={`absolute -top-3 -left-3 w-8 h-8 border-t-[3px] border-l-[3px] ${TEAM_BORDER[team] ?? "border-amber-500"}`} />
-        <div className={`absolute -top-3 -right-3 w-8 h-8 border-t-[3px] border-r-[3px] ${TEAM_BORDER[team] ?? "border-amber-500"}`} />
-        <div className={`absolute -bottom-3 -left-3 w-8 h-8 border-b-[3px] border-l-[3px] ${TEAM_BORDER[team] ?? "border-amber-500"}`} />
-        <div className={`absolute -bottom-3 -right-3 w-8 h-8 border-b-[3px] border-r-[3px] ${TEAM_BORDER[team] ?? "border-amber-500"}`} />
+        <div
+          className={`absolute -top-3 -left-3 w-8 h-8 border-t-[3px] border-l-[3px] ${TEAM_BORDER[team] ?? "border-amber-500"}`}
+        />
+        <div
+          className={`absolute -top-3 -right-3 w-8 h-8 border-t-[3px] border-r-[3px] ${TEAM_BORDER[team] ?? "border-amber-500"}`}
+        />
+        <div
+          className={`absolute -bottom-3 -left-3 w-8 h-8 border-b-[3px] border-l-[3px] ${TEAM_BORDER[team] ?? "border-amber-500"}`}
+        />
+        <div
+          className={`absolute -bottom-3 -right-3 w-8 h-8 border-b-[3px] border-r-[3px] ${TEAM_BORDER[team] ?? "border-amber-500"}`}
+        />
 
         {/* Content */}
         <div className="px-20 py-12 text-center min-w-[340px]">
           {/* Top line */}
-          <div className={`h-[2px] w-full rounded-full mb-8 ${TEAM_BG_LINE[team] ?? "bg-amber-500"}`} />
+          <div
+            className={`h-[2px] w-full rounded-full mb-8 ${TEAM_BG_LINE[team] ?? "bg-amber-500"}`}
+          />
 
           <p className="text-slate-400 tracking-[0.35em] text-xs uppercase mb-3 font-medium">
             Day {dayNumber}
           </p>
-          <h2 className={`text-5xl font-black tracking-wider uppercase mb-2 ${TEAM_TEXT[team] ?? "text-amber-400"}`}>
+          <h2
+            className={`text-5xl font-black tracking-wider uppercase mb-2 ${TEAM_TEXT[team] ?? "text-amber-400"}`}
+          >
             {playerName}
           </h2>
           <p className="text-slate-300 tracking-[0.3em] text-sm uppercase font-medium">
@@ -71,7 +79,9 @@ export default function TurnTransitionOverlay({
           </p>
 
           {/* Bottom line */}
-          <div className={`h-[2px] w-full rounded-full mt-8 ${TEAM_BG_LINE[team] ?? "bg-amber-500"}`} />
+          <div
+            className={`h-[2px] w-full rounded-full mt-8 ${TEAM_BG_LINE[team] ?? "bg-amber-500"}`}
+          />
         </div>
       </div>
     </div>

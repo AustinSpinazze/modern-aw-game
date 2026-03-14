@@ -77,10 +77,19 @@ const CONTROLLER_OPTIONS: {
   req?: string;
 }[] = [
   { value: "human", label: "Human", desc: "You play this army." },
-  { value: "heuristic", label: "Heuristic AI", desc: "Built-in rule-based AI. No internet required." },
+  {
+    value: "heuristic",
+    label: "Heuristic AI",
+    desc: "Built-in rule-based AI. No internet required.",
+  },
   { value: "anthropic", label: "Claude", desc: "Anthropic API.", req: "Requires API key" },
   { value: "openai", label: "GPT", desc: "OpenAI API.", req: "Requires API key" },
-  { value: "local_http", label: "Local AI", desc: "Ollama / LM Studio.", req: "Requires local server" },
+  {
+    value: "local_http",
+    label: "Local AI",
+    desc: "Ollama / LM Studio.",
+    req: "Requires local server",
+  },
 ];
 
 const PLAYER_BORDER = [
@@ -185,13 +194,13 @@ function StepIndicator({ current }: { current: number }) {
         const dotClass = isCompleted
           ? "w-2.5 h-2.5 rounded-full bg-amber-500/70"
           : isCurrent
-          ? "w-2.5 h-2.5 rounded-full bg-amber-500"
-          : "w-2.5 h-2.5 rounded-full bg-slate-700 border border-slate-600";
+            ? "w-2.5 h-2.5 rounded-full bg-amber-500"
+            : "w-2.5 h-2.5 rounded-full bg-slate-700 border border-slate-600";
         const textClass = isCurrent
           ? "text-amber-400"
           : isCompleted
-          ? "text-slate-400"
-          : "text-slate-600";
+            ? "text-slate-400"
+            : "text-slate-600";
         return (
           <div key={label} className="flex items-center">
             <div className="flex flex-col items-center gap-1 px-3">
@@ -456,7 +465,9 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                         }`}
                       >
                         <div className="font-semibold text-xs">{opt.label}</div>
-                        <div className="text-xs text-slate-500 mt-0.5 leading-tight">{opt.desc}</div>
+                        <div className="text-xs text-slate-500 mt-0.5 leading-tight">
+                          {opt.desc}
+                        </div>
                         {opt.req && <div className="text-xs text-red-400 mt-1">{opt.req}</div>}
                       </button>
                     ))}
@@ -489,9 +500,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
           <div className="w-full max-w-xl space-y-4">
             <div>
               <div className="text-white font-bold text-base mb-1">Map</div>
-              <p className="text-slate-500 text-sm mb-4">
-                Select a map for this match.
-              </p>
+              <p className="text-slate-500 text-sm mb-4">Select a map for this match.</p>
             </div>
 
             {/* Option: Default Skirmish */}
@@ -517,10 +526,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                   : "bg-slate-800 border-slate-700"
               }`}
             >
-              <button
-                onClick={() => setMapMode("awbw")}
-                className="w-full text-left p-4"
-              >
+              <button onClick={() => setMapMode("awbw")} className="w-full text-left p-4">
                 <div className="font-bold text-sm text-white">Custom AWBW Map</div>
                 <div className="text-xs text-slate-400 mt-0.5">
                   Paste CSV tile data from advancewars.net/maproom
@@ -540,7 +546,11 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                           const mapData = parseAwbwMapText(text);
                           setParsedPreview(
                             mapData.width > 0
-                              ? { width: mapData.width, height: mapData.height, tiles: mapData.tiles }
+                              ? {
+                                  width: mapData.width,
+                                  height: mapData.height,
+                                  tiles: mapData.tiles,
+                                }
                               : null
                           );
                         } catch {
@@ -598,13 +608,11 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                     : "bg-slate-800 border-slate-700"
                 }`}
               >
-                <button
-                  onClick={() => setMapMode("saved")}
-                  className="w-full text-left p-4"
-                >
+                <button onClick={() => setMapMode("saved")} className="w-full text-left p-4">
                   <div className="font-bold text-sm text-white">Saved Maps</div>
                   <div className="text-xs text-slate-400 mt-0.5">
-                    {savedMaps.length} saved {savedMaps.length === 1 ? "map" : "maps"} · Click to select
+                    {savedMaps.length} saved {savedMaps.length === 1 ? "map" : "maps"} · Click to
+                    select
                   </div>
                 </button>
 
@@ -614,7 +622,9 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                       <div
                         key={map.id}
                         className={`flex items-center gap-2 px-4 py-2.5 transition-colors ${
-                          selectedSavedMapId === map.id ? "bg-amber-500/10" : "hover:bg-slate-700/30"
+                          selectedSavedMapId === map.id
+                            ? "bg-amber-500/10"
+                            : "hover:bg-slate-700/30"
                         }`}
                       >
                         <button
@@ -788,9 +798,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm text-white font-medium">Fog of War</div>
-                <div className="text-xs text-slate-500">
-                  Hide enemy units outside vision range
-                </div>
+                <div className="text-xs text-slate-500">Hide enemy units outside vision range</div>
               </div>
               <button
                 onClick={() => updateConfig({ fogOfWar: !config.fogOfWar })}
@@ -858,8 +866,8 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                   {config.turnTimeLimit === 0
                     ? "Off"
                     : config.turnTimeLimit < 60
-                    ? `${config.turnTimeLimit}s`
-                    : `${config.turnTimeLimit / 60}m`}
+                      ? `${config.turnTimeLimit}s`
+                      : `${config.turnTimeLimit / 60}m`}
                 </span>
               </span>
             </div>
@@ -890,8 +898,8 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
     mapMode === "awbw" && parsedPreview
       ? `Custom AWBW Map (${parsedPreview.width}×${parsedPreview.height})`
       : mapMode === "saved" && selectedSavedMapId
-      ? (savedMaps.find((m) => m.id === selectedSavedMapId)?.name ?? "Saved Map")
-      : `Default Skirmish (${DEFAULT_MAP_WIDTH}×${DEFAULT_MAP_HEIGHT})`;
+        ? (savedMaps.find((m) => m.id === selectedSavedMapId)?.name ?? "Saved Map")
+        : `Default Skirmish (${DEFAULT_MAP_WIDTH}×${DEFAULT_MAP_HEIGHT})`;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col">
@@ -900,9 +908,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
         <div className="w-full max-w-xl space-y-4">
           <div>
             <div className="text-white font-bold text-base mb-1">Review</div>
-            <p className="text-slate-500 text-sm mb-4">
-              Confirm your setup and deploy.
-            </p>
+            <p className="text-slate-500 text-sm mb-4">Confirm your setup and deploy.</p>
           </div>
 
           {/* Summary card */}
@@ -912,8 +918,8 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
               <div key={i} className="flex justify-between">
                 <span className={`font-medium ${playerColors[i]}`}>Player {i + 1}</span>
                 <span className="text-slate-300 capitalize">
-                  {CONTROLLER_OPTIONS.find((o) => o.value === players[i]?.controllerType)
-                    ?.label ?? players[i]?.controllerType}
+                  {CONTROLLER_OPTIONS.find((o) => o.value === players[i]?.controllerType)?.label ??
+                    players[i]?.controllerType}
                 </span>
               </div>
             ))}
@@ -947,8 +953,8 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                 {config.turnTimeLimit === 0
                   ? "Off"
                   : config.turnTimeLimit < 60
-                  ? `${config.turnTimeLimit}s`
-                  : `${config.turnTimeLimit / 60}m`}
+                    ? `${config.turnTimeLimit}s`
+                    : `${config.turnTimeLimit / 60}m`}
               </span>
             </div>
           </div>

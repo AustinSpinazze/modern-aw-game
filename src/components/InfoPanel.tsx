@@ -12,12 +12,12 @@ export default function InfoPanel() {
   if (!currentPlayer) return null;
 
   const teamColors: Record<number, string> = {
-    0: "text-red-400",
-    1: "text-blue-400",
-    2: "text-green-400",
-    3: "text-yellow-400",
+    0: "text-red-500",
+    1: "text-blue-500",
+    2: "text-green-600",
+    3: "text-yellow-500",
   };
-  const colorClass = teamColors[currentPlayer.team] ?? "text-white";
+  const colorClass = teamColors[currentPlayer.team] ?? "text-gray-900";
 
   const handleEndTurn = () => {
     submitCommand({ type: "END_TURN", player_id: currentPlayer.id });
@@ -26,7 +26,8 @@ export default function InfoPanel() {
   const isHumanTurn = gameState.phase === "action" && currentPlayer.controller_type === "human";
 
   // Combat stats (only computed when fog is off)
-  let combatStats: Array<{ playerId: number; built: number; alive: number; props: number }> | null = null;
+  let combatStats: Array<{ playerId: number; built: number; alive: number; props: number }> | null =
+    null;
   if (!gameState.fog_of_war) {
     const builtByPlayer: Record<number, number> = {};
     for (const cmd of gameState.command_log) {
@@ -57,23 +58,23 @@ export default function InfoPanel() {
   return (
     <div className="flex flex-col gap-3 p-4 text-base">
       {/* Current player block */}
-      <div className="bg-slate-700 border border-slate-600 rounded-xl p-4">
+      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
         <div className="flex items-baseline justify-between mb-2">
           <div className={`text-2xl font-black ${colorClass}`}>Player {currentPlayer.id + 1}</div>
-          <div className="text-slate-300 text-sm">Turn {gameState.turn_number}</div>
+          <div className="text-gray-500 text-sm">Turn {gameState.turn_number}</div>
         </div>
         <div className="mb-3">
-          <span className="bg-slate-600 text-slate-300 text-sm px-2.5 py-0.5 rounded-full capitalize">
+          <span className="bg-gray-200 text-gray-600 text-sm px-2.5 py-0.5 rounded-full capitalize">
             {currentPlayer.controller_type}
           </span>
         </div>
-        <div className="text-amber-400 font-mono font-bold text-3xl">
+        <div className="text-amber-500 font-mono font-bold text-3xl">
           ¥{currentPlayer.funds.toLocaleString()}
         </div>
       </div>
 
       {gameState.phase === "game_over" && (
-        <div className="text-amber-400 font-bold text-center py-2 bg-amber-900/20 rounded border border-amber-700/40 text-base">
+        <div className="text-amber-600 font-bold text-center py-2 bg-amber-50 rounded border border-amber-200 text-base">
           Game Over!
           {gameState.winner_id >= 0 && (
             <div className="text-sm font-normal mt-0.5">Player {gameState.winner_id + 1} wins!</div>
@@ -85,10 +86,10 @@ export default function InfoPanel() {
       {isHumanTurn && (
         <button
           onClick={handleEndTurn}
-          className="w-full bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-black py-3 px-4 rounded-lg transition-colors flex items-center justify-between text-base"
+          className="w-full bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-white font-black py-3 px-4 rounded-lg transition-colors flex items-center justify-between text-base"
         >
           <span>End Turn</span>
-          <span className="bg-amber-600/50 text-amber-900 text-sm px-2 rounded">E</span>
+          <span className="bg-amber-600/30 text-amber-900 text-sm px-2 rounded">E</span>
         </button>
       )}
 
@@ -96,9 +97,9 @@ export default function InfoPanel() {
       {(gameState.max_turns > 0 ||
         gameState.income_multiplier !== 1 ||
         gameState.luck_max === 0) && (
-        <div className="border-t border-slate-600 pt-3 px-1">
-          <div className="text-slate-300 text-xs uppercase tracking-wide mb-1.5">Rules</div>
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-slate-300">
+        <div className="border-t border-gray-200 pt-3 px-1">
+          <div className="text-gray-500 text-xs uppercase tracking-wide mb-1.5">Rules</div>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-gray-600">
             {gameState.max_turns > 0 && (
               <span>
                 ⏱ {gameState.turn_number}/{gameState.max_turns}
@@ -111,53 +112,53 @@ export default function InfoPanel() {
       )}
 
       {/* Player roster */}
-      <div className="border-t border-slate-600 pt-3">
-        <div className="text-slate-300 text-xs uppercase tracking-wide mb-1.5">Players</div>
+      <div className="border-t border-gray-200 pt-3">
+        <div className="text-gray-500 text-xs uppercase tracking-wide mb-1.5">Players</div>
         {gameState.players.map((p) => (
           <div
             key={p.id}
             className={`flex justify-between items-center text-sm py-1.5 px-2 rounded ${
-              p.id === currentPlayer.id ? "bg-slate-700" : ""
+              p.id === currentPlayer.id ? "bg-gray-100" : ""
             } ${p.is_defeated ? "opacity-40 line-through" : ""}`}
           >
-            <span className={`font-semibold ${teamColors[p.team] ?? "text-white"}`}>
+            <span className={`font-semibold ${teamColors[p.team] ?? "text-gray-900"}`}>
               P{p.id + 1}
               {p.id === currentPlayer.id && (
-                <span className="text-slate-300 font-normal ml-1">◀</span>
+                <span className="text-gray-400 font-normal ml-1">◀</span>
               )}
             </span>
-            <span className="text-amber-400 font-mono text-sm">¥{p.funds.toLocaleString()}</span>
+            <span className="text-amber-500 font-mono text-sm">¥{p.funds.toLocaleString()}</span>
           </div>
         ))}
       </div>
 
       {/* Intel section (fog disabled) */}
       {combatStats && (
-        <div className="border-t border-slate-600 pt-3">
-          <div className="text-slate-300 text-xs uppercase tracking-wide mb-1.5">
-            Intel <span className="normal-case text-slate-400">(fog off)</span>
+        <div className="border-t border-gray-200 pt-3">
+          <div className="text-gray-500 text-xs uppercase tracking-wide mb-1.5">
+            Intel <span className="normal-case text-gray-400">(fog off)</span>
           </div>
           <div className="space-y-2">
             {combatStats.map(({ playerId, built, alive, props }) => {
               const p = gameState.players.find((pl) => pl.id === playerId);
               if (!p || p.is_defeated) return null;
               return (
-                <div key={playerId} className="bg-slate-700 rounded-lg px-3 py-2.5">
-                  <div className={`text-sm font-bold mb-1.5 ${teamColors[p.team] ?? "text-white"}`}>
+                <div key={playerId} className="bg-gray-100 rounded-lg px-3 py-2.5">
+                  <div className={`text-sm font-bold mb-1.5 ${teamColors[p.team] ?? "text-gray-900"}`}>
                     P{playerId + 1}
                   </div>
                   <div className="grid grid-cols-3 gap-1 text-center">
                     <div>
-                      <div className="text-white font-bold text-base">{built}</div>
-                      <div className="text-slate-300 text-xs">Built</div>
+                      <div className="text-gray-900 font-bold text-base">{built}</div>
+                      <div className="text-gray-400 text-xs">Built</div>
                     </div>
                     <div>
-                      <div className="text-white font-bold text-base">{alive}</div>
-                      <div className="text-slate-300 text-xs">Alive</div>
+                      <div className="text-gray-900 font-bold text-base">{alive}</div>
+                      <div className="text-gray-400 text-xs">Alive</div>
                     </div>
                     <div>
-                      <div className="text-amber-400 font-bold text-base">{props}</div>
-                      <div className="text-slate-300 text-xs">Props</div>
+                      <div className="text-amber-500 font-bold text-base">{props}</div>
+                      <div className="text-gray-400 text-xs">Props</div>
                     </div>
                   </div>
                 </div>

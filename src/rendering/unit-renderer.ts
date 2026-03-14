@@ -41,9 +41,17 @@ const HP_STYLE = new TextStyle({
   stroke: { color: 0x000000, width: 3 }, // Black outline for visibility
 });
 
+const CARGO_BADGE_STYLE = new TextStyle({
+  fontSize: 14,
+  fontFamily: "monospace",
+  fontWeight: "bold",
+  fill: 0x000000,
+});
+
 export class UnitRenderer {
   private container: Container;
   private currentPlayerId: number = -1;
+  private fogActive: boolean = false;
 
   constructor() {
     this.container = new Container();
@@ -64,6 +72,7 @@ export class UnitRenderer {
     // Track current player to only darken their units that have acted
     const currentPlayer = state.players[state.current_player_index];
     this.currentPlayerId = currentPlayer?.id ?? -1;
+    this.fogActive = state.fog_of_war;
 
     for (const unit of Object.values(state.units)) {
       if (unit.is_loaded) continue; // skip units inside transports
@@ -124,6 +133,23 @@ export class UnitRenderer {
       badge.x = px + DISPLAY - 18; // Adjusted for larger font
       badge.y = py + DISPLAY - 20;
       this.container.addChild(badge);
+    }
+
+    // Cargo indicator — AW-style "L" badge, only in non-fog matches
+    if (!this.fogActive && unit.cargo.length > 0) {
+      const badgeSize = 16;
+      const bx = px + 2;
+      const by = py + DISPLAY - badgeSize - 2;
+      const g = new Graphics();
+      g.roundRect(bx, by, badgeSize, badgeSize, 3);
+      g.fill(0xf5e642);
+      g.stroke({ color: 0x000000, width: 1.5 });
+      this.container.addChild(g);
+      const t = new Text({ text: "L", style: CARGO_BADGE_STYLE });
+      t.anchor.set(0.5, 0.5);
+      t.x = bx + badgeSize / 2;
+      t.y = by + badgeSize / 2;
+      this.container.addChild(t);
     }
   }
 

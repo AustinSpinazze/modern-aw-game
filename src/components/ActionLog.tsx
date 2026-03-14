@@ -19,19 +19,40 @@ const CATEGORY_MAP: Record<string, FilterCategory> = {
   SURFACE: "SYSTEM",
 };
 
-const CATEGORY_STYLE: Record<FilterCategory, { active: string; inactive: string; badge: string }> = {
-  MOVE:    { active: "bg-blue-500/20 text-blue-300 border-blue-500/50",       inactive: "text-slate-600 border-slate-700 bg-transparent", badge: "bg-blue-500/20 text-blue-300 border-blue-500/40" },
-  ATTACK:  { active: "bg-red-500/20 text-red-300 border-red-500/50",          inactive: "text-slate-600 border-slate-700 bg-transparent", badge: "bg-red-500/20 text-red-300 border-red-500/40" },
-  CAPTURE: { active: "bg-yellow-500/20 text-yellow-300 border-yellow-500/50", inactive: "text-slate-600 border-slate-700 bg-transparent", badge: "bg-yellow-500/20 text-yellow-300 border-yellow-500/40" },
-  BUILD:   { active: "bg-green-500/20 text-green-300 border-green-500/50",    inactive: "text-slate-600 border-slate-700 bg-transparent", badge: "bg-green-500/20 text-green-300 border-green-500/40" },
-  SYSTEM:  { active: "bg-slate-500/20 text-slate-400 border-slate-500/50",    inactive: "text-slate-600 border-slate-700 bg-transparent", badge: "bg-slate-500/20 text-slate-400 border-slate-500/40" },
-};
+const CATEGORY_STYLE: Record<FilterCategory, { active: string; inactive: string; badge: string }> =
+  {
+    MOVE: {
+      active: "bg-blue-100 text-blue-600 border-blue-300",
+      inactive: "text-gray-400 border-gray-200 bg-transparent",
+      badge: "bg-blue-100 text-blue-600 border-blue-200",
+    },
+    ATTACK: {
+      active: "bg-red-100 text-red-600 border-red-300",
+      inactive: "text-gray-400 border-gray-200 bg-transparent",
+      badge: "bg-red-100 text-red-600 border-red-200",
+    },
+    CAPTURE: {
+      active: "bg-yellow-100 text-yellow-600 border-yellow-300",
+      inactive: "text-gray-400 border-gray-200 bg-transparent",
+      badge: "bg-yellow-100 text-yellow-600 border-yellow-200",
+    },
+    BUILD: {
+      active: "bg-green-100 text-green-600 border-green-300",
+      inactive: "text-gray-400 border-gray-200 bg-transparent",
+      badge: "bg-green-100 text-green-600 border-green-200",
+    },
+    SYSTEM: {
+      active: "bg-gray-200 text-gray-600 border-gray-300",
+      inactive: "text-gray-400 border-gray-200 bg-transparent",
+      badge: "bg-gray-100 text-gray-500 border-gray-200",
+    },
+  };
 
 const TEAM_COLORS: Record<number, string> = {
-  0: "text-red-400",
-  1: "text-blue-400",
-  2: "text-green-400",
-  3: "text-yellow-400",
+  0: "text-red-500",
+  1: "text-blue-500",
+  2: "text-green-600",
+  3: "text-yellow-500",
 };
 
 type CommandDict = Record<string, unknown>;
@@ -135,13 +156,18 @@ export default function ActionLog() {
   if (!gameState || gameState.command_log.length === 0) return null;
 
   return (
-    <div className="border-t border-slate-600/50 flex flex-col shrink-0" style={{ height: "200px" }}>
+    <div
+      className="border-t border-gray-200 flex flex-col shrink-0"
+      style={{ height: "200px" }}
+    >
       {/* Header */}
       <div className="flex items-center justify-between px-3 pt-2 pb-1 shrink-0">
-        <span className="text-slate-400 text-[10px] font-semibold uppercase tracking-widest">
+        <span className="text-gray-500 text-[10px] font-semibold uppercase tracking-widest">
           Game Log
         </span>
-        <span className="text-slate-600 text-[10px] font-mono">{filteredEntries.length} events</span>
+        <span className="text-gray-400 text-[10px] font-mono">
+          {filteredEntries.length} events
+        </span>
       </div>
 
       {/* Filter chips */}
@@ -162,17 +188,17 @@ export default function ActionLog() {
       {/* Scrollable entries */}
       <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5 font-mono">
         {filteredEntries.length === 0 ? (
-          <p className="text-slate-700 text-[10px] px-1 pt-1">No events yet</p>
+          <p className="text-gray-400 text-[10px] px-1 pt-1">No events yet</p>
         ) : (
           filteredEntries.map((entry, i) => (
             <div key={i} className="flex items-center gap-1.5 text-[10px] min-w-0">
-              <span className="text-slate-600 shrink-0 w-5 text-right">D{entry.day}</span>
+              <span className="text-gray-400 shrink-0 w-5 text-right">D{entry.day}</span>
               <span
                 className={`shrink-0 px-1 py-px rounded border text-[8px] leading-4 ${CATEGORY_STYLE[entry.category].badge}`}
               >
                 {entry.category.slice(0, 3)}
               </span>
-              <span className={`truncate ${TEAM_COLORS[entry.playerTeam] ?? "text-slate-400"}`}>
+              <span className={`truncate ${TEAM_COLORS[entry.playerTeam] ?? "text-gray-600"}`}>
                 {entry.text}
               </span>
             </div>

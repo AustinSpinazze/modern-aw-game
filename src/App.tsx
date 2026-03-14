@@ -46,16 +46,16 @@ class ErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-8">
-          <div className="bg-red-900/30 border border-red-700 rounded-xl p-8 max-w-lg">
-            <h1 className="text-2xl font-bold text-red-400 mb-4">Something went wrong</h1>
-            <p className="text-slate-300 mb-4">{this.state.error?.message}</p>
+        <div className="min-h-screen bg-neutral-100 text-gray-900 flex items-center justify-center p-8">
+          <div className="bg-white border border-red-200 rounded-xl p-8 max-w-lg shadow-lg">
+            <h1 className="text-2xl font-bold text-red-500 mb-4">Something went wrong</h1>
+            <p className="text-gray-500 mb-4">{this.state.error?.message}</p>
             <button
               onClick={() => {
                 useGameStore.getState().clearGameState();
                 this.setState({ hasError: false, error: null });
               }}
-              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded"
+              className="bg-amber-500 hover:bg-amber-400 text-white font-bold px-4 py-2 rounded"
             >
               Reset &amp; Try Again
             </button>
@@ -241,14 +241,9 @@ function AppContent() {
 
         // Save whatever time the outgoing player had left into their carryover bank.
         const prevPlayer = gameState.players[prevPlayerIndexRef.current];
-        if (
-          prevPlayer &&
-          timeRemainingRef.current !== null &&
-          timeRemainingRef.current > 0
-        ) {
+        if (prevPlayer && timeRemainingRef.current !== null && timeRemainingRef.current > 0) {
           pendingCarryoverRef.current[prevPlayer.id] =
-            (pendingCarryoverRef.current[prevPlayer.id] ?? 0) +
-            timeRemainingRef.current;
+            (pendingCarryoverRef.current[prevPlayer.id] ?? 0) + timeRemainingRef.current;
         }
         timeRemainingRef.current = null;
         setTimeRemaining(null);
@@ -482,21 +477,24 @@ function AppContent() {
     setMenuOpen(false);
   }, []);
 
-  const handleLoadGame = useCallback(async (name: string) => {
-    try {
-      await loadGameData();
-      const raw = (await window.electronAPI!.loadGame(name)) as { state?: GameState } | null;
-      if (!raw?.state) return;
-      useGameStore.getState().setGameState(raw.state);
-      prevPlayerIndexRef.current = -1;
-      prevPhaseRef.current = "";
-      prevTurnNumberRef.current = -1;
-      resetTimerState();
-      setView("game");
-    } catch (e) {
-      console.error("Failed to load save:", e);
-    }
-  }, [resetTimerState]);
+  const handleLoadGame = useCallback(
+    async (name: string) => {
+      try {
+        await loadGameData();
+        const raw = (await window.electronAPI!.loadGame(name)) as { state?: GameState } | null;
+        if (!raw?.state) return;
+        useGameStore.getState().setGameState(raw.state);
+        prevPlayerIndexRef.current = -1;
+        prevPhaseRef.current = "";
+        prevTurnNumberRef.current = -1;
+        resetTimerState();
+        setView("game");
+      } catch (e) {
+        console.error("Failed to load save:", e);
+      }
+    },
+    [resetTimerState]
+  );
 
   const handleDeleteSave = useCallback(async (name: string) => {
     try {
@@ -581,33 +579,34 @@ function AppContent() {
 
   const isAiTurn = currentPlayer?.controller_type !== "human";
   const isAiProcessing = processingQueue || (isAiTurn && gameState?.phase === "action");
-  const isHumanTurn =
-    currentPlayer?.controller_type === "human" && gameState?.phase === "action";
+  const isHumanTurn = currentPlayer?.controller_type === "human" && gameState?.phase === "action";
   const isAnimating = useGameStore.getState().isAnimating;
 
   // Game view
   return (
-    <div className={`h-screen flex flex-col bg-slate-950 ring-2 ring-inset ${TEAM_RING[currentPlayer?.team ?? 0] ?? "ring-slate-700"}`}>
+    <div
+      className={`h-screen flex flex-col bg-neutral-100 ring-2 ring-inset ${TEAM_RING[currentPlayer?.team ?? 0] ?? "ring-gray-300"}`}
+    >
       {/* Top bar */}
-      <header className="h-14 shrink-0 flex items-center justify-between px-4 bg-slate-900 border-b border-slate-700 z-20">
+      <header className="h-14 shrink-0 flex items-center justify-between px-4 bg-white border-b-2 border-amber-400 z-20">
         {/* Left side */}
         <div className="flex items-center gap-3">
-          <span className="text-amber-400 font-black text-base tracking-widest">MODERN AW</span>
-          <span className="text-slate-600">|</span>
+          <span className="text-amber-500 font-black text-base tracking-widest">MODERN AW</span>
+          <span className="text-gray-300">|</span>
           {currentPlayer && (
             <>
               <div className="flex items-center gap-1.5">
                 <span
-                  className={`w-2.5 h-2.5 rounded-full ${TEAM_DOT[currentPlayer.team] ?? "bg-white"}`}
+                  className={`w-2.5 h-2.5 rounded-full ${TEAM_DOT[currentPlayer.team] ?? "bg-gray-400"}`}
                 />
-                <span className={`font-semibold text-base ${TEAM_TEXT[currentPlayer.team] ?? "text-white"}`}>
+                <span
+                  className={`font-semibold text-base ${TEAM_TEXT[currentPlayer.team] ?? "text-gray-900"}`}
+                >
                   Player {currentPlayer.id + 1}
                 </span>
               </div>
-              <span className="text-slate-500">·</span>
-              <span className="text-slate-400 text-base">
-                Day {gameState?.turn_number ?? 1}
-              </span>
+              <span className="text-gray-300">·</span>
+              <span className="text-gray-500 text-base">Day {gameState?.turn_number ?? 1}</span>
             </>
           )}
         </div>
@@ -617,13 +616,15 @@ function AppContent() {
           {/* Turn timer */}
           {(gameState?.turn_time_limit ?? 0) > 0 && isHumanTurn && timeRemaining !== null && (
             <div className="flex items-center gap-1.5">
-              <span className={`font-mono text-base font-bold tabular-nums ${timeRemaining < 10 ? "text-red-400 animate-pulse" : timeRemaining < 30 ? "text-red-400" : "text-slate-300"}`}>
+              <span
+                className={`font-mono text-base font-bold tabular-nums ${timeRemaining < 10 ? "text-red-500 animate-pulse" : timeRemaining < 30 ? "text-red-500" : "text-gray-600"}`}
+              >
                 {Math.floor(timeRemaining / 60)}:{String(timeRemaining % 60).padStart(2, "0")}
               </span>
               <button
                 onClick={() => (timerPaused ? resumeTimer() : pauseTimer())}
                 title={timerPaused ? "Resume timer" : "Pause timer"}
-                className="text-slate-400 hover:text-slate-200 transition-colors text-xs px-1"
+                className="text-gray-400 hover:text-gray-700 transition-colors text-xs px-1"
               >
                 {timerPaused ? "▶" : "⏸"}
               </button>
@@ -633,15 +634,15 @@ function AppContent() {
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm px-4 py-1.5 rounded transition-colors"
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm px-4 py-1.5 rounded transition-colors border border-gray-200"
             >
               ≡ Menu
             </button>
             {menuOpen && (
-              <div className="bg-slate-800 border border-slate-600 rounded-lg shadow-xl absolute top-full right-0 mt-1 w-44 z-50 overflow-hidden">
+              <div className="bg-white border border-gray-200 rounded-lg shadow-xl absolute top-full right-0 mt-1 w-44 z-50 overflow-hidden">
                 <button
                   onClick={() => setMenuOpen(false)}
-                  className="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   Resume
                 </button>
@@ -656,19 +657,19 @@ function AppContent() {
                         });
                       }
                     }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-700 transition-colors flex justify-between"
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex justify-between"
                   >
                     <span>End Turn</span>
-                    <span className="text-slate-500 text-xs">E</span>
+                    <span className="text-gray-400 text-xs">E</span>
                   </button>
                 )}
-                <div className="border-t border-slate-700 my-0.5" />
+                <div className="border-t border-gray-100 my-0.5" />
                 <button
                   onClick={() => {
                     setMenuOpen(false);
                     setShowSettings(true);
                   }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   Settings ⚙
                 </button>
@@ -678,16 +679,16 @@ function AppContent() {
                       setMenuOpen(false);
                       handleQuickSave();
                     }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                   >
                     Save Game
                   </button>
                 )}
-                <div className="border-t border-slate-700 my-0.5" />
+                <div className="border-t border-gray-100 my-0.5" />
                 {isHumanTurn && gameState?.phase === "action" && (
                   <button
                     onClick={handleResign}
-                    className="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-slate-700 transition-colors"
+                    className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-gray-50 transition-colors"
                   >
                     Resign
                   </button>
@@ -697,7 +698,7 @@ function AppContent() {
                     setMenuOpen(false);
                     setShowExitConfirm(true);
                   }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-slate-700 transition-colors"
+                  className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-gray-50 transition-colors"
                 >
                   Exit Game
                 </button>
@@ -720,14 +721,14 @@ function AppContent() {
               onClick={handleZoomIn}
               disabled={zoomLevel >= MAX_ZOOM}
               title="Zoom In (+)"
-              className="w-8 h-8 bg-slate-900/90 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed border border-slate-600 rounded text-white font-bold text-lg leading-none transition-colors flex items-center justify-center backdrop-blur-sm"
+              className="w-8 h-8 bg-white/90 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed border border-gray-300 rounded text-gray-700 font-bold text-lg leading-none transition-colors flex items-center justify-center backdrop-blur-sm shadow-sm"
             >
               +
             </button>
             <button
               onClick={handleResetZoom}
               title="Reset Zoom (0)"
-              className="w-8 h-8 bg-slate-900/90 hover:bg-slate-700 border border-slate-600 rounded text-slate-400 text-xs font-mono leading-none transition-colors flex items-center justify-center backdrop-blur-sm"
+              className="w-8 h-8 bg-white/90 hover:bg-gray-100 border border-gray-300 rounded text-gray-500 text-xs font-mono leading-none transition-colors flex items-center justify-center backdrop-blur-sm shadow-sm"
             >
               {Math.round(zoomLevel * 100)}%
             </button>
@@ -735,11 +736,11 @@ function AppContent() {
               onClick={handleZoomOut}
               disabled={zoomLevel <= MIN_ZOOM}
               title="Zoom Out (-)"
-              className="w-8 h-8 bg-slate-900/90 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed border border-slate-600 rounded text-white font-bold text-xl leading-none transition-colors flex items-center justify-center backdrop-blur-sm"
+              className="w-8 h-8 bg-white/90 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed border border-gray-300 rounded text-gray-700 font-bold text-xl leading-none transition-colors flex items-center justify-center backdrop-blur-sm shadow-sm"
             >
               −
             </button>
-            <div className="text-slate-600 text-xs mt-1 text-center leading-tight">
+            <div className="text-gray-400 text-xs mt-1 text-center leading-tight">
               scroll
               <br />⌘ drag
             </div>
@@ -748,7 +749,7 @@ function AppContent() {
           {/* AI thinking overlay */}
           {isAiProcessing && (
             <div className="absolute inset-0 pointer-events-none flex items-end justify-center pb-6 z-10">
-              <div className="bg-slate-900/80 border border-slate-600 rounded-full px-4 py-2 text-sm text-slate-300 flex items-center gap-2 backdrop-blur-sm">
+              <div className="bg-white/90 border border-gray-200 rounded-full px-4 py-2 text-sm text-gray-600 flex items-center gap-2 backdrop-blur-sm shadow-sm">
                 <span className="inline-block w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
                 AI thinking…
               </div>
@@ -758,7 +759,7 @@ function AppContent() {
           {/* Save feedback toast */}
           {saveFeedback && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
-              <div className="bg-slate-800 border border-slate-600 rounded px-3 py-1.5 text-xs text-slate-200">
+              <div className="bg-white border border-gray-200 rounded px-3 py-1.5 text-xs text-gray-700 shadow-sm">
                 {saveFeedback}
               </div>
             </div>
@@ -766,7 +767,7 @@ function AppContent() {
         </main>
 
         {/* Right sidebar */}
-        <aside className="w-60 bg-slate-900 border-l border-slate-700 flex flex-col shrink-0 overflow-y-auto">
+        <aside className="w-60 bg-white border-l border-gray-200 flex flex-col shrink-0 overflow-y-auto">
           <InfoPanel />
           <TileInfoPanel />
           <div className="flex-1" />
@@ -785,19 +786,22 @@ function AppContent() {
       {/* Exit confirmation modal */}
       {showExitConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4">
-            <h2 className="text-white font-bold text-lg mb-1">Exit Game?</h2>
-            <p className="text-slate-400 text-sm mb-5">Any moves made this turn will be lost. The game was autosaved at the start of this turn.</p>
+          <div className="bg-white border border-gray-200 rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4">
+            <h2 className="text-gray-900 font-bold text-lg mb-1">Exit Game?</h2>
+            <p className="text-gray-500 text-sm mb-5">
+              Any moves made this turn will be lost. The game was autosaved at the start of this
+              turn.
+            </p>
             <div className="flex gap-3">
               <button
                 onClick={handleExitGame}
-                className="flex-1 bg-red-700 hover:bg-red-600 text-white font-bold py-2 rounded-lg transition-colors"
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded-lg transition-colors"
               >
                 Exit
               </button>
               <button
                 onClick={() => setShowExitConfirm(false)}
-                className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium py-2 rounded-lg transition-colors"
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 rounded-lg transition-colors"
               >
                 Keep Playing
               </button>
@@ -818,29 +822,39 @@ function AppContent() {
       {/* Victory screen — persistent until dismissed */}
       {gameState?.phase === "game_over" && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-600 rounded-2xl shadow-2xl px-14 py-12 text-center min-w-[360px]">
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-2xl px-14 py-12 text-center min-w-[360px]">
             {/* Decorative top line */}
-            <div className={`h-[3px] w-full rounded-full mb-8 ${
-              gameState.winner_id >= 0
-                ? (["bg-red-500","bg-blue-500","bg-green-500","bg-yellow-500"][gameState.players.find(p=>p.id===gameState.winner_id)?.team ?? 0] ?? "bg-amber-500")
-                : "bg-slate-600"
-            }`} />
+            <div
+              className={`h-[3px] w-full rounded-full mb-8 ${
+                gameState.winner_id >= 0
+                  ? (["bg-red-500", "bg-blue-500", "bg-green-500", "bg-yellow-500"][
+                      gameState.players.find((p) => p.id === gameState.winner_id)?.team ?? 0
+                    ] ?? "bg-amber-500")
+                  : "bg-slate-600"
+              }`}
+            />
 
-            <p className="text-slate-400 tracking-[0.35em] text-xs uppercase mb-3">Game Over</p>
+            <p className="text-gray-400 tracking-[0.35em] text-xs uppercase mb-3">Game Over</p>
 
             {gameState.winner_id >= 0 ? (
               <>
-                <h2 className={`text-5xl font-black tracking-wider uppercase mb-2 ${
-                  (["text-red-400","text-blue-400","text-green-400","text-yellow-400"][gameState.players.find(p=>p.id===gameState.winner_id)?.team ?? 0] ?? "text-amber-400")
-                }`}>
+                <h2
+                  className={`text-5xl font-black tracking-wider uppercase mb-2 ${
+                    ["text-red-400", "text-blue-400", "text-green-400", "text-yellow-400"][
+                      gameState.players.find((p) => p.id === gameState.winner_id)?.team ?? 0
+                    ] ?? "text-amber-400"
+                  }`}
+                >
                   Player {gameState.winner_id + 1}
                 </h2>
-                <p className="text-slate-300 tracking-widest text-sm uppercase mb-8">Wins!</p>
+                <p className="text-gray-500 tracking-widest text-sm uppercase mb-8">Wins!</p>
               </>
             ) : (
               <>
-                <h2 className="text-5xl font-black tracking-wider uppercase mb-2 text-slate-400">Draw</h2>
-                <p className="text-slate-500 text-sm uppercase tracking-widest mb-8">No winner</p>
+                <h2 className="text-5xl font-black tracking-wider uppercase mb-2 text-gray-400">
+                  Draw
+                </h2>
+                <p className="text-gray-400 text-sm uppercase tracking-widest mb-8">No winner</p>
               </>
             )}
 
@@ -858,14 +872,14 @@ function AppContent() {
                   useGameStore.getState().clearGameState?.();
                   setView("menu");
                 }}
-                className="px-6 py-3 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold text-sm rounded-lg transition-colors"
+                className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-sm rounded-lg transition-colors"
               >
                 Main Menu
               </button>
             </div>
 
             {/* Decorative bottom line */}
-            <div className="h-[3px] w-full rounded-full mt-8 bg-slate-700" />
+            <div className="h-[3px] w-full rounded-full mt-8 bg-gray-100" />
           </div>
         </div>
       )}

@@ -236,6 +236,8 @@ export interface UnitData {
   special_actions: string[];
   transport?: TransportData;
   self_destruct_damage?: number;
+  fuel?: number; // max fuel (air/naval units)
+  fuel_per_turn?: number; // fuel consumed at start of each turn
 }
 
 // Combat result
