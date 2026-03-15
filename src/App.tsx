@@ -583,7 +583,7 @@ function AppContent() {
   if (view === "setup") {
     return (
       <>
-        <MatchSetup onMatchStart={handleMatchStart} onOpenSettings={() => setShowSettings(true)} />
+        <MatchSetup onMatchStart={handleMatchStart} onOpenSettings={() => setShowSettings(true)} onExit={() => setView("menu")} />
         {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       </>
     );

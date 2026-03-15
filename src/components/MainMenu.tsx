@@ -43,7 +43,17 @@ export default function MainMenu({
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0f18] flex flex-col items-center justify-center relative overflow-hidden select-none">
+    <div
+      className="min-h-screen bg-[#0a0f18] flex flex-col items-center justify-center relative overflow-hidden select-none"
+      style={{
+        background:
+          "radial-gradient(ellipse 60% 50% at 0% 0%, rgba(239,68,68,0.13) 0%, transparent 70%), " +
+          "radial-gradient(ellipse 60% 50% at 100% 0%, rgba(59,130,246,0.13) 0%, transparent 70%), " +
+          "radial-gradient(ellipse 60% 50% at 0% 100%, rgba(34,197,94,0.10) 0%, transparent 70%), " +
+          "radial-gradient(ellipse 60% 50% at 100% 100%, rgba(234,179,8,0.11) 0%, transparent 70%), " +
+          "#0a0f18",
+      }}
+    >
       {/* Subtle corner accent lines */}
       <div className="absolute top-4 left-4 w-12 h-12 border-t-2 border-l-2 border-amber-500/30" />
       <div className="absolute top-4 right-4 w-12 h-12 border-t-2 border-r-2 border-amber-500/30" />
@@ -63,14 +73,14 @@ export default function MainMenu({
       </div>
 
       {/* Menu list */}
-      <nav className="w-72 mb-8">
+      <nav className="w-80 mb-8">
         {/* 01 NEW GAME */}
         <button
           onClick={onNewGame}
           className="flex items-center gap-4 w-full px-5 py-4 bg-slate-800/60 hover:bg-slate-700/60 border border-slate-700/50 rounded-t-xl transition-colors group"
         >
-          <span className="text-amber-500/70 font-mono text-xs w-5 shrink-0">01</span>
-          <span className="text-amber-400 font-black tracking-widest text-sm flex-1 text-left">
+          <span className="text-amber-500/70 font-mono text-sm w-5 shrink-0">01</span>
+          <span className="text-amber-400 font-black tracking-widest text-base flex-1 text-left">
             New Game
           </span>
           <span className="text-amber-500 text-xs">▶</span>
@@ -86,12 +96,12 @@ export default function MainMenu({
           }`}
         >
           <span
-            className={`font-mono text-xs w-5 shrink-0 ${hasSaves ? "text-slate-500" : "text-slate-600"}`}
+            className={`font-mono text-sm w-5 shrink-0 ${hasSaves ? "text-slate-500" : "text-slate-600"}`}
           >
             02
           </span>
           <span
-            className={`font-black tracking-widest text-sm flex-1 text-left ${hasSaves ? "text-slate-900" : "text-slate-600"}`}
+            className={`font-black tracking-widest text-base flex-1 text-left ${hasSaves ? "text-slate-900" : "text-slate-600"}`}
           >
             Continue
           </span>
@@ -105,8 +115,8 @@ export default function MainMenu({
             {saves.map((save) => (
               <div key={save.name} className="flex items-center gap-3 px-5 py-3">
                 <div className="flex-1 min-w-0">
-                  <p className="text-slate-900 text-sm font-semibold capitalize">{save.name}</p>
-                  <p className="text-slate-500 text-xs">
+                  <p className="text-slate-900 text-base font-semibold capitalize">{save.name}</p>
+                  <p className="text-slate-500 text-sm">
                     Turn {save.turnNumber} · {save.playerCount}P · {formatSavedAt(save.savedAt)}
                   </p>
                 </div>
@@ -134,8 +144,8 @@ export default function MainMenu({
           onClick={onSettings}
           className="flex items-center gap-4 w-full px-5 py-4 bg-slate-100/95 hover:bg-slate-200/95 border border-slate-700/50 rounded-b-xl transition-colors group"
         >
-          <span className="text-slate-500 font-mono text-xs w-5 shrink-0">03</span>
-          <span className="text-slate-900 font-black tracking-widest text-sm flex-1 text-left">
+          <span className="text-slate-500 font-mono text-sm w-5 shrink-0">03</span>
+          <span className="text-slate-900 font-black tracking-widest text-base flex-1 text-left">
             Settings
           </span>
         </button>

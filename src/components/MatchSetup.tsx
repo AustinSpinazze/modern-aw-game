@@ -49,6 +49,7 @@ interface ParsedPreview {
 interface MatchSetupProps {
   onMatchStart: () => void;
   onOpenSettings?: () => void;
+  onExit?: () => void;
 }
 
 const DEFAULT_MAP_WIDTH = 20;
@@ -222,7 +223,7 @@ function StepIndicator({ current }: { current: number }) {
   );
 }
 
-export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupProps) {
+export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: MatchSetupProps) {
   // Wizard state
   const [step, setStep] = useState(0);
   const [mapMode, setMapMode] = useState<"default" | "awbw" | "saved">("default");
@@ -379,18 +380,23 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
 
   // ── Shared header ────────────────────────────────────────────────────────────
   const header = (
-    <header className="flex items-center justify-between px-6 py-4 border-b border-slate-800 shrink-0">
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => setStep((s) => Math.max(0, s - 1))}
-          className={`text-sm font-semibold transition-colors ${
-            step === 0
-              ? "invisible pointer-events-none text-slate-700"
-              : "text-slate-400 hover:text-white"
-          }`}
-        >
-          ← BACK
-        </button>
+    <header className="bg-gray-900 flex items-center justify-between px-6 py-4 border-b border-gray-700 shrink-0">
+      <div className="flex items-center gap-4">
+        {step === 0 ? (
+          <button
+            onClick={onExit}
+            className="text-white/60 hover:text-white text-sm font-semibold transition-colors"
+          >
+            ← Menu
+          </button>
+        ) : (
+          <button
+            onClick={() => setStep((s) => Math.max(0, s - 1))}
+            className="text-white/60 hover:text-white text-sm font-semibold transition-colors"
+          >
+            ← Back
+          </button>
+        )}
         <span className="text-white font-black tracking-widest text-lg">NEW GAME</span>
       </div>
       <div className="flex items-center gap-4">
@@ -410,17 +416,27 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
   // ── Step 0: Players ──────────────────────────────────────────────────────────
   if (step === 0) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+      <div
+        className="min-h-screen bg-[#0a0f18] flex flex-col"
+        style={{
+          background:
+            "radial-gradient(ellipse 60% 50% at 0% 0%, rgba(239,68,68,0.13) 0%, transparent 70%), " +
+            "radial-gradient(ellipse 60% 50% at 100% 0%, rgba(59,130,246,0.13) 0%, transparent 70%), " +
+            "radial-gradient(ellipse 60% 50% at 0% 100%, rgba(34,197,94,0.10) 0%, transparent 70%), " +
+            "radial-gradient(ellipse 60% 50% at 100% 100%, rgba(234,179,8,0.11) 0%, transparent 70%), " +
+            "#0a0f18",
+        }}
+      >
         {header}
-        <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
-          <div className="w-full max-w-xl space-y-6">
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-10">
+          <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-gray-100 p-8 space-y-6">
             {/* Player count */}
             <div>
-              <div className="text-white font-bold text-base mb-1">Players</div>
-              <p className="text-slate-500 text-sm mb-4">
+              <div className="text-gray-900 font-bold text-lg mb-1">Players</div>
+              <p className="text-gray-500 text-base mb-4">
                 Choose how many players and who controls each army.
               </p>
-              <div className="inline-flex bg-slate-800 rounded-lg p-1 border border-slate-700 mb-6">
+              <div className="inline-flex bg-gray-100 rounded-lg p-1 border border-gray-200 mb-6">
                 {[2, 3, 4].map((n) => (
                   <button
                     key={n}
@@ -438,8 +454,8 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                     }}
                     className={`px-5 py-2 rounded-md text-sm font-bold transition-colors ${
                       playerCount === n
-                        ? "bg-amber-500 text-slate-950"
-                        : "text-slate-400 hover:text-white"
+                        ? "bg-amber-500 text-white"
+                        : "text-gray-500 hover:text-gray-900"
                     }`}
                   >
                     {n}P
@@ -452,28 +468,28 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                 <div key={i} className="mb-4">
                   <div className="flex items-center gap-2 mb-2">
                     <span
-                      className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black bg-slate-800 border ${PLAYER_BORDER[i]}`}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black bg-white border-2 ${PLAYER_BORDER[i]}`}
                     >
                       {i + 1}
                     </span>
-                    <span className={`text-sm font-bold ${playerColors[i]}`}>Player {i + 1}</span>
+                    <span className={`text-base font-bold ${playerColors[i]}`}>Player {i + 1}</span>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {CONTROLLER_OPTIONS.map((opt) => (
                       <button
                         key={opt.value}
                         onClick={() => updatePlayerConfig(i, { controllerType: opt.value })}
-                        className={`text-left p-3 rounded-lg border transition-colors ${
+                        className={`text-left p-4 rounded-xl border transition-colors ${
                           players[i]?.controllerType === opt.value
-                            ? "bg-amber-500/10 border-amber-500 text-white"
-                            : "bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-500"
+                            ? "bg-amber-50 border-amber-500 text-gray-900"
+                            : "bg-white border-gray-200 text-gray-700 hover:border-gray-400 shadow-sm"
                         }`}
                       >
-                        <div className="font-semibold text-sm">{opt.label}</div>
-                        <div className="text-sm text-slate-500 mt-0.5 leading-tight">
+                        <div className="font-bold text-base">{opt.label}</div>
+                        <div className="text-sm text-gray-500 mt-0.5 leading-tight">
                           {opt.desc}
                         </div>
-                        {opt.req && <div className="text-sm text-red-400 mt-1">{opt.req}</div>}
+                        {opt.req && <div className="text-sm text-red-500 mt-1">{opt.req}</div>}
                       </button>
                     ))}
                   </div>
@@ -485,7 +501,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
             <div className="flex justify-end">
               <button
                 onClick={() => setStep(1)}
-                className="px-8 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl transition-colors text-sm"
+                className="px-8 py-3 bg-amber-500 hover:bg-amber-400 text-white font-black rounded-xl transition-colors"
               >
                 Continue →
               </button>
@@ -499,13 +515,23 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
   // ── Step 1: Map ──────────────────────────────────────────────────────────────
   if (step === 1) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+      <div
+        className="min-h-screen bg-[#0a0f18] flex flex-col"
+        style={{
+          background:
+            "radial-gradient(ellipse 60% 50% at 0% 0%, rgba(239,68,68,0.13) 0%, transparent 70%), " +
+            "radial-gradient(ellipse 60% 50% at 100% 0%, rgba(59,130,246,0.13) 0%, transparent 70%), " +
+            "radial-gradient(ellipse 60% 50% at 0% 100%, rgba(34,197,94,0.10) 0%, transparent 70%), " +
+            "radial-gradient(ellipse 60% 50% at 100% 100%, rgba(234,179,8,0.11) 0%, transparent 70%), " +
+            "#0a0f18",
+        }}
+      >
         {header}
-        <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
-          <div className="w-full max-w-xl space-y-4">
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-10">
+          <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-gray-100 p-8 space-y-4">
             <div>
-              <div className="text-white font-bold text-base mb-1">Map</div>
-              <p className="text-slate-500 text-sm mb-4">Select a map for this match.</p>
+              <div className="text-gray-900 font-bold text-lg mb-1">Map</div>
+              <p className="text-gray-500 text-base mb-4">Select a map for this match.</p>
             </div>
 
             {/* Option: Default Skirmish */}
@@ -513,12 +539,12 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
               onClick={() => setMapMode("default")}
               className={`w-full text-left p-4 rounded-xl border transition-colors ${
                 mapMode === "default"
-                  ? "bg-amber-500/10 border-amber-500"
-                  : "bg-slate-800 border-slate-700 hover:border-slate-500"
+                  ? "bg-amber-50 border-amber-500"
+                  : "bg-white border-gray-200 hover:border-gray-400"
               }`}
             >
-              <div className="font-bold text-sm text-white">Default Skirmish</div>
-              <div className="text-sm text-slate-400 mt-0.5">
+              <div className="font-bold text-sm text-gray-900">Default Skirmish</div>
+              <div className="text-sm text-gray-500 mt-0.5">
                 {DEFAULT_MAP_WIDTH}×{DEFAULT_MAP_HEIGHT} hand-crafted map · Always available
               </div>
             </button>
@@ -527,19 +553,19 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
             <div
               className={`rounded-xl border transition-colors ${
                 mapMode === "awbw"
-                  ? "bg-amber-500/10 border-amber-500"
-                  : "bg-slate-800 border-slate-700"
+                  ? "bg-amber-50 border-amber-500"
+                  : "bg-white border-gray-200 hover:border-gray-400"
               }`}
             >
               <button onClick={() => setMapMode("awbw")} className="w-full text-left p-4">
-                <div className="font-bold text-sm text-white">Custom AWBW Map</div>
-                <div className="text-sm text-slate-400 mt-0.5">
+                <div className="font-bold text-sm text-gray-900">Custom AWBW Map</div>
+                <div className="text-sm text-gray-500 mt-0.5">
                   Paste CSV tile data from advancewars.net/maproom
                 </div>
               </button>
 
               {mapMode === "awbw" && (
-                <div className="px-4 pb-4 space-y-3 border-t border-slate-700/50">
+                <div className="px-4 pb-4 space-y-3 border-t border-amber-200">
                   <textarea
                     value={awbwText}
                     onChange={(e) => {
@@ -566,7 +592,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                       }
                     }}
                     placeholder="Paste AWBW map CSV (comma-separated tile IDs, one row per line)"
-                    className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white font-mono h-20 resize-y focus:border-amber-500 focus:outline-none mt-3"
+                    className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 font-mono h-20 resize-y focus:border-amber-500 focus:outline-none mt-3"
                   />
 
                   {parsedPreview && (
@@ -575,7 +601,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                         <span className="text-green-400">
                           {parsedPreview.width}×{parsedPreview.height} tiles detected
                         </span>
-                        <span className="text-slate-500">minimap preview</span>
+                        <span className="text-gray-500">minimap preview</span>
                       </div>
                       <MapMinimap preview={parsedPreview} />
 
@@ -586,12 +612,12 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                           value={mapName}
                           onChange={(e) => setMapName(e.target.value)}
                           placeholder="Map name (optional)"
-                          className="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-white focus:border-amber-500 focus:outline-none"
+                          className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:border-amber-500 focus:outline-none"
                           onKeyDown={(e) => e.key === "Enter" && handleSaveMap()}
                         />
                         <button
                           onClick={handleSaveMap}
-                          className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm rounded-lg transition-colors shrink-0"
+                          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded-lg transition-colors shrink-0"
                         >
                           Save Map
                         </button>
@@ -609,27 +635,27 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
               <div
                 className={`rounded-xl border transition-colors ${
                   mapMode === "saved"
-                    ? "bg-amber-500/10 border-amber-500"
-                    : "bg-slate-800 border-slate-700"
+                    ? "bg-amber-50 border-amber-500"
+                    : "bg-white border-gray-200 hover:border-gray-400"
                 }`}
               >
                 <button onClick={() => setMapMode("saved")} className="w-full text-left p-4">
-                  <div className="font-bold text-sm text-white">Saved Maps</div>
-                  <div className="text-sm text-slate-400 mt-0.5">
+                  <div className="font-bold text-sm text-gray-900">Saved Maps</div>
+                  <div className="text-sm text-gray-500 mt-0.5">
                     {savedMaps.length} saved {savedMaps.length === 1 ? "map" : "maps"} · Click to
                     select
                   </div>
                 </button>
 
                 {mapMode === "saved" && (
-                  <div className="border-t border-slate-700/50 divide-y divide-slate-800">
+                  <div className="border-t border-gray-200 divide-y divide-gray-100">
                     {savedMaps.map((map) => (
                       <div
                         key={map.id}
                         className={`flex items-center gap-2 px-4 py-2.5 transition-colors ${
                           selectedSavedMapId === map.id
-                            ? "bg-amber-500/10"
-                            : "hover:bg-slate-700/30"
+                            ? "bg-amber-50"
+                            : "hover:bg-gray-50"
                         }`}
                       >
                         <button
@@ -640,14 +666,14 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                             setMapMode("awbw");
                           }}
                         >
-                          <div className="text-sm text-white font-medium truncate">{map.name}</div>
-                          <div className="text-sm text-slate-500">
+                          <div className="text-sm text-gray-900 font-medium truncate">{map.name}</div>
+                          <div className="text-sm text-gray-500">
                             {map.width}×{map.height} · {new Date(map.savedAt).toLocaleDateString()}
                           </div>
                         </button>
                         <button
                           onClick={() => handleDeleteSavedMap(map.id)}
-                          className="shrink-0 px-2 py-1 bg-slate-700 hover:bg-red-800/60 text-slate-400 hover:text-red-400 text-sm rounded transition-colors"
+                          className="shrink-0 px-2 py-1 bg-gray-100 hover:bg-red-50 text-gray-400 hover:text-red-500 text-sm rounded transition-colors"
                         >
                           ✕
                         </button>
@@ -662,14 +688,14 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
             <div className="flex justify-between items-center pt-2">
               <button
                 onClick={() => setStep(0)}
-                className="text-slate-400 hover:text-white text-sm font-semibold transition-colors"
+                className="text-gray-500 hover:text-gray-900 text-sm font-semibold transition-colors"
               >
                 ← Back
               </button>
               <button
                 onClick={() => setStep(2)}
                 disabled={mapMode === "awbw" && !parsedPreview}
-                className="px-8 py-3 bg-amber-500 hover:bg-amber-400 disabled:bg-slate-700 disabled:text-slate-500 text-slate-950 font-black rounded-xl transition-colors text-sm"
+                className="px-8 py-3 bg-amber-500 hover:bg-amber-400 disabled:bg-gray-200 disabled:text-gray-400 text-white font-black rounded-xl transition-colors"
               >
                 Continue →
               </button>
@@ -683,18 +709,28 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
   // ── Step 2: Options ──────────────────────────────────────────────────────────
   if (step === 2) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+      <div
+        className="min-h-screen bg-[#0a0f18] flex flex-col"
+        style={{
+          background:
+            "radial-gradient(ellipse 60% 50% at 0% 0%, rgba(239,68,68,0.13) 0%, transparent 70%), " +
+            "radial-gradient(ellipse 60% 50% at 100% 0%, rgba(59,130,246,0.13) 0%, transparent 70%), " +
+            "radial-gradient(ellipse 60% 50% at 0% 100%, rgba(34,197,94,0.10) 0%, transparent 70%), " +
+            "radial-gradient(ellipse 60% 50% at 100% 100%, rgba(234,179,8,0.11) 0%, transparent 70%), " +
+            "#0a0f18",
+        }}
+      >
         {header}
-        <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
-          <div className="w-full max-w-xl space-y-5">
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-10">
+          <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-gray-100 p-8 space-y-5">
             <div>
-              <div className="text-white font-bold text-base mb-1">Options</div>
-              <p className="text-slate-500 text-sm mb-4">Configure match rules.</p>
+              <div className="text-gray-900 font-bold text-lg mb-1">Options</div>
+              <p className="text-gray-500 text-base mb-4">Configure match rules.</p>
             </div>
 
             {/* Starting funds */}
             <div>
-              <label className="text-sm text-slate-400 uppercase tracking-wide block mb-2">
+              <label className="text-sm font-semibold text-gray-500 uppercase tracking-wide block mb-2">
                 Starting Funds
               </label>
               <div className="flex flex-wrap gap-2">
@@ -704,8 +740,8 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                     onClick={() => updateConfig({ startingFunds: v })}
                     className={`px-3 py-1.5 rounded-lg text-sm font-mono transition-colors ${
                       config.startingFunds === v
-                        ? "bg-amber-500 text-slate-950 font-bold"
-                        : "bg-slate-800 text-slate-400 hover:text-white border border-slate-700"
+                        ? "bg-amber-500 text-white font-bold"
+                        : "bg-white text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-400"
                     }`}
                   >
                     {v === 0 ? "¥0" : `¥${(v / 1000).toFixed(0)}k`}
@@ -716,7 +752,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
 
             {/* Income per turn */}
             <div>
-              <label className="text-sm text-slate-400 uppercase tracking-wide block mb-1">
+              <label className="text-sm font-semibold text-gray-500 uppercase tracking-wide block mb-1">
                 Income Per Property
               </label>
               <p className="text-sm text-slate-500 mb-2">
@@ -734,8 +770,8 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                     onClick={() => updateConfig({ incomeMultiplier: value })}
                     className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
                       config.incomeMultiplier === value
-                        ? "bg-amber-500 text-slate-950 font-bold"
-                        : "bg-slate-800 text-slate-400 hover:text-white border border-slate-700"
+                        ? "bg-amber-500 text-white font-bold"
+                        : "bg-white text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-400"
                     }`}
                   >
                     {label}
@@ -746,7 +782,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
 
             {/* Luck */}
             <div>
-              <label className="text-sm text-slate-400 uppercase tracking-wide block mb-1">
+              <label className="text-sm font-semibold text-gray-500 uppercase tracking-wide block mb-1">
                 Luck
               </label>
               <p className="text-sm text-slate-500 mb-2">
@@ -759,8 +795,8 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                     onClick={() => updateConfig({ luck: v })}
                     className={`flex-1 py-1.5 rounded-lg text-sm capitalize transition-colors ${
                       config.luck === v
-                        ? "bg-amber-500 text-slate-950 font-bold"
-                        : "bg-slate-800 text-slate-400 hover:text-white border border-slate-700"
+                        ? "bg-amber-500 text-white font-bold"
+                        : "bg-white text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-400"
                     }`}
                   >
                     {v}
@@ -774,7 +810,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
 
             {/* Turn limit */}
             <div>
-              <label className="text-sm text-slate-400 uppercase tracking-wide block mb-2">
+              <label className="text-sm font-semibold text-gray-500 uppercase tracking-wide block mb-2">
                 Turn Limit
               </label>
               <div className="flex flex-wrap gap-2">
@@ -789,8 +825,8 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                     onClick={() => updateConfig({ maxTurns: value })}
                     className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
                       config.maxTurns === value
-                        ? "bg-amber-500 text-slate-950 font-bold"
-                        : "bg-slate-800 text-slate-400 hover:text-white border border-slate-700"
+                        ? "bg-amber-500 text-white font-bold"
+                        : "bg-white text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-400"
                     }`}
                   >
                     {label}
@@ -802,13 +838,13 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
             {/* Fog of War toggle */}
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm text-white font-medium">Fog of War</div>
-                <div className="text-sm text-slate-500">Hide enemy units outside vision range</div>
+                <div className="text-sm text-gray-900 font-medium">Fog of War</div>
+                <div className="text-sm text-gray-500">Hide enemy units outside vision range</div>
               </div>
               <button
                 onClick={() => updateConfig({ fogOfWar: !config.fogOfWar })}
                 className={`relative w-12 h-6 rounded-full transition-colors ${
-                  config.fogOfWar ? "bg-amber-500" : "bg-slate-700"
+                  config.fogOfWar ? "bg-amber-500" : "bg-gray-300"
                 }`}
               >
                 <span
@@ -821,8 +857,8 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
 
             {/* Turn Timer */}
             <div>
-              <label className="text-white font-semibold text-sm block mb-1">Turn Timer</label>
-              <p className="text-slate-400 text-sm mb-2">
+              <label className="text-gray-900 font-semibold text-sm block mb-2">Turn Timer</label>
+              <p className="text-gray-500 text-sm mb-2">
                 Auto-end turn when time expires (0 = no limit)
               </p>
               <div className="flex gap-2 flex-wrap">
@@ -833,7 +869,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                     className={`px-3 py-1.5 text-sm rounded-lg border font-mono transition-colors ${
                       config.turnTimeLimit === s
                         ? "bg-amber-500/10 border-amber-500 text-amber-400"
-                        : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500"
+                        : "bg-white border-gray-200 text-gray-500 hover:border-gray-400"
                     }`}
                   >
                     {s === 0 ? "Off" : s < 60 ? `${s}s` : `${s / 60}m`}
@@ -843,7 +879,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
             </div>
 
             {/* Config summary strip */}
-            <div className="bg-slate-800 rounded-lg p-3 border border-slate-700 text-sm text-slate-400 flex flex-wrap gap-x-4 gap-y-1">
+            <div className="bg-white rounded-lg p-3 border border-gray-200 text-sm text-gray-500 flex flex-wrap gap-x-4 gap-y-1 shadow-sm">
               <span>
                 Funds:{" "}
                 <span className="text-amber-400 font-mono">
@@ -851,23 +887,23 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
                 </span>
               </span>
               <span>
-                Income: <span className="text-slate-300">×{config.incomeMultiplier}</span>
+                Income: <span className="text-gray-700">×{config.incomeMultiplier}</span>
               </span>
               <span>
-                Luck: <span className="text-slate-300 capitalize">{config.luck}</span>
+                Luck: <span className="text-gray-700 capitalize">{config.luck}</span>
               </span>
               <span>
                 Turns:{" "}
-                <span className="text-slate-300">
+                <span className="text-gray-700">
                   {config.maxTurns < 0 ? "∞" : config.maxTurns}
                 </span>
               </span>
               <span>
-                Fog: <span className="text-slate-300">{config.fogOfWar ? "On" : "Off"}</span>
+                Fog: <span className="text-gray-700">{config.fogOfWar ? "On" : "Off"}</span>
               </span>
               <span>
                 Timer:{" "}
-                <span className="text-slate-300">
+                <span className="text-gray-700">
                   {config.turnTimeLimit === 0
                     ? "Off"
                     : config.turnTimeLimit < 60
@@ -881,13 +917,13 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
             <div className="flex justify-between items-center pt-2">
               <button
                 onClick={() => setStep(1)}
-                className="text-slate-400 hover:text-white text-sm font-semibold transition-colors"
+                className="text-gray-500 hover:text-gray-900 text-sm font-semibold transition-colors"
               >
                 ← Back
               </button>
               <button
                 onClick={() => setStep(3)}
-                className="px-8 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl transition-colors text-sm"
+                className="px-8 py-3 bg-amber-500 hover:bg-amber-400 text-white font-black rounded-xl transition-colors"
               >
                 Review →
               </button>
@@ -907,22 +943,32 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
         : `Default Skirmish (${DEFAULT_MAP_WIDTH}×${DEFAULT_MAP_HEIGHT})`;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+    <div
+      className="min-h-screen bg-[#0a0f18] flex flex-col"
+      style={{
+        background:
+          "radial-gradient(ellipse 60% 50% at 0% 0%, rgba(239,68,68,0.13) 0%, transparent 70%), " +
+          "radial-gradient(ellipse 60% 50% at 100% 0%, rgba(59,130,246,0.13) 0%, transparent 70%), " +
+          "radial-gradient(ellipse 60% 50% at 0% 100%, rgba(34,197,94,0.10) 0%, transparent 70%), " +
+          "radial-gradient(ellipse 60% 50% at 100% 100%, rgba(234,179,8,0.11) 0%, transparent 70%), " +
+          "#0a0f18",
+      }}
+    >
       {header}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
-        <div className="w-full max-w-xl space-y-4">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-10">
+        <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-gray-100 p-8 space-y-4">
           <div>
-            <div className="text-white font-bold text-base mb-1">Review</div>
-            <p className="text-slate-500 text-sm mb-4">Confirm your setup and deploy.</p>
+            <div className="text-gray-900 font-bold text-lg mb-1">Review</div>
+            <p className="text-gray-500 text-base mb-4">Confirm your setup and deploy.</p>
           </div>
 
           {/* Summary card */}
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-2 text-sm">
+          <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-2 text-sm shadow-sm">
             {/* Players */}
             {Array.from({ length: playerCount }).map((_, i) => (
               <div key={i} className="flex justify-between">
                 <span className={`font-medium ${playerColors[i]}`}>Player {i + 1}</span>
-                <span className="text-slate-300 capitalize">
+                <span className="text-gray-700 capitalize">
                   {CONTROLLER_OPTIONS.find((o) => o.value === players[i]?.controllerType)?.label ??
                     players[i]?.controllerType}
                 </span>
@@ -930,31 +976,31 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
             ))}
 
             {/* Map */}
-            <div className="border-t border-slate-700 pt-2 mt-2">
+            <div className="border-t border-gray-200 pt-2 mt-2">
               <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Map</span>
-                <span className="text-slate-300">{mapLabel}</span>
+                <span className="text-gray-500">Map</span>
+                <span className="text-gray-700">{mapLabel}</span>
               </div>
             </div>
 
             {/* Match options */}
             <div className="grid grid-cols-2 gap-1 text-sm">
-              <span className="text-slate-500">Starting funds</span>
+              <span className="text-gray-500">Starting funds</span>
               <span className="text-amber-400 font-mono">
                 ¥{config.startingFunds.toLocaleString()}
               </span>
-              <span className="text-slate-500">Income</span>
-              <span className="text-slate-300">×{config.incomeMultiplier}</span>
-              <span className="text-slate-500">Luck</span>
-              <span className="text-slate-300 capitalize">{config.luck}</span>
-              <span className="text-slate-500">Turn limit</span>
-              <span className="text-slate-300">
+              <span className="text-gray-500">Income</span>
+              <span className="text-gray-700">×{config.incomeMultiplier}</span>
+              <span className="text-gray-500">Luck</span>
+              <span className="text-gray-700 capitalize">{config.luck}</span>
+              <span className="text-gray-500">Turn limit</span>
+              <span className="text-gray-700">
                 {config.maxTurns < 0 ? "Unlimited" : `${config.maxTurns} turns`}
               </span>
-              <span className="text-slate-500">Fog of war</span>
-              <span className="text-slate-300">{config.fogOfWar ? "On" : "Off"}</span>
-              <span className="text-slate-500">Turn timer</span>
-              <span className="text-slate-300">
+              <span className="text-gray-500">Fog of war</span>
+              <span className="text-gray-700">{config.fogOfWar ? "On" : "Off"}</span>
+              <span className="text-gray-500">Turn timer</span>
+              <span className="text-gray-700">
                 {config.turnTimeLimit === 0
                   ? "Off"
                   : config.turnTimeLimit < 60
@@ -974,7 +1020,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
           <button
             onClick={handleLaunch}
             disabled={loading}
-            className="w-full bg-amber-500 hover:bg-amber-400 disabled:bg-slate-700 disabled:text-slate-500 text-slate-950 font-black py-4 rounded-xl text-lg tracking-wide transition-colors shadow-lg"
+            className="w-full bg-amber-500 hover:bg-amber-400 disabled:bg-gray-200 disabled:text-gray-400 text-white font-black py-4 rounded-xl text-lg tracking-wide transition-colors shadow-lg"
           >
             {loading ? "Loading…" : "Deploy Forces"}
           </button>
@@ -983,7 +1029,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
           <button
             onClick={handleStartTestScenario}
             disabled={loading}
-            className="w-full mt-2 text-slate-500 hover:text-slate-300 text-sm py-2 transition-colors"
+            className="w-full mt-2 text-gray-400 hover:text-gray-600 text-sm py-2 transition-colors"
           >
             Start test scenario
           </button>
@@ -992,7 +1038,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings }: MatchSetupP
           <div className="flex justify-start pt-1">
             <button
               onClick={() => setStep(2)}
-              className="text-slate-400 hover:text-white text-sm font-semibold transition-colors"
+              className="text-gray-500 hover:text-gray-900 text-sm font-semibold transition-colors"
             >
               ← Back
             </button>
