@@ -17,7 +17,14 @@ export default function InfoPanel() {
     2: "text-green-600",
     3: "text-yellow-500",
   };
+  const teamBgColors: Record<number, string> = {
+    0: "bg-red-500 hover:bg-red-400 active:bg-red-600",
+    1: "bg-blue-500 hover:bg-blue-400 active:bg-blue-600",
+    2: "bg-green-600 hover:bg-green-500 active:bg-green-700",
+    3: "bg-yellow-500 hover:bg-yellow-400 active:bg-yellow-600",
+  };
   const colorClass = teamColors[currentPlayer.team] ?? "text-gray-900";
+  const endTurnBg = teamBgColors[currentPlayer.team] ?? "bg-slate-700 hover:bg-slate-600";
 
   const handleEndTurn = () => {
     submitCommand({ type: "END_TURN", player_id: currentPlayer.id });
@@ -86,10 +93,10 @@ export default function InfoPanel() {
       {isHumanTurn && (
         <button
           onClick={handleEndTurn}
-          className="w-full bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-white font-black py-3 px-4 rounded-lg transition-colors flex items-center justify-between text-base"
+          className={`w-full text-white font-black py-3 px-4 rounded-lg transition-colors flex items-center justify-between text-base ${endTurnBg}`}
         >
           <span>End Turn</span>
-          <span className="bg-amber-600/30 text-amber-900 text-sm px-2 rounded">E</span>
+          <span className="bg-white/20 text-white text-sm px-2 rounded">E</span>
         </button>
       )}
 

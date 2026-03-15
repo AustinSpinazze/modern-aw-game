@@ -88,6 +88,18 @@ const TEAM_RING: Record<number, string> = {
   2: "ring-green-500",
   3: "ring-yellow-500",
 };
+const TEAM_BORDER: Record<number, string> = {
+  0: "border-red-500",
+  1: "border-blue-500",
+  2: "border-green-500",
+  3: "border-yellow-500",
+};
+const TEAM_BG: Record<number, string> = {
+  0: "bg-red-500",
+  1: "bg-blue-500",
+  2: "bg-green-500",
+  3: "bg-yellow-500",
+};
 
 interface SavedGameFile {
   version: number;
@@ -582,31 +594,36 @@ function AppContent() {
   const isHumanTurn = currentPlayer?.controller_type === "human" && gameState?.phase === "action";
   const isAnimating = useGameStore.getState().isAnimating;
 
+  // Faction header uses a slightly darkened bg for yellow so white text is legible
+  const TEAM_HEADER_BG: Record<number, string> = {
+    0: "bg-red-500",
+    1: "bg-blue-500",
+    2: "bg-green-600",
+    3: "bg-yellow-500",
+  };
+
   // Game view
   return (
-    <div
-      className={`h-screen flex flex-col bg-neutral-100 ring-2 ring-inset ${TEAM_RING[currentPlayer?.team ?? 0] ?? "ring-gray-300"}`}
-    >
-      {/* Top bar */}
-      <header className="h-14 shrink-0 flex items-center justify-between px-4 bg-white border-b-2 border-amber-400 z-20">
-        {/* Left side */}
-        <div className="flex items-center gap-3">
-          <span className="text-amber-500 font-black text-base tracking-widest">MODERN AW</span>
-          <span className="text-gray-300">|</span>
+    <div className="h-screen flex flex-col bg-gray-900">
+      {/* Top bar — faction-colored background, white text */}
+      <header className={`h-14 shrink-0 flex items-center justify-between px-5 z-20 transition-colors ${TEAM_HEADER_BG[currentPlayer?.team ?? 0] ?? "bg-gray-700"}`}>
+        {/* Left side — player number + name + day */}
+        <div className="flex items-center gap-4">
           {currentPlayer && (
             <>
-              <div className="flex items-center gap-1.5">
-                <span
-                  className={`w-2.5 h-2.5 rounded-full ${TEAM_DOT[currentPlayer.team] ?? "bg-gray-400"}`}
-                />
-                <span
-                  className={`font-semibold text-base ${TEAM_TEXT[currentPlayer.team] ?? "text-gray-900"}`}
-                >
-                  Player {currentPlayer.id + 1}
+              <div className="flex items-center gap-3">
+                <span className="text-white/60 font-black text-3xl leading-none select-none">
+                  {currentPlayer.id + 1}
                 </span>
+                <div className="leading-tight">
+                  <div className="text-white font-black text-base tracking-wide uppercase leading-none">
+                    Player {currentPlayer.id + 1}
+                  </div>
+                  <div className="text-white/60 text-xs mt-0.5 uppercase tracking-widest">
+                    Day {gameState?.turn_number ?? 1}
+                  </div>
+                </div>
               </div>
-              <span className="text-gray-300">·</span>
-              <span className="text-gray-500 text-base">Day {gameState?.turn_number ?? 1}</span>
             </>
           )}
         </div>
@@ -617,14 +634,14 @@ function AppContent() {
           {(gameState?.turn_time_limit ?? 0) > 0 && isHumanTurn && timeRemaining !== null && (
             <div className="flex items-center gap-1.5">
               <span
-                className={`font-mono text-base font-bold tabular-nums ${timeRemaining < 10 ? "text-red-500 animate-pulse" : timeRemaining < 30 ? "text-red-500" : "text-gray-600"}`}
+                className={`font-mono text-base font-bold tabular-nums ${timeRemaining < 10 ? "text-white animate-pulse" : "text-white/80"}`}
               >
                 {Math.floor(timeRemaining / 60)}:{String(timeRemaining % 60).padStart(2, "0")}
               </span>
               <button
                 onClick={() => (timerPaused ? resumeTimer() : pauseTimer())}
                 title={timerPaused ? "Resume timer" : "Pause timer"}
-                className="text-gray-400 hover:text-gray-700 transition-colors text-xs px-1"
+                className="text-white/60 hover:text-white transition-colors text-xs px-1"
               >
                 {timerPaused ? "▶" : "⏸"}
               </button>
@@ -634,7 +651,7 @@ function AppContent() {
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm px-4 py-1.5 rounded transition-colors border border-gray-200"
+              className="bg-white/20 hover:bg-white/30 text-white font-semibold text-base px-5 py-2 rounded transition-colors"
             >
               ≡ Menu
             </button>
@@ -712,39 +729,13 @@ function AppContent() {
       <div className="flex-1 flex overflow-hidden">
         {/* Main game area */}
         <main className="flex-1 relative overflow-hidden">
+          {/* Concave corner: faction color fills top-right, dark inner div with rounded-tr carves the curve */}
+          <div className={`absolute top-0 right-0 w-8 h-8 pointer-events-none z-10 transition-colors ${TEAM_HEADER_BG[currentPlayer?.team ?? 0] ?? "bg-gray-700"}`}>
+            <div className="w-full h-full bg-gray-900 rounded-tr-2xl" />
+          </div>
           <GameCanvas onFacilityClick={handleFacilityClick} />
           <ActionMenu />
 
-          {/* Zoom controls */}
-          <div className="absolute bottom-4 right-4 z-10 flex flex-col items-center gap-1">
-            <button
-              onClick={handleZoomIn}
-              disabled={zoomLevel >= MAX_ZOOM}
-              title="Zoom In (+)"
-              className="w-8 h-8 bg-white/90 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed border border-gray-300 rounded text-gray-700 font-bold text-lg leading-none transition-colors flex items-center justify-center backdrop-blur-sm shadow-sm"
-            >
-              +
-            </button>
-            <button
-              onClick={handleResetZoom}
-              title="Reset Zoom (0)"
-              className="w-8 h-8 bg-white/90 hover:bg-gray-100 border border-gray-300 rounded text-gray-500 text-xs font-mono leading-none transition-colors flex items-center justify-center backdrop-blur-sm shadow-sm"
-            >
-              {Math.round(zoomLevel * 100)}%
-            </button>
-            <button
-              onClick={handleZoomOut}
-              disabled={zoomLevel <= MIN_ZOOM}
-              title="Zoom Out (-)"
-              className="w-8 h-8 bg-white/90 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed border border-gray-300 rounded text-gray-700 font-bold text-xl leading-none transition-colors flex items-center justify-center backdrop-blur-sm shadow-sm"
-            >
-              −
-            </button>
-            <div className="text-gray-400 text-xs mt-1 text-center leading-tight">
-              scroll
-              <br />⌘ drag
-            </div>
-          </div>
 
           {/* AI thinking overlay */}
           {isAiProcessing && (
@@ -767,11 +758,37 @@ function AppContent() {
         </main>
 
         {/* Right sidebar */}
-        <aside className="w-60 bg-white border-l border-gray-200 flex flex-col shrink-0 overflow-y-auto">
+        <aside className={`w-80 bg-white border-l-4 flex flex-col shrink-0 overflow-y-auto transition-colors ${TEAM_BORDER[currentPlayer?.team ?? 0] ?? "border-gray-200"}`}>
           <InfoPanel />
           <TileInfoPanel />
           <div className="flex-1" />
           <ActionLog />
+          {/* Zoom controls */}
+          <div className="shrink-0 flex items-center justify-center gap-1 px-4 py-2 border-t border-gray-100">
+            <button
+              onClick={handleZoomOut}
+              disabled={zoomLevel <= MIN_ZOOM}
+              title="Zoom Out (-)"
+              className="w-8 h-8 bg-gray-100 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed rounded text-gray-600 font-bold text-lg transition-colors flex items-center justify-center"
+            >
+              −
+            </button>
+            <button
+              onClick={handleResetZoom}
+              title="Reset Zoom (0)"
+              className="h-8 px-3 bg-gray-100 hover:bg-gray-200 rounded text-gray-500 text-xs font-mono transition-colors flex items-center justify-center"
+            >
+              {Math.round(zoomLevel * 100)}%
+            </button>
+            <button
+              onClick={handleZoomIn}
+              disabled={zoomLevel >= MAX_ZOOM}
+              title="Zoom In (+)"
+              className="w-8 h-8 bg-gray-100 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed rounded text-gray-600 font-bold text-lg transition-colors flex items-center justify-center"
+            >
+              +
+            </button>
+          </div>
         </aside>
       </div>
 
