@@ -23,6 +23,12 @@ export default function InfoPanel() {
     2: "bg-green-600 hover:bg-green-500 active:bg-green-700",
     3: "bg-yellow-500 hover:bg-yellow-400 active:bg-yellow-600",
   };
+  const teamCardBorder: Record<number, string> = {
+    0: "border-l-4 border-red-400",
+    1: "border-l-4 border-blue-400",
+    2: "border-l-4 border-green-500",
+    3: "border-l-4 border-yellow-400",
+  };
   const colorClass = teamColors[currentPlayer.team] ?? "text-gray-900";
   const endTurnBg = teamBgColors[currentPlayer.team] ?? "bg-slate-700 hover:bg-slate-600";
 
@@ -63,19 +69,19 @@ export default function InfoPanel() {
   }
 
   return (
-    <div className="flex flex-col gap-3 p-4 text-base">
+    <div className="flex flex-col gap-3 p-4">
       {/* Current player block */}
-      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-        <div className="flex items-baseline justify-between mb-2">
-          <div className={`text-2xl font-black ${colorClass}`}>Player {currentPlayer.id + 1}</div>
-          <div className="text-gray-500 text-sm">Turn {gameState.turn_number}</div>
+      <div className={`bg-gray-50 border border-gray-200 rounded-xl p-4 ${teamCardBorder[currentPlayer.team] ?? ""}`}>
+        <div className="flex items-baseline justify-between mb-1">
+          <div className={`text-xl font-black ${colorClass}`}>Player {currentPlayer.id + 1}</div>
+          <div className="text-gray-400 text-sm uppercase tracking-widest">Day {gameState.turn_number}</div>
         </div>
         <div className="mb-3">
-          <span className="bg-gray-200 text-gray-600 text-sm px-2.5 py-0.5 rounded-full capitalize">
+          <span className="bg-gray-200 text-gray-600 text-sm px-2 py-0.5 rounded-full capitalize">
             {currentPlayer.controller_type}
           </span>
         </div>
-        <div className="text-amber-500 font-mono font-bold text-3xl">
+        <div className={`font-mono font-black text-4xl ${colorClass}`}>
           ¥{currentPlayer.funds.toLocaleString()}
         </div>
       </div>
@@ -105,8 +111,8 @@ export default function InfoPanel() {
         gameState.income_multiplier !== 1 ||
         gameState.luck_max === 0) && (
         <div className="border-t border-gray-200 pt-3 px-1">
-          <div className="text-gray-500 text-xs uppercase tracking-wide mb-1.5">Rules</div>
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-gray-600">
+          <div className="text-gray-500 text-sm uppercase tracking-wide mb-2">Rules</div>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-base text-gray-600">
             {gameState.max_turns > 0 && (
               <span>
                 ⏱ {gameState.turn_number}/{gameState.max_turns}
@@ -120,21 +126,21 @@ export default function InfoPanel() {
 
       {/* Player roster */}
       <div className="border-t border-gray-200 pt-3">
-        <div className="text-gray-500 text-xs uppercase tracking-wide mb-1.5">Players</div>
+        <div className="text-gray-500 text-sm uppercase tracking-wide mb-2">Players</div>
         {gameState.players.map((p) => (
           <div
             key={p.id}
-            className={`flex justify-between items-center text-sm py-1.5 px-2 rounded ${
+            className={`flex justify-between items-center py-2 px-2 rounded ${
               p.id === currentPlayer.id ? "bg-gray-100" : ""
             } ${p.is_defeated ? "opacity-40 line-through" : ""}`}
           >
-            <span className={`font-semibold ${teamColors[p.team] ?? "text-gray-900"}`}>
+            <span className={`font-bold text-base ${teamColors[p.team] ?? "text-gray-900"}`}>
               P{p.id + 1}
               {p.id === currentPlayer.id && (
                 <span className="text-gray-400 font-normal ml-1">◀</span>
               )}
             </span>
-            <span className="text-amber-500 font-mono text-sm">¥{p.funds.toLocaleString()}</span>
+            <span className="text-amber-500 font-mono font-bold text-base">¥{p.funds.toLocaleString()}</span>
           </div>
         ))}
       </div>
@@ -142,32 +148,32 @@ export default function InfoPanel() {
       {/* Intel section (fog disabled) */}
       {combatStats && (
         <div className="border-t border-gray-200 pt-3">
-          <div className="text-gray-500 text-xs uppercase tracking-wide mb-1.5">
-            Intel <span className="normal-case text-gray-400">(fog off)</span>
+          <div className="text-gray-500 text-sm uppercase tracking-wide mb-2">
+            Intel <span className="normal-case text-gray-400 text-xs">(fog off)</span>
           </div>
           <div className="space-y-2">
             {combatStats.map(({ playerId, built, alive, props }) => {
               const p = gameState.players.find((pl) => pl.id === playerId);
               if (!p || p.is_defeated) return null;
               return (
-                <div key={playerId} className="bg-gray-100 rounded-lg px-3 py-2.5">
+                <div key={playerId} className={`bg-gray-100 rounded-lg px-3 py-2.5 ${teamCardBorder[p.team] ?? ""}`}>
                   <div
-                    className={`text-sm font-bold mb-1.5 ${teamColors[p.team] ?? "text-gray-900"}`}
+                    className={`text-base font-bold mb-2 ${teamColors[p.team] ?? "text-gray-900"}`}
                   >
                     P{playerId + 1}
                   </div>
                   <div className="grid grid-cols-3 gap-1 text-center">
                     <div>
-                      <div className="text-gray-900 font-bold text-base">{built}</div>
-                      <div className="text-gray-400 text-xs">Built</div>
+                      <div className="text-gray-900 font-bold text-lg">{built}</div>
+                      <div className="text-gray-400 text-sm">Built</div>
                     </div>
                     <div>
-                      <div className="text-gray-900 font-bold text-base">{alive}</div>
-                      <div className="text-gray-400 text-xs">Alive</div>
+                      <div className="text-gray-900 font-bold text-lg">{alive}</div>
+                      <div className="text-gray-400 text-sm">Alive</div>
                     </div>
                     <div>
-                      <div className="text-amber-500 font-bold text-base">{props}</div>
-                      <div className="text-gray-400 text-xs">Props</div>
+                      <div className="text-amber-500 font-bold text-lg">{props}</div>
+                      <div className="text-gray-400 text-sm">Props</div>
                     </div>
                   </div>
                 </div>

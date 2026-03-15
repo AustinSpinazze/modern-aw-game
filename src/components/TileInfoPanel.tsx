@@ -44,11 +44,15 @@ const UNIT_ABBREV: Record<string, string> = {
 
 function StatCell({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white px-3 py-2">
-      <div className="text-gray-400 text-sm uppercase tracking-wide mb-0.5">{label}</div>
+    <div className="bg-white px-3 py-2.5">
+      <div className="text-gray-400 text-sm uppercase tracking-wide mb-1">{label}</div>
       {children}
     </div>
   );
+}
+
+function weaponDisplayName(id: string): string {
+  return id.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
 }
 
 function UnitStatBlock({ unit, gameState }: { unit: UnitState; gameState: GameState }) {
@@ -56,38 +60,58 @@ function UnitStatBlock({ unit, gameState }: { unit: UnitState; gameState: GameSt
   if (!unitData) return null;
 
   const primaryWeapon = unitData.weapons[0];
+  const secondaryWeapon = unitData.weapons[1];
   const hasAmmo = primaryWeapon && primaryWeapon.ammo > 0;
   const currentAmmo = hasAmmo ? (unit.ammo[primaryWeapon.id] ?? primaryWeapon.ammo) : null;
   const maxAmmo = hasAmmo ? primaryWeapon.ammo : null;
-  const hasFuel = unit.fuel !== undefined && unitData.fuel !== undefined;
+
+  // Fuel: show when unitData defines a max fuel value
+  const hasFuel = unitData.fuel !== undefined;
+  const currentFuel = hasFuel ? (unit.fuel ?? unitData.fuel!) : null;
 
   const unitTile = gameState.tiles[unit.y]?.[unit.x];
   const unitTerrainData = unitTile
     ? getTerrainData(unitTile.has_fob ? "temporary_fob" : unitTile.terrain_type)
     : null;
 
-  const weaponLabel = primaryWeapon
-    ? primaryWeapon.id.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())
-    : null;
-  const weaponRange = primaryWeapon
-    ? `Rng ${primaryWeapon.min_range}–${primaryWeapon.max_range}`
-    : null;
+  // Show row 3 (Fuel + Range) only when at least one is relevant
+  const showFuelRange = hasFuel || !!primaryWeapon;
 
   return (
-    <div className="p-3 text-sm border-t border-gray-200">
+    <div className="p-3 text-sm">
+      {/* Section label */}
+      <div className="text-gray-400 text-sm uppercase tracking-widest font-semibold mb-3">
+        Unit Info
+      </div>
+
       {/* Unit header */}
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2.5 mb-3">
         <div
-          className={`${TEAM_BG[unit.owner_id] ?? "bg-gray-400"} w-10 h-10 rounded-lg flex items-center justify-center text-white text-xs font-black shrink-0`}
+          className={`${TEAM_BG[unit.owner_id] ?? "bg-gray-400"} w-12 h-12 rounded-lg flex items-center justify-center text-white text-sm font-black shrink-0`}
         >
           {UNIT_ABBREV[unit.unit_type] ?? "??"}
         </div>
         <div>
-          <div className="text-gray-900 font-bold text-sm leading-tight">{unitData.name}</div>
-          <div className={`text-sm ${TEAM_TEXT[unit.owner_id] ?? "text-gray-700"}`}>
+          <div className="text-gray-900 font-bold text-base leading-tight">{unitData.name}</div>
+          <div className={`text-sm font-medium ${TEAM_TEXT[unit.owner_id] ?? "text-gray-700"}`}>
             Player {unit.owner_id + 1}
           </div>
         </div>
+        {/* Status badges inline with header */}
+        {(unit.has_moved || unit.has_acted) && (
+          <div className="flex gap-1 ml-auto">
+            {unit.has_moved && (
+              <span className="text-xs text-gray-500 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded-full">
+                Moved
+              </span>
+            )}
+            {unit.has_acted && (
+              <span className="text-xs text-gray-500 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded-full">
+                Acted
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Stat grid */}
@@ -121,39 +145,54 @@ function UnitStatBlock({ unit, gameState }: { unit: UnitState; gameState: GameSt
           <span className="text-gray-900 font-bold text-xl">{unitData.vision ?? "—"}</span>
         </StatCell>
 
-        {/* Row 3: FUEL | RANGE */}
-        <StatCell label="Fuel">
-          {hasFuel ? (
+        {/* Row 3: FUEL | RANGE — only rendered when at least one is relevant */}
+        {showFuelRange && hasFuel && (
+          <StatCell label="Fuel">
             <div className="flex items-baseline gap-1">
               <span
-                className={`font-bold text-xl ${unit.fuel! <= 10 ? "text-red-500" : "text-gray-900"}`}
+                className={`font-bold text-xl ${currentFuel! <= 10 ? "text-red-500" : "text-gray-900"}`}
               >
-                {unit.fuel}
+                {currentFuel}
               </span>
               <span className="text-gray-400 text-xs">/{unitData.fuel}</span>
             </div>
-          ) : (
-            <span className="text-gray-400 font-bold text-xl">—</span>
-          )}
-        </StatCell>
-        <StatCell label="Range">
-          {weaponRange ? (
+          </StatCell>
+        )}
+        {showFuelRange && primaryWeapon && (
+          <StatCell label="Range">
             <span className="text-gray-900 font-bold text-xl">
-              {primaryWeapon!.min_range === primaryWeapon!.max_range
-                ? primaryWeapon!.min_range
-                : `${primaryWeapon!.min_range}–${primaryWeapon!.max_range}`}
+              {primaryWeapon.min_range === primaryWeapon.max_range
+                ? primaryWeapon.min_range
+                : `${primaryWeapon.min_range}–${primaryWeapon.max_range}`}
             </span>
-          ) : (
-            <span className="text-gray-400 font-bold text-xl">—</span>
-          )}
-        </StatCell>
+          </StatCell>
+        )}
       </div>
 
-      {/* Weapon name */}
-      {weaponLabel && weaponRange && (
-        <div className="mt-2 flex items-center justify-between text-sm">
-          <span className="text-gray-400 uppercase tracking-wide">{weaponLabel}</span>
-          <span className="text-gray-600">{weaponRange}</span>
+      {/* Weapon display — prominent card */}
+      {primaryWeapon && (
+        <div className="mt-2 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-orange-700 font-bold text-base">
+              {weaponDisplayName(primaryWeapon.id)}
+            </span>
+            <span className="text-orange-500 text-sm font-mono">
+              {hasAmmo ? `${currentAmmo}/${maxAmmo} ammo` : "∞"}
+            </span>
+          </div>
+          {secondaryWeapon && (
+            <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-orange-100">
+              <span className="text-yellow-700 font-medium text-sm">
+                {weaponDisplayName(secondaryWeapon.id)}
+              </span>
+              <span className="text-yellow-600 text-sm font-mono">∞</span>
+            </div>
+          )}
+        </div>
+      )}
+      {unitData.weapons.length === 0 && (
+        <div className="mt-2 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-gray-400 text-sm italic">
+          Transport — no weapons
         </div>
       )}
 
@@ -175,26 +214,10 @@ function UnitStatBlock({ unit, gameState }: { unit: UnitState; gameState: GameSt
         </div>
       )}
 
-      {/* Status badges */}
-      {(unit.has_moved || unit.has_acted) && (
-        <div className="flex gap-1.5 mt-2">
-          {unit.has_moved && (
-            <span className="text-sm text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full">
-              Moved
-            </span>
-          )}
-          {unit.has_acted && (
-            <span className="text-sm text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full">
-              Acted
-            </span>
-          )}
-        </div>
-      )}
-
       {/* Cargo */}
       {unitData.transport && unitData.transport.capacity > 0 && (
         <div className="mt-2 border-t border-gray-200 pt-2">
-          <div className="text-gray-400 text-sm uppercase tracking-wide mb-1">Cargo</div>
+          <div className="text-gray-400 text-sm uppercase tracking-wide mb-1.5">Cargo</div>
           {gameState.fog_of_war ? (
             <div className="flex gap-1">
               {Array.from({ length: unitData.transport.capacity }).map((_, i) => (
@@ -238,7 +261,11 @@ export default function TileInfoPanel() {
 
   // Selected unit always takes priority — show its full stat block
   if (selectedUnit) {
-    return <UnitStatBlock unit={selectedUnit} gameState={gameState} />;
+    return (
+      <div className="border-t-2 border-gray-100 bg-gray-50">
+        <UnitStatBlock unit={selectedUnit} gameState={gameState} />
+      </div>
+    );
   }
 
   // No unit selected — show hovered tile info
@@ -253,37 +280,42 @@ export default function TileInfoPanel() {
 
   // If there's a unit on the hovered tile, show the full stat block for it
   if (unitAtTile) {
-    return <UnitStatBlock unit={unitAtTile} gameState={gameState} />;
+    return (
+      <div className="border-t-2 border-gray-100 bg-gray-50">
+        <UnitStatBlock unit={unitAtTile} gameState={gameState} />
+      </div>
+    );
   }
 
   // Empty tile — show terrain info
   return (
-    <div className="p-3 text-sm border-t border-gray-200">
-      <div className="text-gray-400 text-sm uppercase tracking-wide font-semibold mb-2">
-        Tile{" "}
-        <span className="text-gray-400 text-sm font-mono normal-case">
-          ({hoveredTile.x}, {hoveredTile.y})
-        </span>
+    <div className="border-t-2 border-gray-100 bg-gray-50 p-3">
+      <div className="text-gray-400 text-sm uppercase tracking-widest font-semibold mb-3">
+        Tile Info
+      </div>
+
+      <div className="text-gray-400 text-sm font-mono mb-2">
+        ({hoveredTile.x}, {hoveredTile.y})
       </div>
 
       {terrainData && (
-        <div className="mb-2">
-          <div className="text-gray-900 font-bold">{terrainData.name}</div>
+        <div>
+          <div className="text-gray-900 font-bold text-base mb-1">{terrainData.name}</div>
           <div className="flex items-center gap-1 mt-0.5">
             {Array.from({ length: 4 }).map((_, i) => (
               <div
                 key={i}
-                className={`w-2.5 h-2.5 rounded-full ${i < terrainData.defense_stars ? "bg-amber-400" : "bg-gray-200"}`}
+                className={`w-3 h-3 rounded-full ${i < terrainData.defense_stars ? "bg-amber-400" : "bg-gray-200"}`}
               />
             ))}
             <span className="text-gray-400 text-sm ml-1">Def</span>
           </div>
-          {tile.has_trench && <div className="text-amber-500 text-sm">⛏ Trench (+2 def)</div>}
+          {tile.has_trench && <div className="text-amber-500 text-sm mt-1.5">⛏ Trench (+2 def)</div>}
           {tile.has_fob && (
-            <div className="text-orange-500 text-sm">🏗 FOB (HP: {tile.fob_hp})</div>
+            <div className="text-orange-500 text-sm mt-1.5">🏗 FOB (HP: {tile.fob_hp})</div>
           )}
           {terrainData.is_property && (
-            <div className="text-sm mt-1">
+            <div className="text-sm mt-2">
               Owner:{" "}
               <span className="text-amber-500">
                 {tile.owner_id === -1 ? "Neutral" : `Player ${tile.owner_id + 1}`}
@@ -291,9 +323,9 @@ export default function TileInfoPanel() {
             </div>
           )}
           {terrainData.is_property && tile.capture_points < 20 && (
-            <div className="mt-1">
-              <div className="text-sm text-orange-500 font-medium">⚔ Being Captured</div>
-              <div className="flex items-center gap-2 mt-0.5">
+            <div className="mt-2">
+              <div className="text-sm text-orange-500 font-medium mb-1">⚔ Being Captured</div>
+              <div className="flex items-center gap-2">
                 <div className="flex-1 h-2 bg-gray-200 rounded overflow-hidden">
                   <div
                     className="h-full bg-orange-400 transition-all"
