@@ -34,7 +34,10 @@ describe("validateMove", () => {
 
   it("rejects move for unknown unit", () => {
     const s = makeState(5, 5);
-    fail(validateCommand({ type: "MOVE", player_id: 0, unit_id: 99, dest_x: 1, dest_y: 0 }, s), "not found");
+    fail(
+      validateCommand({ type: "MOVE", player_id: 0, unit_id: 99, dest_x: 1, dest_y: 0 }, s),
+      "not found"
+    );
   });
 
   it("rejects move when unit belongs to another player", () => {
@@ -46,13 +49,19 @@ describe("validateMove", () => {
   it("rejects move when unit has already moved", () => {
     let s = makeState(5, 5);
     s = addTestUnit(s, { id: 1, unit_type: "infantry", owner_id: 0, x: 0, y: 0, has_moved: true });
-    fail(validateCommand({ type: "MOVE", player_id: 0, unit_id: 1, dest_x: 1, dest_y: 0 }, s), "already moved");
+    fail(
+      validateCommand({ type: "MOVE", player_id: 0, unit_id: 1, dest_x: 1, dest_y: 0 }, s),
+      "already moved"
+    );
   });
 
   it("rejects move when unit is out of fuel", () => {
     let s = makeState(5, 5);
     s = addTestUnit(s, { id: 1, unit_type: "apc", owner_id: 0, x: 0, y: 0, fuel: 0 });
-    fail(validateCommand({ type: "MOVE", player_id: 0, unit_id: 1, dest_x: 1, dest_y: 0 }, s), "fuel");
+    fail(
+      validateCommand({ type: "MOVE", player_id: 0, unit_id: 1, dest_x: 1, dest_y: 0 }, s),
+      "fuel"
+    );
   });
 
   it("rejects move out of map bounds", () => {
@@ -65,7 +74,10 @@ describe("validateMove", () => {
     let s = makeState(5, 5);
     s = addTestUnit(s, { id: 1, unit_type: "infantry", owner_id: 0, x: 0, y: 0 });
     s = addTestUnit(s, { id: 2, unit_type: "infantry", owner_id: 1, x: 1, y: 0 });
-    fail(validateCommand({ type: "MOVE", player_id: 0, unit_id: 1, dest_x: 1, dest_y: 0 }, s), "enemy");
+    fail(
+      validateCommand({ type: "MOVE", player_id: 0, unit_id: 1, dest_x: 1, dest_y: 0 }, s),
+      "enemy"
+    );
   });
 
   it("rejects move to impassable terrain", () => {
@@ -90,46 +102,90 @@ describe("validateAttack", () => {
     let s = makeState(10, 10);
     s = addTestUnit(s, { id: 1, unit_type: "infantry", owner_id: 0, x: 0, y: 0 });
     s = addTestUnit(s, { id: 2, unit_type: "infantry", owner_id: 1, x: 1, y: 0 });
-    ok(validateCommand({ type: "ATTACK", player_id: 0, attacker_id: 1, target_id: 2, weapon_index: 0 }, s));
+    ok(
+      validateCommand(
+        { type: "ATTACK", player_id: 0, attacker_id: 1, target_id: 2, weapon_index: 0 },
+        s
+      )
+    );
   });
 
   it("rejects attack when attacker has already acted", () => {
     let s = makeState(10, 10);
     s = addTestUnit(s, { id: 1, unit_type: "infantry", owner_id: 0, x: 0, y: 0, has_acted: true });
     s = addTestUnit(s, { id: 2, unit_type: "infantry", owner_id: 1, x: 1, y: 0 });
-    fail(validateCommand({ type: "ATTACK", player_id: 0, attacker_id: 1, target_id: 2, weapon_index: 0 }, s));
+    fail(
+      validateCommand(
+        { type: "ATTACK", player_id: 0, attacker_id: 1, target_id: 2, weapon_index: 0 },
+        s
+      )
+    );
   });
 
   it("rejects attack against friendly unit", () => {
     let s = makeState(10, 10);
     s = addTestUnit(s, { id: 1, unit_type: "infantry", owner_id: 0, x: 0, y: 0 });
     s = addTestUnit(s, { id: 2, unit_type: "infantry", owner_id: 0, x: 1, y: 0 });
-    fail(validateCommand({ type: "ATTACK", player_id: 0, attacker_id: 1, target_id: 2, weapon_index: 0 }, s), "friendly");
+    fail(
+      validateCommand(
+        { type: "ATTACK", player_id: 0, attacker_id: 1, target_id: 2, weapon_index: 0 },
+        s
+      ),
+      "friendly"
+    );
   });
 
   it("rejects attack when target is out of range", () => {
     let s = makeState(10, 10);
     s = addTestUnit(s, { id: 1, unit_type: "infantry", owner_id: 0, x: 0, y: 0 });
     s = addTestUnit(s, { id: 2, unit_type: "infantry", owner_id: 1, x: 5, y: 0 });
-    fail(validateCommand({ type: "ATTACK", player_id: 0, attacker_id: 1, target_id: 2, weapon_index: 0 }, s));
+    fail(
+      validateCommand(
+        { type: "ATTACK", player_id: 0, attacker_id: 1, target_id: 2, weapon_index: 0 },
+        s
+      )
+    );
   });
 
   it("rejects indirect attack after moving", () => {
     let s = makeState(10, 10);
     // Artillery that has already moved (has_moved: true)
-    s = addTestUnit(s, { id: 1, unit_type: "artillery", owner_id: 0, x: 1, y: 0, has_moved: true, ammo: { cannon: 9 } });
+    s = addTestUnit(s, {
+      id: 1,
+      unit_type: "artillery",
+      owner_id: 0,
+      x: 1,
+      y: 0,
+      has_moved: true,
+      ammo: { cannon: 9 },
+    });
     s = addTestUnit(s, { id: 2, unit_type: "infantry", owner_id: 1, x: 3, y: 0 });
     fail(
-      validateCommand({ type: "ATTACK", player_id: 0, attacker_id: 1, target_id: 2, weapon_index: 0 }, s),
+      validateCommand(
+        { type: "ATTACK", player_id: 0, attacker_id: 1, target_id: 2, weapon_index: 0 },
+        s
+      ),
       "indirect"
     );
   });
 
   it("allows indirect attack without prior movement (has_moved false)", () => {
     let s = makeState(10, 10);
-    s = addTestUnit(s, { id: 1, unit_type: "artillery", owner_id: 0, x: 0, y: 0, ammo: { cannon: 9 } });
+    s = addTestUnit(s, {
+      id: 1,
+      unit_type: "artillery",
+      owner_id: 0,
+      x: 0,
+      y: 0,
+      ammo: { cannon: 9 },
+    });
     s = addTestUnit(s, { id: 2, unit_type: "infantry", owner_id: 1, x: 2, y: 0 });
-    ok(validateCommand({ type: "ATTACK", player_id: 0, attacker_id: 1, target_id: 2, weapon_index: 0 }, s));
+    ok(
+      validateCommand(
+        { type: "ATTACK", player_id: 0, attacker_id: 1, target_id: 2, weapon_index: 0 },
+        s
+      )
+    );
   });
 
   it("rejects attack on loaded unit", () => {
@@ -137,7 +193,10 @@ describe("validateAttack", () => {
     s = addTestUnit(s, { id: 1, unit_type: "infantry", owner_id: 0, x: 0, y: 0 });
     s = addTestUnit(s, { id: 2, unit_type: "infantry", owner_id: 1, x: 1, y: 0, is_loaded: true });
     fail(
-      validateCommand({ type: "ATTACK", player_id: 0, attacker_id: 1, target_id: 2, weapon_index: 0 }, s),
+      validateCommand(
+        { type: "ATTACK", player_id: 0, attacker_id: 1, target_id: 2, weapon_index: 0 },
+        s
+      ),
       "transport"
     );
   });
@@ -189,7 +248,12 @@ describe("validateBuyUnit", () => {
     let s = makeState(5, 5);
     s = setTerrain(s, 0, 0, "factory", { owner_id: 0 });
     s = updatePlayer(s, 0, { funds: 10000 });
-    ok(validateCommand({ type: "BUY_UNIT", player_id: 0, unit_type: "infantry", facility_x: 0, facility_y: 0 }, s));
+    ok(
+      validateCommand(
+        { type: "BUY_UNIT", player_id: 0, unit_type: "infantry", facility_x: 0, facility_y: 0 },
+        s
+      )
+    );
   });
 
   it("rejects when player has insufficient funds", () => {
@@ -197,7 +261,10 @@ describe("validateBuyUnit", () => {
     s = setTerrain(s, 0, 0, "factory", { owner_id: 0 });
     s = updatePlayer(s, 0, { funds: 500 });
     fail(
-      validateCommand({ type: "BUY_UNIT", player_id: 0, unit_type: "infantry", facility_x: 0, facility_y: 0 }, s),
+      validateCommand(
+        { type: "BUY_UNIT", player_id: 0, unit_type: "infantry", facility_x: 0, facility_y: 0 },
+        s
+      ),
       "funds"
     );
   });
@@ -207,7 +274,10 @@ describe("validateBuyUnit", () => {
     s = setTerrain(s, 0, 0, "city", { owner_id: 0 });
     s = updatePlayer(s, 0, { funds: 10000 });
     fail(
-      validateCommand({ type: "BUY_UNIT", player_id: 0, unit_type: "infantry", facility_x: 0, facility_y: 0 }, s)
+      validateCommand(
+        { type: "BUY_UNIT", player_id: 0, unit_type: "infantry", facility_x: 0, facility_y: 0 },
+        s
+      )
     );
   });
 
@@ -217,7 +287,10 @@ describe("validateBuyUnit", () => {
     s = updatePlayer(s, 0, { funds: 10000 });
     s = addTestUnit(s, { id: 1, unit_type: "infantry", owner_id: 0, x: 0, y: 0 });
     fail(
-      validateCommand({ type: "BUY_UNIT", player_id: 0, unit_type: "infantry", facility_x: 0, facility_y: 0 }, s),
+      validateCommand(
+        { type: "BUY_UNIT", player_id: 0, unit_type: "infantry", facility_x: 0, facility_y: 0 },
+        s
+      ),
       "blocked"
     );
   });
@@ -227,7 +300,10 @@ describe("validateBuyUnit", () => {
     s = setTerrain(s, 0, 0, "factory", { owner_id: 1 });
     s = updatePlayer(s, 0, { funds: 10000 });
     fail(
-      validateCommand({ type: "BUY_UNIT", player_id: 0, unit_type: "infantry", facility_x: 0, facility_y: 0 }, s),
+      validateCommand(
+        { type: "BUY_UNIT", player_id: 0, unit_type: "infantry", facility_x: 0, facility_y: 0 },
+        s
+      ),
       "not owned"
     );
   });
@@ -264,14 +340,20 @@ describe("validateLoad", () => {
     // APC capacity=1, already has cargo
     s = addTestUnit(s, { id: 1, unit_type: "apc", owner_id: 0, x: 1, y: 0, cargo: [3] });
     s = addTestUnit(s, { id: 2, unit_type: "infantry", owner_id: 0, x: 0, y: 0 });
-    fail(validateCommand({ type: "LOAD", player_id: 0, transport_id: 1, unit_id: 2 }, s), "capacity");
+    fail(
+      validateCommand({ type: "LOAD", player_id: 0, transport_id: 1, unit_id: 2 }, s),
+      "capacity"
+    );
   });
 
   it("rejects loading when unit is not adjacent", () => {
     let s = makeState(10, 10);
     s = addTestUnit(s, { id: 1, unit_type: "apc", owner_id: 0, x: 5, y: 0 });
     s = addTestUnit(s, { id: 2, unit_type: "infantry", owner_id: 0, x: 0, y: 0 });
-    fail(validateCommand({ type: "LOAD", player_id: 0, transport_id: 1, unit_id: 2 }, s), "adjacent");
+    fail(
+      validateCommand({ type: "LOAD", player_id: 0, transport_id: 1, unit_id: 2 }, s),
+      "adjacent"
+    );
   });
 
   it("rejects loading incompatible unit type (tank into APC)", () => {
@@ -287,7 +369,12 @@ describe("validateUnload", () => {
     let s = makeState(5, 5);
     s = addTestUnit(s, { id: 1, unit_type: "apc", owner_id: 0, x: 1, y: 0, cargo: [2] });
     s = addTestUnit(s, { id: 2, unit_type: "infantry", owner_id: 0, x: 1, y: 0, is_loaded: true });
-    ok(validateCommand({ type: "UNLOAD", player_id: 0, transport_id: 1, unit_index: 0, dest_x: 0, dest_y: 0 }, s));
+    ok(
+      validateCommand(
+        { type: "UNLOAD", player_id: 0, transport_id: 1, unit_index: 0, dest_x: 0, dest_y: 0 },
+        s
+      )
+    );
   });
 
   it("rejects unloading to impassable terrain", () => {
@@ -296,7 +383,10 @@ describe("validateUnload", () => {
     s = addTestUnit(s, { id: 1, unit_type: "apc", owner_id: 0, x: 1, y: 0, cargo: [2] });
     s = addTestUnit(s, { id: 2, unit_type: "infantry", owner_id: 0, x: 1, y: 0, is_loaded: true });
     fail(
-      validateCommand({ type: "UNLOAD", player_id: 0, transport_id: 1, unit_index: 0, dest_x: 0, dest_y: 0 }, s),
+      validateCommand(
+        { type: "UNLOAD", player_id: 0, transport_id: 1, unit_index: 0, dest_x: 0, dest_y: 0 },
+        s
+      ),
       "cannot be unloaded"
     );
   });
@@ -306,7 +396,10 @@ describe("validateUnload", () => {
     s = addTestUnit(s, { id: 1, unit_type: "apc", owner_id: 0, x: 1, y: 0, cargo: [2] });
     s = addTestUnit(s, { id: 2, unit_type: "infantry", owner_id: 0, x: 1, y: 0, is_loaded: true });
     fail(
-      validateCommand({ type: "UNLOAD", player_id: 0, transport_id: 1, unit_index: 0, dest_x: 5, dest_y: 0 }, s),
+      validateCommand(
+        { type: "UNLOAD", player_id: 0, transport_id: 1, unit_index: 0, dest_x: 5, dest_y: 0 },
+        s
+      ),
       "adjacent"
     );
   });
@@ -323,7 +416,14 @@ describe("validateSubmerge / validateSurface", () => {
 
   it("rejects submerge when already submerged", () => {
     let s = makeState(5, 5);
-    s = addTestUnit(s, { id: 1, unit_type: "submarine", owner_id: 0, x: 0, y: 0, is_submerged: true });
+    s = addTestUnit(s, {
+      id: 1,
+      unit_type: "submarine",
+      owner_id: 0,
+      x: 0,
+      y: 0,
+      is_submerged: true,
+    });
     fail(validateCommand({ type: "SUBMERGE", player_id: 0, unit_id: 1 }, s), "already submerged");
   });
 
@@ -335,13 +435,27 @@ describe("validateSubmerge / validateSurface", () => {
 
   it("accepts surface for submerged submarine", () => {
     let s = makeState(5, 5);
-    s = addTestUnit(s, { id: 1, unit_type: "submarine", owner_id: 0, x: 0, y: 0, is_submerged: true });
+    s = addTestUnit(s, {
+      id: 1,
+      unit_type: "submarine",
+      owner_id: 0,
+      x: 0,
+      y: 0,
+      is_submerged: true,
+    });
     ok(validateCommand({ type: "SURFACE", player_id: 0, unit_id: 1 }, s));
   });
 
   it("rejects surface when not submerged", () => {
     let s = makeState(5, 5);
-    s = addTestUnit(s, { id: 1, unit_type: "submarine", owner_id: 0, x: 0, y: 0, is_submerged: false });
+    s = addTestUnit(s, {
+      id: 1,
+      unit_type: "submarine",
+      owner_id: 0,
+      x: 0,
+      y: 0,
+      is_submerged: false,
+    });
     fail(validateCommand({ type: "SURFACE", player_id: 0, unit_id: 1 }, s), "not submerged");
   });
 });

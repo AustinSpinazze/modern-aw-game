@@ -33,7 +33,9 @@ export default function InfoPanel() {
   const endTurnBg = teamBgColors[currentPlayer.team] ?? "bg-slate-700 hover:bg-slate-600";
 
   // Quick stats for current player
-  const playerUnits = Object.values(gameState.units).filter((u) => u.owner_id === currentPlayer.id).length;
+  const playerUnits = Object.values(gameState.units).filter(
+    (u) => u.owner_id === currentPlayer.id
+  ).length;
   const playerProps = gameState.tiles.flat().filter((t) => t.owner_id === currentPlayer.id).length;
   const incomePerTurn = Math.round(playerProps * (gameState.income_multiplier ?? 1) * 1000);
 
@@ -76,10 +78,14 @@ export default function InfoPanel() {
   return (
     <div className="flex flex-col gap-3 p-4">
       {/* Current player block */}
-      <div className={`bg-gray-50 border border-gray-200 rounded-xl p-4 ${teamCardBorder[currentPlayer.team] ?? ""}`}>
+      <div
+        className={`bg-gray-50 border border-gray-200 rounded-xl p-4 ${teamCardBorder[currentPlayer.team] ?? ""}`}
+      >
         <div className="flex items-baseline justify-between mb-1">
           <div className={`text-xl font-black ${colorClass}`}>Player {currentPlayer.id + 1}</div>
-          <div className="text-gray-400 text-sm uppercase tracking-widest">Day {gameState.turn_number}</div>
+          <div className="text-gray-400 text-sm uppercase tracking-widest">
+            Day {gameState.turn_number}
+          </div>
         </div>
         <div className="mb-3">
           <span className="bg-gray-200 text-gray-600 text-sm px-2 py-0.5 rounded-full capitalize">
@@ -92,7 +98,9 @@ export default function InfoPanel() {
         {/* Income / Units / Cities strip */}
         <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-200">
           <div className="text-center flex-1">
-            <div className="text-green-500 font-mono font-bold text-base">+{incomePerTurn.toLocaleString()}</div>
+            <div className="text-green-500 font-mono font-bold text-base">
+              +{incomePerTurn.toLocaleString()}
+            </div>
             <div className="text-gray-400 text-xs uppercase tracking-wide">Income</div>
           </div>
           <div className="w-px h-8 bg-gray-200" />
@@ -162,7 +170,9 @@ export default function InfoPanel() {
                 <span className="text-gray-400 font-normal ml-1">◀</span>
               )}
             </span>
-            <span className="text-amber-500 font-mono font-bold text-base">¥{p.funds.toLocaleString()}</span>
+            <span className="text-amber-500 font-mono font-bold text-base">
+              ¥{p.funds.toLocaleString()}
+            </span>
           </div>
         ))}
       </div>
@@ -178,7 +188,10 @@ export default function InfoPanel() {
               const p = gameState.players.find((pl) => pl.id === playerId);
               if (!p || p.is_defeated) return null;
               return (
-                <div key={playerId} className={`bg-gray-100 rounded-lg px-3 py-2.5 ${teamCardBorder[p.team] ?? ""}`}>
+                <div
+                  key={playerId}
+                  className={`bg-gray-100 rounded-lg px-3 py-2.5 ${teamCardBorder[p.team] ?? ""}`}
+                >
                   <div
                     className={`text-base font-bold mb-2 ${teamColors[p.team] ?? "text-gray-900"}`}
                   >

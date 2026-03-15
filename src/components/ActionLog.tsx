@@ -165,7 +165,10 @@ export default function ActionLog() {
   if (!gameState || gameState.command_log.length === 0) return null;
 
   return (
-    <div className="border-t-2 border-gray-100 bg-gray-50 flex flex-col shrink-0" style={{ height: "260px" }}>
+    <div
+      className="border-t-2 border-gray-100 bg-gray-50 flex flex-col shrink-0"
+      style={{ height: "260px" }}
+    >
       {/* Header */}
       <div className="flex items-center justify-between px-3 pt-3 pb-2 shrink-0">
         <span className="text-gray-500 text-base font-bold uppercase tracking-widest">
@@ -202,7 +205,9 @@ export default function ActionLog() {
               >
                 {entry.category.slice(0, 3)}
               </span>
-              <span className={`truncate text-sm ${TEAM_COLORS[entry.playerTeam] ?? "text-gray-600"}`}>
+              <span
+                className={`truncate text-sm ${TEAM_COLORS[entry.playerTeam] ?? "text-gray-600"}`}
+              >
                 {entry.text}
               </span>
             </div>

@@ -78,9 +78,22 @@ describe("WAIT command", () => {
 describe("ATTACK command", () => {
   it("reduces defender HP", () => {
     let s = deterministicState();
-    s = addTestUnit(s, { id: 1, unit_type: "artillery", owner_id: 0, x: 0, y: 0, ammo: { cannon: 9 } });
+    s = addTestUnit(s, {
+      id: 1,
+      unit_type: "artillery",
+      owner_id: 0,
+      x: 0,
+      y: 0,
+      ammo: { cannon: 9 },
+    });
     s = addTestUnit(s, { id: 2, unit_type: "infantry", owner_id: 1, x: 2, y: 0 });
-    s = applyCommand(s, { type: "ATTACK", player_id: 0, attacker_id: 1, target_id: 2, weapon_index: 0 });
+    s = applyCommand(s, {
+      type: "ATTACK",
+      player_id: 0,
+      attacker_id: 1,
+      target_id: 2,
+      weapon_index: 0,
+    });
     const defender = getUnit(s, 2);
     // Defender either damaged or destroyed
     if (defender) expect(defender.hp).toBeLessThan(10);
@@ -91,16 +104,35 @@ describe("ATTACK command", () => {
     let s = deterministicState();
     s = addTestUnit(s, { id: 1, unit_type: "infantry", owner_id: 0, x: 0, y: 0 });
     s = addTestUnit(s, { id: 2, unit_type: "infantry", owner_id: 1, x: 1, y: 0 });
-    s = applyCommand(s, { type: "ATTACK", player_id: 0, attacker_id: 1, target_id: 2, weapon_index: 0 });
+    s = applyCommand(s, {
+      type: "ATTACK",
+      player_id: 0,
+      attacker_id: 1,
+      target_id: 2,
+      weapon_index: 0,
+    });
     const attacker = getUnit(s, 1);
     if (attacker) expect(attacker.has_acted).toBe(true);
   });
 
   it("removes destroyed defender from state", () => {
     let s = deterministicState();
-    s = addTestUnit(s, { id: 1, unit_type: "artillery", owner_id: 0, x: 0, y: 0, ammo: { cannon: 9 } });
+    s = addTestUnit(s, {
+      id: 1,
+      unit_type: "artillery",
+      owner_id: 0,
+      x: 0,
+      y: 0,
+      ammo: { cannon: 9 },
+    });
     s = addTestUnit(s, { id: 2, unit_type: "infantry", owner_id: 1, hp: 1, x: 2, y: 0 });
-    s = applyCommand(s, { type: "ATTACK", player_id: 0, attacker_id: 1, target_id: 2, weapon_index: 0 });
+    s = applyCommand(s, {
+      type: "ATTACK",
+      player_id: 0,
+      attacker_id: 1,
+      target_id: 2,
+      weapon_index: 0,
+    });
     // Artillery at full HP deals 9 damage → 1 HP infantry is destroyed
     expect(getUnit(s, 2)).toBeNull();
   });
@@ -109,7 +141,13 @@ describe("ATTACK command", () => {
     let s = deterministicState();
     s = addTestUnit(s, { id: 1, unit_type: "mech", owner_id: 0, x: 0, y: 0, ammo: { bazooka: 3 } });
     s = addTestUnit(s, { id: 2, unit_type: "tank", owner_id: 1, x: 1, y: 0 });
-    s = applyCommand(s, { type: "ATTACK", player_id: 0, attacker_id: 1, target_id: 2, weapon_index: 0 });
+    s = applyCommand(s, {
+      type: "ATTACK",
+      player_id: 0,
+      attacker_id: 1,
+      target_id: 2,
+      weapon_index: 0,
+    });
     const attacker = getUnit(s, 1);
     if (attacker) expect(attacker.ammo["bazooka"]).toBe(2);
   });
@@ -119,7 +157,13 @@ describe("ATTACK command", () => {
     s = addTestUnit(s, { id: 1, unit_type: "infantry", owner_id: 0, x: 0, y: 0 });
     s = addTestUnit(s, { id: 2, unit_type: "infantry", owner_id: 1, x: 1, y: 0 });
     const before = s;
-    s = applyCommand(s, { type: "ATTACK", player_id: 0, attacker_id: 1, target_id: 2, weapon_index: 0 });
+    s = applyCommand(s, {
+      type: "ATTACK",
+      player_id: 0,
+      attacker_id: 1,
+      target_id: 2,
+      weapon_index: 0,
+    });
     // machine_gun has ammo -1 (infinite); no ammo key to check, just ensure no error
     expect(getUnit(s, 1)).toBeDefined();
   });
@@ -171,7 +215,13 @@ describe("BUY_UNIT command", () => {
     let s = makeState(5, 5);
     s = setTerrain(s, 2, 2, "factory", { owner_id: 0 });
     s = updatePlayer(s, 0, { funds: 10000 });
-    s = applyCommand(s, { type: "BUY_UNIT", player_id: 0, unit_type: "infantry", facility_x: 2, facility_y: 2 });
+    s = applyCommand(s, {
+      type: "BUY_UNIT",
+      player_id: 0,
+      unit_type: "infantry",
+      facility_x: 2,
+      facility_y: 2,
+    });
     const newUnit = Object.values(s.units).find((u) => u.unit_type === "infantry");
     expect(newUnit).toBeDefined();
     expect(newUnit!.x).toBe(2);
@@ -182,7 +232,13 @@ describe("BUY_UNIT command", () => {
     let s = makeState(5, 5);
     s = setTerrain(s, 0, 0, "factory", { owner_id: 0 });
     s = updatePlayer(s, 0, { funds: 10000 });
-    s = applyCommand(s, { type: "BUY_UNIT", player_id: 0, unit_type: "infantry", facility_x: 0, facility_y: 0 });
+    s = applyCommand(s, {
+      type: "BUY_UNIT",
+      player_id: 0,
+      unit_type: "infantry",
+      facility_x: 0,
+      facility_y: 0,
+    });
     expect(getPlayer(s, 0)!.funds).toBe(9000);
   });
 
@@ -190,7 +246,13 @@ describe("BUY_UNIT command", () => {
     let s = makeState(5, 5);
     s = setTerrain(s, 0, 0, "factory", { owner_id: 0 });
     s = updatePlayer(s, 0, { funds: 10000 });
-    s = applyCommand(s, { type: "BUY_UNIT", player_id: 0, unit_type: "infantry", facility_x: 0, facility_y: 0 });
+    s = applyCommand(s, {
+      type: "BUY_UNIT",
+      player_id: 0,
+      unit_type: "infantry",
+      facility_x: 0,
+      facility_y: 0,
+    });
     const newUnit = Object.values(s.units).find((u) => u.unit_type === "infantry")!;
     expect(newUnit.has_acted).toBe(true);
     expect(newUnit.has_moved).toBe(true);
@@ -200,7 +262,13 @@ describe("BUY_UNIT command", () => {
     let s = makeState(5, 5);
     s = setTerrain(s, 0, 0, "factory", { owner_id: 0 });
     s = updatePlayer(s, 0, { funds: 10000 });
-    s = applyCommand(s, { type: "BUY_UNIT", player_id: 0, unit_type: "tank", facility_x: 0, facility_y: 0 });
+    s = applyCommand(s, {
+      type: "BUY_UNIT",
+      player_id: 0,
+      unit_type: "tank",
+      facility_x: 0,
+      facility_y: 0,
+    });
     const newUnit = Object.values(s.units).find((u) => u.unit_type === "tank")!;
     expect(newUnit.ammo["cannon"]).toBe(9);
   });
@@ -209,7 +277,13 @@ describe("BUY_UNIT command", () => {
     let s = makeState(5, 5);
     s = setTerrain(s, 0, 0, "factory", { owner_id: 0 }); // reuse factory for test
     s = updatePlayer(s, 0, { funds: 99999 });
-    s = applyCommand(s, { type: "BUY_UNIT", player_id: 0, unit_type: "apc", facility_x: 0, facility_y: 0 });
+    s = applyCommand(s, {
+      type: "BUY_UNIT",
+      player_id: 0,
+      unit_type: "apc",
+      facility_x: 0,
+      facility_y: 0,
+    });
     const newUnit = Object.values(s.units).find((u) => u.unit_type === "apc")!;
     expect(newUnit.fuel).toBe(70);
   });
@@ -233,7 +307,14 @@ describe("UNLOAD command", () => {
     let s = makeState(5, 5);
     s = addTestUnit(s, { id: 1, unit_type: "apc", owner_id: 0, x: 2, y: 0, cargo: [2] });
     s = addTestUnit(s, { id: 2, unit_type: "infantry", owner_id: 0, x: 2, y: 0, is_loaded: true });
-    s = applyCommand(s, { type: "UNLOAD", player_id: 0, transport_id: 1, unit_index: 0, dest_x: 1, dest_y: 0 });
+    s = applyCommand(s, {
+      type: "UNLOAD",
+      player_id: 0,
+      transport_id: 1,
+      unit_index: 0,
+      dest_x: 1,
+      dest_y: 0,
+    });
     const transport = getUnit(s, 1)!;
     const unloaded = getUnit(s, 2)!;
     expect(transport.cargo).not.toContain(2);
@@ -275,7 +356,14 @@ describe("SUBMERGE / SURFACE commands", () => {
 
   it("sets is_submerged to false on SURFACE", () => {
     let s = makeState(5, 5);
-    s = addTestUnit(s, { id: 1, unit_type: "submarine", owner_id: 0, x: 0, y: 0, is_submerged: true });
+    s = addTestUnit(s, {
+      id: 1,
+      unit_type: "submarine",
+      owner_id: 0,
+      x: 0,
+      y: 0,
+      is_submerged: true,
+    });
     s = applyCommand(s, { type: "SURFACE", player_id: 0, unit_id: 1 });
     expect(getUnit(s, 1)!.is_submerged).toBe(false);
   });
@@ -301,7 +389,15 @@ describe("END_TURN command", () => {
 
   it("resets has_moved and has_acted for units of the new player", () => {
     let s = makeState(5, 5);
-    s = addTestUnit(s, { id: 1, unit_type: "infantry", owner_id: 1, x: 0, y: 0, has_moved: true, has_acted: true });
+    s = addTestUnit(s, {
+      id: 1,
+      unit_type: "infantry",
+      owner_id: 1,
+      x: 0,
+      y: 0,
+      has_moved: true,
+      has_acted: true,
+    });
     s = applyCommand(s, { type: "END_TURN", player_id: 0 });
     const unit = getUnit(s, 1)!;
     expect(unit.has_moved).toBe(false);
@@ -351,7 +447,13 @@ describe("END_TURN command", () => {
   it("destroys submerged submarine when fuel runs out", () => {
     let s = makeState(5, 5);
     s = addTestUnit(s, {
-      id: 1, unit_type: "submarine", owner_id: 1, x: 0, y: 0, fuel: 1, is_submerged: true,
+      id: 1,
+      unit_type: "submarine",
+      owner_id: 1,
+      x: 0,
+      y: 0,
+      fuel: 1,
+      is_submerged: true,
     });
     s = applyCommand(s, { type: "END_TURN", player_id: 0 });
     expect(getUnit(s, 1)).toBeNull();
@@ -360,7 +462,13 @@ describe("END_TURN command", () => {
   it("does not destroy surface submarine when fuel runs out", () => {
     let s = makeState(5, 5);
     s = addTestUnit(s, {
-      id: 1, unit_type: "submarine", owner_id: 1, x: 0, y: 0, fuel: 1, is_submerged: false,
+      id: 1,
+      unit_type: "submarine",
+      owner_id: 1,
+      x: 0,
+      y: 0,
+      fuel: 1,
+      is_submerged: false,
     });
     s = applyCommand(s, { type: "END_TURN", player_id: 0 });
     // Surface sub survives but at 0 fuel

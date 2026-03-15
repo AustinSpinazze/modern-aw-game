@@ -310,7 +310,9 @@ export default function TileInfoPanel() {
             ))}
             <span className="text-gray-400 text-sm ml-1">Def</span>
           </div>
-          {tile.has_trench && <div className="text-amber-500 text-sm mt-1.5">⛏ Trench (+2 def)</div>}
+          {tile.has_trench && (
+            <div className="text-amber-500 text-sm mt-1.5">⛏ Trench (+2 def)</div>
+          )}
           {tile.has_fob && (
             <div className="text-orange-500 text-sm mt-1.5">🏗 FOB (HP: {tile.fob_hp})</div>
           )}

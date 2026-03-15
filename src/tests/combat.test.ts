@@ -18,10 +18,18 @@ function makeZeroLuckState() {
   return { ...makeState(), luck_min: 0, luck_max: 0 };
 }
 
-function makeUnit(partial: Partial<UnitState> & { id: number; unit_type: string; owner_id: number }): UnitState {
+function makeUnit(
+  partial: Partial<UnitState> & { id: number; unit_type: string; owner_id: number }
+): UnitState {
   return {
-    x: 0, y: 0, hp: 10, has_moved: false, has_acted: false,
-    ammo: {}, cargo: [], is_loaded: false,
+    x: 0,
+    y: 0,
+    hp: 10,
+    has_moved: false,
+    has_acted: false,
+    ammo: {},
+    cargo: [],
+    is_loaded: false,
     ...partial,
   };
 }
@@ -101,7 +109,14 @@ describe("canAttack", () => {
   it("returns false when damage table entry is 0", () => {
     const s = makeState();
     // Tank cannon vs infantry = 0 damage
-    const attacker = makeUnit({ id: 1, unit_type: "tank", owner_id: 0, x: 0, y: 0, ammo: { cannon: 9 } });
+    const attacker = makeUnit({
+      id: 1,
+      unit_type: "tank",
+      owner_id: 0,
+      x: 0,
+      y: 0,
+      ammo: { cannon: 9 },
+    });
     const defender = makeUnit({ id: 2, unit_type: "infantry", owner_id: 1, x: 1, y: 0 });
     expect(canAttack(attacker, defender, s, 0)).toBe(false); // cannon slot
   });
@@ -109,7 +124,14 @@ describe("canAttack", () => {
   it("returns false when ammo is depleted", () => {
     const s = makeState();
     // Mech bazooka has ammo 3; set it to 0
-    const attacker = makeUnit({ id: 1, unit_type: "mech", owner_id: 0, x: 0, y: 0, ammo: { bazooka: 0 } });
+    const attacker = makeUnit({
+      id: 1,
+      unit_type: "mech",
+      owner_id: 0,
+      x: 0,
+      y: 0,
+      ammo: { bazooka: 0 },
+    });
     const defender = makeUnit({ id: 2, unit_type: "tank", owner_id: 1, x: 1, y: 0 });
     expect(canAttack(attacker, defender, s, 0)).toBe(false); // bazooka slot
   });
@@ -123,7 +145,14 @@ describe("canAttack", () => {
 
   it("returns false for artillery firing at min-range gap (adjacent)", () => {
     const s = makeState();
-    const attacker = makeUnit({ id: 1, unit_type: "artillery", owner_id: 0, x: 0, y: 0, ammo: { cannon: 9 } });
+    const attacker = makeUnit({
+      id: 1,
+      unit_type: "artillery",
+      owner_id: 0,
+      x: 0,
+      y: 0,
+      ammo: { cannon: 9 },
+    });
     const defender = makeUnit({ id: 2, unit_type: "infantry", owner_id: 1, x: 1, y: 0 });
     // Artillery min_range=2, distance=1 → cannot attack
     expect(canAttack(attacker, defender, s, 0)).toBe(false);
@@ -131,7 +160,14 @@ describe("canAttack", () => {
 
   it("returns true for artillery at valid indirect range", () => {
     const s = makeState(10, 10);
-    const attacker = makeUnit({ id: 1, unit_type: "artillery", owner_id: 0, x: 0, y: 0, ammo: { cannon: 9 } });
+    const attacker = makeUnit({
+      id: 1,
+      unit_type: "artillery",
+      owner_id: 0,
+      x: 0,
+      y: 0,
+      ammo: { cannon: 9 },
+    });
     const defender = makeUnit({ id: 2, unit_type: "infantry", owner_id: 1, x: 2, y: 0 });
     expect(canAttack(attacker, defender, s, 0)).toBe(true);
   });
@@ -140,7 +176,14 @@ describe("canAttack", () => {
 describe("executeCombat", () => {
   it("deals damage to defender", () => {
     const s = { ...makeZeroLuckState(), map_width: 10, map_height: 10 };
-    const attacker = makeUnit({ id: 1, unit_type: "artillery", owner_id: 0, x: 0, y: 0, ammo: { cannon: 9 } });
+    const attacker = makeUnit({
+      id: 1,
+      unit_type: "artillery",
+      owner_id: 0,
+      x: 0,
+      y: 0,
+      ammo: { cannon: 9 },
+    });
     const defender = makeUnit({ id: 2, unit_type: "infantry", owner_id: 1, x: 2, y: 0 });
     const { result } = executeCombat(attacker, defender, s, 0);
     expect(result.attacker_damage_dealt).toBeGreaterThan(0);
@@ -150,7 +193,14 @@ describe("executeCombat", () => {
   it("marks defender as destroyed when HP reaches 0", () => {
     const s = { ...makeZeroLuckState(), map_width: 10, map_height: 10 };
     // Artillery vs infantry at 1 HP
-    const attacker = makeUnit({ id: 1, unit_type: "artillery", owner_id: 0, x: 0, y: 0, ammo: { cannon: 9 } });
+    const attacker = makeUnit({
+      id: 1,
+      unit_type: "artillery",
+      owner_id: 0,
+      x: 0,
+      y: 0,
+      ammo: { cannon: 9 },
+    });
     const defender = makeUnit({ id: 2, unit_type: "infantry", owner_id: 1, hp: 1, x: 2, y: 0 });
     const { result } = executeCombat(attacker, defender, s, 0);
     expect(result.defender_destroyed).toBe(true);
@@ -172,8 +222,22 @@ describe("executeCombat", () => {
   it("does not trigger counterattack from indirect units", () => {
     const s = { ...makeZeroLuckState(), map_width: 10, map_height: 10 };
     // Fighter attacks artillery; artillery can_counterattack is false
-    const attacker = makeUnit({ id: 1, unit_type: "b_copter", owner_id: 0, x: 0, y: 0, ammo: { missiles: 6 } });
-    const defender = makeUnit({ id: 2, unit_type: "artillery", owner_id: 1, x: 1, y: 0, ammo: { cannon: 9 } });
+    const attacker = makeUnit({
+      id: 1,
+      unit_type: "b_copter",
+      owner_id: 0,
+      x: 0,
+      y: 0,
+      ammo: { missiles: 6 },
+    });
+    const defender = makeUnit({
+      id: 2,
+      unit_type: "artillery",
+      owner_id: 1,
+      x: 1,
+      y: 0,
+      ammo: { cannon: 9 },
+    });
     const { result } = executeCombat(attacker, defender, s, 0);
     // Artillery cannot counterattack (can_counterattack: false)
     expect(result.defender_damage_dealt).toBe(0);
@@ -181,7 +245,14 @@ describe("executeCombat", () => {
 
   it("does not trigger counterattack when defender is destroyed", () => {
     const s = { ...makeZeroLuckState(), map_width: 10, map_height: 10 };
-    const attacker = makeUnit({ id: 1, unit_type: "artillery", owner_id: 0, x: 0, y: 0, ammo: { cannon: 9 } });
+    const attacker = makeUnit({
+      id: 1,
+      unit_type: "artillery",
+      owner_id: 0,
+      x: 0,
+      y: 0,
+      ammo: { cannon: 9 },
+    });
     const defender = makeUnit({ id: 2, unit_type: "infantry", owner_id: 1, hp: 1, x: 2, y: 0 });
     const { result } = executeCombat(attacker, defender, s, 0);
     expect(result.defender_destroyed).toBe(true);
@@ -190,7 +261,14 @@ describe("executeCombat", () => {
 
   it("increments attack_counter in returned state", () => {
     const s = { ...makeZeroLuckState(), attack_counter: 0, map_width: 10, map_height: 10 };
-    const attacker = makeUnit({ id: 1, unit_type: "artillery", owner_id: 0, x: 0, y: 0, ammo: { cannon: 9 } });
+    const attacker = makeUnit({
+      id: 1,
+      unit_type: "artillery",
+      owner_id: 0,
+      x: 0,
+      y: 0,
+      ammo: { cannon: 9 },
+    });
     const defender = makeUnit({ id: 2, unit_type: "infantry", owner_id: 1, x: 2, y: 0 });
     const { state: newState } = executeCombat(attacker, defender, s, 0);
     expect(newState.attack_counter).toBeGreaterThan(0);
@@ -202,7 +280,14 @@ describe("getBestWeapon", () => {
     const s = makeState(10, 10);
     // Tank cannon and MG vs infantry: cannon deals 0, MG deals damage → returns MG (index 1)
     // But actually cannon deals 0 vs infantry, MG deals 75 → index 1
-    const attacker = makeUnit({ id: 1, unit_type: "tank", owner_id: 0, x: 0, y: 0, ammo: { cannon: 9 } });
+    const attacker = makeUnit({
+      id: 1,
+      unit_type: "tank",
+      owner_id: 0,
+      x: 0,
+      y: 0,
+      ammo: { cannon: 9 },
+    });
     // t_copter at range 1: tank weapons don't hit t_copter except MG
     const defender = makeUnit({ id: 2, unit_type: "t_copter", owner_id: 1, x: 1, y: 0 });
     const result = getBestWeapon(attacker, defender, s);
@@ -220,7 +305,14 @@ describe("getBestWeapon", () => {
   it("selects primary weapon when it deals more damage", () => {
     const s = makeState(10, 10);
     // Mech bazooka vs tank: bazooka deals 55, MG deals 6 → bazooka (index 0)
-    const attacker = makeUnit({ id: 1, unit_type: "mech", owner_id: 0, x: 0, y: 0, ammo: { bazooka: 3 } });
+    const attacker = makeUnit({
+      id: 1,
+      unit_type: "mech",
+      owner_id: 0,
+      x: 0,
+      y: 0,
+      ammo: { bazooka: 3 },
+    });
     const defender = makeUnit({ id: 2, unit_type: "tank", owner_id: 1, x: 1, y: 0 });
     expect(getBestWeapon(attacker, defender, s)).toBe(0);
   });

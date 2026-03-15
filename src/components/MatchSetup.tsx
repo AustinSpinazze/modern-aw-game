@@ -280,7 +280,6 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
     }
   };
 
-
   const handleAwbwImport = async () => {
     setAwbwError("");
     if (!awbwText.trim()) {
@@ -373,10 +372,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
     <header className="bg-white border-b border-gray-200 shrink-0">
       <div className="flex items-center justify-between px-6 py-3">
         <div className="flex items-center gap-2 text-base font-semibold uppercase tracking-wide">
-          <button
-            onClick={onExit}
-            className="text-gray-400 hover:text-gray-700 transition-colors"
-          >
+          <button onClick={onExit} className="text-gray-400 hover:text-gray-700 transition-colors">
             Main Menu
           </button>
           <span className="text-gray-300">›</span>
@@ -387,7 +383,11 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
           {STEP_LABELS.map((label, i) => (
             <div key={i} className="flex items-center gap-2">
               {i > 0 && <div className="w-8 h-px bg-gray-300" />}
-              <span className={i === step ? "text-amber-500" : i < step ? "text-gray-400" : "text-gray-300"}>
+              <span
+                className={
+                  i === step ? "text-amber-500" : i < step ? "text-gray-400" : "text-gray-300"
+                }
+              >
                 {String(i + 1).padStart(2, "0")} {label}
               </span>
             </div>
@@ -460,9 +460,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
                         }`}
                       >
                         <div className="font-bold text-base">{opt.label}</div>
-                        <div className="text-lg text-gray-500 mt-0.5 leading-tight">
-                          {opt.desc}
-                        </div>
+                        <div className="text-lg text-gray-500 mt-0.5 leading-tight">{opt.desc}</div>
                         {opt.req && <div className="text-base text-red-500 mt-1">{opt.req}</div>}
                       </button>
                     ))}
@@ -482,11 +480,11 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
             </div>
           </div>
         </div>
-      {/* Bottom status bar */}
-      <div className="shrink-0 bg-white border-t border-gray-200 px-6 py-2 flex items-center justify-between text-sm font-mono text-gray-400 uppercase tracking-widest">
-        <span>{STEP_LABELS[step]}</span>
-        <span>{step + 1} / 4</span>
-      </div>
+        {/* Bottom status bar */}
+        <div className="shrink-0 bg-white border-t border-gray-200 px-6 py-2 flex items-center justify-between text-sm font-mono text-gray-400 uppercase tracking-widest">
+          <span>{STEP_LABELS[step]}</span>
+          <span>{step + 1} / 4</span>
+        </div>
       </div>
     );
   }
@@ -629,11 +627,14 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
                               setSelectedSavedMapId(map.id);
                             }}
                           >
-                            <div className={`text-base font-medium truncate ${selectedSavedMapId === map.id ? "text-amber-700" : "text-gray-900"}`}>
+                            <div
+                              className={`text-base font-medium truncate ${selectedSavedMapId === map.id ? "text-amber-700" : "text-gray-900"}`}
+                            >
                               {map.name}
                             </div>
                             <div className="text-sm text-gray-500">
-                              {map.width}×{map.height} · {new Date(map.savedAt).toLocaleDateString()}
+                              {map.width}×{map.height} ·{" "}
+                              {new Date(map.savedAt).toLocaleDateString()}
                             </div>
                           </button>
                           <button
@@ -656,7 +657,9 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
                       <div className="pt-1">
                         <div className="flex items-center justify-between text-sm text-gray-500 mb-2">
                           <span>Map Preview</span>
-                          <span className="font-mono">{parsedPreview.width}×{parsedPreview.height}</span>
+                          <span className="font-mono">
+                            {parsedPreview.width}×{parsedPreview.height}
+                          </span>
                         </div>
                         <MapMinimap preview={parsedPreview} />
                       </div>
@@ -676,7 +679,10 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
               </button>
               <button
                 onClick={() => setStep(2)}
-                disabled={(mapMode === "awbw" && !parsedPreview) || (mapMode === "saved" && !selectedSavedMapId)}
+                disabled={
+                  (mapMode === "awbw" && !parsedPreview) ||
+                  (mapMode === "saved" && !selectedSavedMapId)
+                }
                 className="px-8 py-3 bg-amber-500 hover:bg-amber-400 disabled:bg-gray-200 disabled:text-gray-400 text-white font-black rounded-xl transition-colors text-lg"
               >
                 Continue →
@@ -684,11 +690,11 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
             </div>
           </div>
         </div>
-      {/* Bottom status bar */}
-      <div className="shrink-0 bg-white border-t border-gray-200 px-6 py-2 flex items-center justify-between text-sm font-mono text-gray-400 uppercase tracking-widest">
-        <span>{STEP_LABELS[step]}</span>
-        <span>{step + 1} / 4</span>
-      </div>
+        {/* Bottom status bar */}
+        <div className="shrink-0 bg-white border-t border-gray-200 px-6 py-2 flex items-center justify-between text-sm font-mono text-gray-400 uppercase tracking-widest">
+          <span>{STEP_LABELS[step]}</span>
+          <span>{step + 1} / 4</span>
+        </div>
       </div>
     );
   }
@@ -871,9 +877,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
               </span>
               <span>
                 Turns:{" "}
-                <span className="text-gray-700">
-                  {config.maxTurns < 0 ? "∞" : config.maxTurns}
-                </span>
+                <span className="text-gray-700">{config.maxTurns < 0 ? "∞" : config.maxTurns}</span>
               </span>
               <span>
                 Fog: <span className="text-gray-700">{config.fogOfWar ? "On" : "Off"}</span>
@@ -907,11 +911,11 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
             </div>
           </div>
         </div>
-      {/* Bottom status bar */}
-      <div className="shrink-0 bg-white border-t border-gray-200 px-6 py-2 flex items-center justify-between text-sm font-mono text-gray-400 uppercase tracking-widest">
-        <span>{STEP_LABELS[step]}</span>
-        <span>{step + 1} / 4</span>
-      </div>
+        {/* Bottom status bar */}
+        <div className="shrink-0 bg-white border-t border-gray-200 px-6 py-2 flex items-center justify-between text-sm font-mono text-gray-400 uppercase tracking-widest">
+          <span>{STEP_LABELS[step]}</span>
+          <span>{step + 1} / 4</span>
+        </div>
       </div>
     );
   }

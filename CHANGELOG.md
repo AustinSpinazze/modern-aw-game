@@ -4,6 +4,125 @@ This file tracks significant changes made by AI agents (Claude Code, Cursor, etc
 
 ---
 
+## 2026-03-15 (Session 13) — UX Overhaul: Cream Theme, Main Menu, Match Setup Wizard, Game View Chrome
+
+**Session:** Claude Code (claude-sonnet-4-6)
+**Status:** ✅ COMPLETE
+
+### Summary
+
+Full UX redesign pass inspired by Lovable mockups. Migrated the entire app from a dark `#0a0f18` palette to a warm cream `#f0ece0` parchment theme. Redesigned the Main Menu, rebuilt the Match Setup wizard, and overhauled the in-game HUD chrome (top bar, sidebar, bottom bar). All changes are limited to menus and chrome — the Pixi canvas, terrain, sprites, and game logic are untouched.
+
+---
+
+### Main Menu (`src/components/MainMenu.tsx`)
+
+- **Background**: Switched to `#f0ece0` parchment
+- **Corner targeting brackets**: Amber `border-amber-500/60` accent, matching the gold title color
+- **Two-tone title**: "MODERN" in `text-[#1a1f2e]` dark navy, "AW" in `text-amber-500` amber; red underline divider; "Reimagined" subtitle
+- **Unified nav card**: All three menu items wrapped in a single `border border-gray-200 rounded-xl overflow-hidden shadow-sm` container — eliminates the broken border inconsistency
+- **New Game button**: Dark `bg-[#1a1f2e]` fill with amber text to make it the primary CTA
+- **Continue/Settings**: White fill with gray text, consistent hover states
+- **Inline saves panel**: Expands below Continue with Load + Delete per save; delete uses `✕` with red hover
+- **Faction squares**: Four `w-3.5 h-3.5` colored squares (red/blue/green/yellow) below the nav
+- **Version string**: Moved to absolute bottom-center, `text-sm font-mono`
+- **Global**: Added `button { cursor: pointer; }` to `globals.css`
+
+---
+
+### Match Setup Wizard (`src/components/MatchSetup.tsx`)
+
+**Structure & Navigation**
+
+- All step backgrounds unified to `#f0ece0` parchment
+- **Header redesigned**: Breadcrumb pattern — `Main Menu › New Game` — where "Main Menu" is a button calling `onExit`, "New Game" is the static current context; always visible, no conditional back/forward logic
+- **Top-right step breadcrumb**: Step labels in amber for current step, gray for others; `text-sm font-bold uppercase tracking-widest`
+- **Bottom status bar**: Step name on the left, `X / 4` step counter on the right; `text-sm font-mono text-gray-400 uppercase tracking-widest`
+- Removed progress fill line (was redundant with breadcrumb + bottom bar)
+- Removed "Start Test Scenario" button and all associated logic
+
+**Step 1 — Players**
+
+- Player count selector + per-player controller type cards
+- Player label colors: red/blue/green/yellow consistent throughout
+
+**Step 2 — Map**
+
+- Tab navigation always visible: **Default Skirmish** / **Custom AWBW** / **Saved Maps (N)**
+- Saved Maps tab: empty state message when none saved; map preview with `MapMinimap` renders on selection; delete clears preview
+- Map option cards: white background (`bg-white border-gray-200`) in both selected and unselected states — no dark card on light background mismatch
+
+**Step 3 — Options**
+
+- All labels, buttons, and descriptions bumped to `text-lg`
+- Card titles `text-xl`
+- Consistent amber pill for selected option, white outline for unselected
+
+**Step 4 — Review**
+
+- Summary card: `text-lg shadow-sm`
+- All value spans given `font-semibold` — labels stay `text-gray-500` (light), values dominate visually
+- Funds value in `text-amber-400 font-mono font-semibold`
+- **DEPLOY FORCES** CTA: `bg-red-500 py-4 text-lg uppercase tracking-widest`, full-width
+
+---
+
+### Game View HUD (`src/App.tsx`, `src/components/InfoPanel.tsx`)
+
+**Top bar**
+
+- Kept faction-colored background (red/blue/green/yellow per current player)
+- Removed the previously-added stats strip (redundant with sidebar)
+- Player number + name + day display unchanged
+
+**Sidebar (`InfoPanel.tsx`)**
+
+- **Player card**: Added Income / Units / Cities stat strip below the `¥funds` headline
+  - `+Income` in green, `Units` in dark, `Cities` in amber; separated by vertical dividers
+- **End Turn button**: Full-width, faction-colored, with `E` shortcut badge — already present, kept
+- **PLAYERS scoreboard**: All players' funds with turn indicator arrow — already present, kept
+- **INTEL section**: Built / Alive / Props per player with faction-colored left border — already present, kept
+
+**Bottom status bar (new)**
+
+- White strip spanning full width below canvas + sidebar
+- Left: `POS xx · yy` (hovered tile coordinates) + terrain name + defense star dots (amber filled / gray empty)
+- Right: keyboard hints — `E End Turn` (human turns only) + `ESC Deselect` — using pill-style key badges
+- Shows "Hover a tile" placeholder when no tile is hovered
+
+**Canvas background**
+
+- Pixi `backgroundColor` changed from `0x1a1a2e` (dark navy) to `0xf0ece0` (parchment) in `src/rendering/pixi-app.ts` — area outside the map tiles now matches the theme
+- Outer game wrapper changed from `bg-gray-900` to `style={{ background: "#f0ece0" }}`
+- Concave corner piece updated to use parchment fill
+
+---
+
+### Indirect Fire — Completed
+
+The indirect fire mechanic is fully implemented (session unknown, recording here for completeness):
+
+- Units with `min_range > 1` (artillery, rocket, missile, etc.) cannot attack after moving — enforced in `src/game/validators.ts`
+- Attack range overlay shows correctly for indirect units from their current position without requiring a move — handled in `src/store/game-store.ts`
+- No counterattack triggered when an indirect unit is the attacker — enforced in `src/game/combat.ts`
+- ActionMenu hides the Attack option for indirect units that have already moved — `src/components/ActionMenu.tsx`
+- TileInfoPanel and BuyMenu display `min_range–max_range` for weapons with indirect range
+
+---
+
+### Files Changed
+
+| File                            | Change                                                                                                      |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `src/components/MainMenu.tsx`   | Full redesign — cream bg, two-tone title, unified nav card, faction squares                                 |
+| `src/components/MatchSetup.tsx` | Full redesign — breadcrumb header, tab map selector, larger text, bold review values, removed test scenario |
+| `src/App.tsx`                   | Game view wrapper to parchment, concave corner fix, bottom terrain bar added                                |
+| `src/components/InfoPanel.tsx`  | Added Income/Units/Cities stat strip to player card                                                         |
+| `src/rendering/pixi-app.ts`     | `backgroundColor` changed from `0x1a1a2e` to `0xf0ece0`                                                     |
+| `src/styles/globals.css`        | Added `button { cursor: pointer; }` globally                                                                |
+
+---
+
 ## 2026-03-11 (Session 12) — UI Polish: Timer Fixes, Pause, Resign, Victory Screen
 
 **Session:** Claude Code (claude-sonnet-4-6)

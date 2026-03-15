@@ -40,7 +40,9 @@ const TEAM_FUNDS_TEXT: Record<number, string> = {
 };
 
 function weaponName(w: WeaponData): string {
-  return (w as any).name ?? w.id.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+  return (
+    (w as any).name ?? w.id.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())
+  );
 }
 
 export default function BuyMenu({ facilityX, facilityY, onClose }: BuyMenuProps) {
@@ -125,10 +127,14 @@ export default function BuyMenu({ facilityX, facilityY, onClose }: BuyMenuProps)
               >
                 {/* Row 1: name + cost */}
                 <div className="flex items-baseline justify-between">
-                  <div className={`font-bold text-base ${canBuy ? "text-gray-900" : "text-gray-400"}`}>
+                  <div
+                    className={`font-bold text-base ${canBuy ? "text-gray-900" : "text-gray-400"}`}
+                  >
                     {unitData.name}
                   </div>
-                  <div className={`font-mono font-bold text-base shrink-0 ml-3 ${canBuy ? "text-amber-500" : "text-gray-300"}`}>
+                  <div
+                    className={`font-mono font-bold text-base shrink-0 ml-3 ${canBuy ? "text-amber-500" : "text-gray-300"}`}
+                  >
                     ¥{unitData.cost.toLocaleString()}
                   </div>
                 </div>
@@ -143,7 +149,9 @@ export default function BuyMenu({ facilityX, facilityY, onClose }: BuyMenuProps)
                   {primary && (
                     <>
                       <span>·</span>
-                      <span>Rng {primary.min_range}–{primary.max_range}</span>
+                      <span>
+                        Rng {primary.min_range}–{primary.max_range}
+                      </span>
                     </>
                   )}
                 </div>
@@ -156,15 +164,14 @@ export default function BuyMenu({ facilityX, facilityY, onClose }: BuyMenuProps)
                   {primary && (
                     <span className="text-sm">
                       <span className="text-orange-500 font-medium">{weaponName(primary)}</span>
-                      {primary.ammo > 0
-                        ? <span className="text-gray-400"> ({primary.ammo} ammo)</span>
-                        : <span className="text-gray-400"> (∞)</span>
-                      }
+                      {primary.ammo > 0 ? (
+                        <span className="text-gray-400"> ({primary.ammo} ammo)</span>
+                      ) : (
+                        <span className="text-gray-400"> (∞)</span>
+                      )}
                     </span>
                   )}
-                  {secondary && (
-                    <span className="text-sm text-gray-300">·</span>
-                  )}
+                  {secondary && <span className="text-sm text-gray-300">·</span>}
                   {secondary && (
                     <span className="text-sm">
                       <span className="text-yellow-600 font-medium">{weaponName(secondary)}</span>

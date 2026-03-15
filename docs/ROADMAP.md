@@ -289,16 +289,16 @@ A modern Advance Wars-inspired turn-based strategy game that:
 | ~~Fog of War~~          | ~~High~~   | ~~Medium~~ | ✅ Done   | -     |
 | ~~Transport mechanics~~ | ~~Medium~~ | ~~Medium~~ | ✅ Done   | -     |
 | ~~Fuel mechanics~~      | ~~Medium~~ | ~~Medium~~ | ✅ Done   | -     |
-| Indirect fire           | High       | Medium     | 🟡 Medium | 7     |
-| Camera follow           | Medium     | Low        | 🟡 Medium | 8     |
-| Optional polish         | Low        | Low–Medium | 🟢 Low    | 9     |
-| Online multiplayer      | High       | High       | 🟡 Medium | 10    |
-| Map preview             | Medium     | Low        | 🟡 Medium | 11    |
-| Map editor              | Medium     | High       | 🟢 Low    | 12    |
-| Shoal coastline tiles   | Medium     | Medium     | 🟡 Medium | 13    |
-| Custom units (units.md) | High       | High       | 🟢 Low    | 14    |
-| New buildings/tiles     | Medium     | Medium     | 🟢 Low    | 15    |
-| Audio/SFX               | Medium     | Low        | 🟢 Low    | 16    |
+| ~~Indirect fire~~       | ~~High~~   | ~~Medium~~ | ✅ Done   | -     |
+| Camera follow           | Medium     | Low        | 🟡 Medium | 7     |
+| Optional polish         | Low        | Low–Medium | 🟢 Low    | 8     |
+| Online multiplayer      | High       | High       | 🟡 Medium | 9     |
+| Map preview             | Medium     | Low        | 🟡 Medium | 10    |
+| Map editor              | Medium     | High       | 🟢 Low    | 11    |
+| Shoal coastline tiles   | Medium     | Medium     | 🟡 Medium | 12    |
+| Custom units (units.md) | High       | High       | 🟢 Low    | 13    |
+| New buildings/tiles     | Medium     | Medium     | 🟢 Low    | 14    |
+| Audio/SFX               | Medium     | Low        | 🟢 Low    | 15    |
 
 > **Note:** Electron migration comes before Audio because it enables local AI play with secure API key storage.
 > **Known gap:** WarsWorld assets only include one shoal sprite; coastlines render as uniform yellow. See Map Features → Shoal coastline auto-tiling.
@@ -313,16 +313,16 @@ Single list of all planned features for easy reference. Order follows Priority M
 | --- | -------------------------- | ------------------------------------------------------------------------------ |
 | –   | ~~Transport mechanics~~    | ✅ Done — Load/unload APC, T-Copter, Lander, Carrier; UI.                      |
 | –   | ~~Fuel mechanics~~         | ✅ Done — Air/naval fuel; resupply; 0 fuel = no move.                          |
-| 7   | Indirect fire              | Artillery, Rocket range attacks; no counter from target.                       |
-| 8   | Camera follow              | Camera follows moving unit when map larger than viewport.                      |
-| 9   | Optional polish            | Damage numbers, screen shake, AI thinking indicator, smooth camera, particles. |
-| 10  | Online multiplayer         | Partykit; create/join rooms; state sync.                                       |
-| 11  | Map preview                | Show map (name, size, thumbnail) before game start.                            |
-| 12  | Map editor                 | Create and edit maps in-app.                                                   |
-| 13  | Shoal coastline tiles      | Directional shoal sprites + auto-tiling.                                       |
-| 14  | Custom units (units.md)    | 30 designs; data + sprites.                                                    |
-| 15  | New buildings/tiles        | Radar, supply depot, new terrain.                                              |
-| 16  | Audio/SFX                  | In-game sounds and music. (Last.)                                              |
+| –   | ~~Indirect fire~~          | ✅ Done — Artillery, Rocket, Missile range attacks; no counter from target.    |
+| 7   | Camera follow              | Camera follows moving unit when map larger than viewport.                      |
+| 8   | Optional polish            | Damage numbers, screen shake, AI thinking indicator, smooth camera, particles. |
+| 9   | Online multiplayer         | Partykit; create/join rooms; state sync.                                       |
+| 10  | Map preview                | Show map (name, size, thumbnail) before game start.                            |
+| 11  | Map editor                 | Create and edit maps in-app.                                                   |
+| 12  | Shoal coastline tiles      | Directional shoal sprites + auto-tiling.                                       |
+| 13  | Custom units (units.md)    | 30 designs; data + sprites.                                                    |
+| 14  | New buildings/tiles        | Radar, supply depot, new terrain.                                              |
+| 15  | Audio/SFX                  | In-game sounds and music. (Last.)                                              |
 | –   | Hot-seat multiplayer       | Same device, pass-and-play.                                                    |
 | –   | Minimap                    | In-game minimap.                                                               |
 | –   | Ammo management            | Track and display ammo; resupply rules.                                        |

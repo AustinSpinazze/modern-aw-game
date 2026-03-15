@@ -110,7 +110,6 @@ interface SavedGameFile {
   state: GameState;
 }
 
-
 function AppContent() {
   const [view, setView] = useState<AppView>("menu");
   const [buyMenuTile, setBuyMenuTile] = useState<{ x: number; y: number } | null>(null);
@@ -586,7 +585,11 @@ function AppContent() {
   if (view === "setup") {
     return (
       <>
-        <MatchSetup onMatchStart={handleMatchStart} onOpenSettings={() => setShowSettings(true)} onExit={() => setView("menu")} />
+        <MatchSetup
+          onMatchStart={handleMatchStart}
+          onOpenSettings={() => setShowSettings(true)}
+          onExit={() => setView("menu")}
+        />
         {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       </>
     );
@@ -598,8 +601,11 @@ function AppContent() {
   const isAnimating = useGameStore.getState().isAnimating;
 
   // Bottom bar — hovered tile info
-  const hoveredTileData = hoveredTile && gameState ? getTile(gameState, hoveredTile.x, hoveredTile.y) : null;
-  const hoveredTerrainType = hoveredTileData?.has_fob ? "temporary_fob" : hoveredTileData?.terrain_type;
+  const hoveredTileData =
+    hoveredTile && gameState ? getTile(gameState, hoveredTile.x, hoveredTile.y) : null;
+  const hoveredTerrainType = hoveredTileData?.has_fob
+    ? "temporary_fob"
+    : hoveredTileData?.terrain_type;
   const hoveredTerrainData = hoveredTerrainType ? getTerrainData(hoveredTerrainType) : null;
 
   // Faction header uses a slightly darkened bg for yellow so white text is legible
@@ -614,7 +620,9 @@ function AppContent() {
   return (
     <div className="h-screen flex flex-col" style={{ background: "#f0ece0" }}>
       {/* Top bar — faction-colored background, white text */}
-      <header className={`h-14 shrink-0 flex items-center justify-between px-5 z-20 transition-colors ${TEAM_HEADER_BG[currentPlayer?.team ?? 0] ?? "bg-gray-700"}`}>
+      <header
+        className={`h-14 shrink-0 flex items-center justify-between px-5 z-20 transition-colors ${TEAM_HEADER_BG[currentPlayer?.team ?? 0] ?? "bg-gray-700"}`}
+      >
         {/* Left side — player number + name + day */}
         <div className="flex items-center gap-4">
           {currentPlayer && (
@@ -738,12 +746,13 @@ function AppContent() {
         {/* Main game area */}
         <main className="flex-1 relative overflow-hidden">
           {/* Concave corner: faction color fills top-right, dark inner div with rounded-tr carves the curve */}
-          <div className={`absolute top-0 right-0 w-8 h-8 pointer-events-none z-10 transition-colors ${TEAM_HEADER_BG[currentPlayer?.team ?? 0] ?? "bg-gray-700"}`}>
+          <div
+            className={`absolute top-0 right-0 w-8 h-8 pointer-events-none z-10 transition-colors ${TEAM_HEADER_BG[currentPlayer?.team ?? 0] ?? "bg-gray-700"}`}
+          >
             <div className="w-full h-full rounded-tr-2xl" style={{ background: "#f0ece0" }} />
           </div>
           <GameCanvas onFacilityClick={handleFacilityClick} />
           <ActionMenu />
-
 
           {/* AI thinking overlay */}
           {isAiProcessing && (
@@ -766,7 +775,9 @@ function AppContent() {
         </main>
 
         {/* Right sidebar */}
-        <aside className={`w-80 bg-white border-l-4 flex flex-col shrink-0 overflow-y-auto transition-colors ${TEAM_BORDER[currentPlayer?.team ?? 0] ?? "border-gray-200"}`}>
+        <aside
+          className={`w-80 bg-white border-l-4 flex flex-col shrink-0 overflow-y-auto transition-colors ${TEAM_BORDER[currentPlayer?.team ?? 0] ?? "border-gray-200"}`}
+        >
           <InfoPanel />
           <TileInfoPanel />
           <div className="flex-1" />
@@ -812,7 +823,9 @@ function AppContent() {
             </span>
             {hoveredTerrainData && (
               <>
-                <span className="text-gray-700 font-semibold text-sm">{hoveredTerrainData.name}</span>
+                <span className="text-gray-700 font-semibold text-sm">
+                  {hoveredTerrainData.name}
+                </span>
                 <div className="flex items-center gap-0.5">
                   {Array.from({ length: 4 }).map((_, i) => (
                     <div
@@ -831,12 +844,16 @@ function AppContent() {
         <div className="ml-auto flex items-center gap-3 text-gray-400 text-xs font-mono">
           {isHumanTurn && (
             <span>
-              <span className="bg-gray-100 border border-gray-300 rounded px-1.5 py-0.5 mr-1">E</span>
+              <span className="bg-gray-100 border border-gray-300 rounded px-1.5 py-0.5 mr-1">
+                E
+              </span>
               End Turn
             </span>
           )}
           <span>
-            <span className="bg-gray-100 border border-gray-300 rounded px-1.5 py-0.5 mr-1">ESC</span>
+            <span className="bg-gray-100 border border-gray-300 rounded px-1.5 py-0.5 mr-1">
+              ESC
+            </span>
             Deselect
           </span>
         </div>

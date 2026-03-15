@@ -140,8 +140,7 @@ export default function ActionMenu() {
 
   // Indirect units (any weapon with min_range > 1) cannot attack after moving
   const isIndirect = unitData.weapons.some((w) => w.min_range > 1);
-  const unitWouldMove =
-    pendingMove.x !== selectedUnit.x || pendingMove.y !== selectedUnit.y;
+  const unitWouldMove = pendingMove.x !== selectedUnit.x || pendingMove.y !== selectedUnit.y;
 
   // Find attackable enemies with damage preview
   type EnemyEntry = {
