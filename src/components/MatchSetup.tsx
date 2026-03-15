@@ -13,7 +13,6 @@ import {
 import { generateMatchSeed } from "../game/rng";
 import { loadGameData } from "../game/data-loader";
 import { parseAwbwMapText, importAwbwMap } from "../game/awbw-import";
-import { buildTestScenarioState } from "../game/test-scenario";
 import { applyIncome } from "../game/economy";
 import { useGameStore } from "../store/game-store";
 
@@ -102,6 +101,7 @@ const PLAYER_BORDER = [
 ];
 
 const STEPS = ["Players", "Map", "Options", "Review"];
+const STEP_LABELS = ["Players", "Map", "Options", "Review"];
 
 function loadSavedMaps(): SavedMap[] {
   try {
@@ -280,16 +280,6 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
     }
   };
 
-  const handleStartTestScenario = async () => {
-    setLoading(true);
-    try {
-      await loadGameData();
-      setGameState(buildTestScenarioState());
-      onMatchStart();
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleAwbwImport = async () => {
     setAwbwError("");
@@ -369,7 +359,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
   };
 
   const handleLaunch = async () => {
-    if (mapMode === "awbw" && parsedPreview) {
+    if ((mapMode === "awbw" || mapMode === "saved") && parsedPreview) {
       await handleAwbwImport();
     } else {
       await handleStart();
@@ -380,35 +370,29 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
 
   // ── Shared header ────────────────────────────────────────────────────────────
   const header = (
-    <header className="bg-gray-900 flex items-center justify-between px-6 py-4 border-b border-gray-700 shrink-0">
-      <div className="flex items-center gap-4">
-        {step === 0 ? (
+    <header className="bg-white border-b border-gray-200 shrink-0">
+      <div className="flex items-center justify-between px-6 py-3">
+        <div className="flex items-center gap-2 text-base font-semibold uppercase tracking-wide">
           <button
             onClick={onExit}
-            className="text-white/60 hover:text-white text-sm font-semibold transition-colors"
+            className="text-gray-400 hover:text-gray-700 transition-colors"
           >
-            ← Menu
+            Main Menu
           </button>
-        ) : (
-          <button
-            onClick={() => setStep((s) => Math.max(0, s - 1))}
-            className="text-white/60 hover:text-white text-sm font-semibold transition-colors"
-          >
-            ← Back
-          </button>
-        )}
-        <span className="text-white font-black tracking-widest text-lg">NEW GAME</span>
-      </div>
-      <div className="flex items-center gap-4">
-        <StepIndicator current={step} />
-        {onOpenSettings && (
-          <button
-            onClick={onOpenSettings}
-            className="text-slate-400 hover:text-white text-sm px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition-colors"
-          >
-            ⚙ Settings
-          </button>
-        )}
+          <span className="text-gray-300">›</span>
+          <span className="text-[#1a1f2e]">New Game</span>
+        </div>
+        {/* Step breadcrumb */}
+        <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest">
+          {STEP_LABELS.map((label, i) => (
+            <div key={i} className="flex items-center gap-2">
+              {i > 0 && <div className="w-8 h-px bg-gray-300" />}
+              <span className={i === step ? "text-amber-500" : i < step ? "text-gray-400" : "text-gray-300"}>
+                {String(i + 1).padStart(2, "0")} {label}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </header>
   );
@@ -416,24 +400,14 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
   // ── Step 0: Players ──────────────────────────────────────────────────────────
   if (step === 0) {
     return (
-      <div
-        className="min-h-screen bg-[#0a0f18] flex flex-col"
-        style={{
-          background:
-            "radial-gradient(ellipse 60% 50% at 0% 0%, rgba(239,68,68,0.13) 0%, transparent 70%), " +
-            "radial-gradient(ellipse 60% 50% at 100% 0%, rgba(59,130,246,0.13) 0%, transparent 70%), " +
-            "radial-gradient(ellipse 60% 50% at 0% 100%, rgba(34,197,94,0.10) 0%, transparent 70%), " +
-            "radial-gradient(ellipse 60% 50% at 100% 100%, rgba(234,179,8,0.11) 0%, transparent 70%), " +
-            "#0a0f18",
-        }}
-      >
+      <div className="min-h-screen flex flex-col" style={{ background: "#f0ece0" }}>
         {header}
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-10">
           <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-gray-100 p-8 space-y-6">
             {/* Player count */}
             <div>
-              <div className="text-gray-900 font-bold text-lg mb-1">Players</div>
-              <p className="text-gray-500 text-base mb-4">
+              <div className="text-gray-900 font-bold text-xl mb-1">Players</div>
+              <p className="text-gray-500 text-lg mb-4">
                 Choose how many players and who controls each army.
               </p>
               <div className="inline-flex bg-gray-100 rounded-lg p-1 border border-gray-200 mb-6">
@@ -486,10 +460,10 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
                         }`}
                       >
                         <div className="font-bold text-base">{opt.label}</div>
-                        <div className="text-sm text-gray-500 mt-0.5 leading-tight">
+                        <div className="text-lg text-gray-500 mt-0.5 leading-tight">
                           {opt.desc}
                         </div>
-                        {opt.req && <div className="text-sm text-red-500 mt-1">{opt.req}</div>}
+                        {opt.req && <div className="text-base text-red-500 mt-1">{opt.req}</div>}
                       </button>
                     ))}
                   </div>
@@ -508,6 +482,11 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
             </div>
           </div>
         </div>
+      {/* Bottom status bar */}
+      <div className="shrink-0 bg-white border-t border-gray-200 px-6 py-2 flex items-center justify-between text-sm font-mono text-gray-400 uppercase tracking-widest">
+        <span>{STEP_LABELS[step]}</span>
+        <span>{step + 1} / 4</span>
+      </div>
       </div>
     );
   }
@@ -515,171 +494,174 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
   // ── Step 1: Map ──────────────────────────────────────────────────────────────
   if (step === 1) {
     return (
-      <div
-        className="min-h-screen bg-[#0a0f18] flex flex-col"
-        style={{
-          background:
-            "radial-gradient(ellipse 60% 50% at 0% 0%, rgba(239,68,68,0.13) 0%, transparent 70%), " +
-            "radial-gradient(ellipse 60% 50% at 100% 0%, rgba(59,130,246,0.13) 0%, transparent 70%), " +
-            "radial-gradient(ellipse 60% 50% at 0% 100%, rgba(34,197,94,0.10) 0%, transparent 70%), " +
-            "radial-gradient(ellipse 60% 50% at 100% 100%, rgba(234,179,8,0.11) 0%, transparent 70%), " +
-            "#0a0f18",
-        }}
-      >
+      <div className="min-h-screen flex flex-col" style={{ background: "#f0ece0" }}>
         {header}
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-10">
           <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-gray-100 p-8 space-y-4">
             <div>
-              <div className="text-gray-900 font-bold text-lg mb-1">Map</div>
-              <p className="text-gray-500 text-base mb-4">Select a map for this match.</p>
+              <div className="text-gray-900 font-bold text-xl mb-1">Map</div>
+              <p className="text-gray-500 text-lg mb-4">Select a map for this match.</p>
             </div>
 
-            {/* Option: Default Skirmish */}
-            <button
-              onClick={() => setMapMode("default")}
-              className={`w-full text-left p-4 rounded-xl border transition-colors ${
-                mapMode === "default"
-                  ? "bg-amber-50 border-amber-500"
-                  : "bg-white border-gray-200 hover:border-gray-400"
-              }`}
-            >
-              <div className="font-bold text-sm text-gray-900">Default Skirmish</div>
-              <div className="text-sm text-gray-500 mt-0.5">
-                {DEFAULT_MAP_WIDTH}×{DEFAULT_MAP_HEIGHT} hand-crafted map · Always available
-              </div>
-            </button>
-
-            {/* Option: Custom AWBW Map */}
-            <div
-              className={`rounded-xl border transition-colors ${
-                mapMode === "awbw"
-                  ? "bg-amber-50 border-amber-500"
-                  : "bg-white border-gray-200 hover:border-gray-400"
-              }`}
-            >
-              <button onClick={() => setMapMode("awbw")} className="w-full text-left p-4">
-                <div className="font-bold text-sm text-gray-900">Custom AWBW Map</div>
-                <div className="text-sm text-gray-500 mt-0.5">
-                  Paste CSV tile data from advancewars.net/maproom
-                </div>
-              </button>
-
-              {mapMode === "awbw" && (
-                <div className="px-4 pb-4 space-y-3 border-t border-amber-200">
-                  <textarea
-                    value={awbwText}
-                    onChange={(e) => {
-                      const text = e.target.value;
-                      setAwbwText(text);
-                      setAwbwError("");
-                      if (text.trim()) {
-                        try {
-                          const mapData = parseAwbwMapText(text);
-                          setParsedPreview(
-                            mapData.width > 0
-                              ? {
-                                  width: mapData.width,
-                                  height: mapData.height,
-                                  tiles: mapData.tiles,
-                                }
-                              : null
-                          );
-                        } catch {
-                          setParsedPreview(null);
-                        }
-                      } else {
-                        setParsedPreview(null);
-                      }
-                    }}
-                    placeholder="Paste AWBW map CSV (comma-separated tile IDs, one row per line)"
-                    className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 font-mono h-20 resize-y focus:border-amber-500 focus:outline-none mt-3"
-                  />
-
-                  {parsedPreview && (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-green-400">
-                          {parsedPreview.width}×{parsedPreview.height} tiles detected
-                        </span>
-                        <span className="text-gray-500">minimap preview</span>
-                      </div>
-                      <MapMinimap preview={parsedPreview} />
-
-                      {/* Save map controls */}
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={mapName}
-                          onChange={(e) => setMapName(e.target.value)}
-                          placeholder="Map name (optional)"
-                          className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:border-amber-500 focus:outline-none"
-                          onKeyDown={(e) => e.key === "Enter" && handleSaveMap()}
-                        />
-                        <button
-                          onClick={handleSaveMap}
-                          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded-lg transition-colors shrink-0"
-                        >
-                          Save Map
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {awbwError && <p className="text-red-400 text-sm">{awbwError}</p>}
-                </div>
-              )}
-            </div>
-
-            {/* Option: Saved Maps */}
-            {savedMaps.length > 0 && (
-              <div
-                className={`rounded-xl border transition-colors ${
-                  mapMode === "saved"
-                    ? "bg-amber-50 border-amber-500"
-                    : "bg-white border-gray-200 hover:border-gray-400"
+            {/* Tab navigation */}
+            <div className="flex border-b border-gray-200 mb-4">
+              <button
+                onClick={() => setMapMode("default")}
+                className={`px-4 py-2.5 text-base font-bold uppercase tracking-wide transition-colors border-b-2 -mb-px ${
+                  mapMode === "default"
+                    ? "border-amber-500 text-amber-600"
+                    : "border-transparent text-gray-400 hover:text-gray-700"
                 }`}
               >
-                <button onClick={() => setMapMode("saved")} className="w-full text-left p-4">
-                  <div className="font-bold text-sm text-gray-900">Saved Maps</div>
-                  <div className="text-sm text-gray-500 mt-0.5">
-                    {savedMaps.length} saved {savedMaps.length === 1 ? "map" : "maps"} · Click to
-                    select
-                  </div>
-                </button>
+                Default Skirmish
+              </button>
+              <button
+                onClick={() => setMapMode("awbw")}
+                className={`px-4 py-2.5 text-base font-bold uppercase tracking-wide transition-colors border-b-2 -mb-px ${
+                  mapMode === "awbw"
+                    ? "border-amber-500 text-amber-600"
+                    : "border-transparent text-gray-400 hover:text-gray-700"
+                }`}
+              >
+                Custom AWBW
+              </button>
+              <button
+                onClick={() => setMapMode("saved")}
+                className={`px-4 py-2.5 text-base font-bold uppercase tracking-wide transition-colors border-b-2 -mb-px ${
+                  mapMode === "saved"
+                    ? "border-amber-500 text-amber-600"
+                    : "border-transparent text-gray-400 hover:text-gray-700"
+                }`}
+              >
+                Saved Maps
+                {savedMaps.length > 0 && (
+                  <span className="ml-1.5 text-xs bg-amber-100 text-amber-600 rounded-full px-1.5 py-0.5 font-bold">
+                    {savedMaps.length}
+                  </span>
+                )}
+              </button>
+            </div>
 
-                {mapMode === "saved" && (
-                  <div className="border-t border-gray-200 divide-y divide-gray-100">
-                    {savedMaps.map((map) => (
-                      <div
-                        key={map.id}
-                        className={`flex items-center gap-2 px-4 py-2.5 transition-colors ${
-                          selectedSavedMapId === map.id
-                            ? "bg-amber-50"
-                            : "hover:bg-gray-50"
-                        }`}
+            {/* Tab content */}
+            {mapMode === "default" && (
+              <div className="text-gray-500 text-base py-4">
+                {DEFAULT_MAP_WIDTH}×{DEFAULT_MAP_HEIGHT} hand-crafted map. Always available.
+              </div>
+            )}
+
+            {mapMode === "awbw" && (
+              <div className="space-y-3">
+                <textarea
+                  value={awbwText}
+                  onChange={(e) => {
+                    const text = e.target.value;
+                    setAwbwText(text);
+                    setAwbwError("");
+                    if (text.trim()) {
+                      try {
+                        const mapData = parseAwbwMapText(text);
+                        setParsedPreview(
+                          mapData.width > 0
+                            ? { width: mapData.width, height: mapData.height, tiles: mapData.tiles }
+                            : null
+                        );
+                      } catch {
+                        setParsedPreview(null);
+                      }
+                    } else {
+                      setParsedPreview(null);
+                    }
+                  }}
+                  placeholder="Paste AWBW map CSV (comma-separated tile IDs, one row per line)"
+                  className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-base text-gray-900 font-mono h-20 resize-y focus:border-amber-500 focus:outline-none"
+                />
+                {parsedPreview && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-base">
+                      <span className="text-green-600">
+                        {parsedPreview.width}×{parsedPreview.height} tiles detected
+                      </span>
+                      <span className="text-gray-500">minimap preview</span>
+                    </div>
+                    <MapMinimap preview={parsedPreview} />
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={mapName}
+                        onChange={(e) => setMapName(e.target.value)}
+                        placeholder="Map name (optional)"
+                        className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-base text-gray-900 focus:border-amber-500 focus:outline-none"
+                        onKeyDown={(e) => e.key === "Enter" && handleSaveMap()}
+                      />
+                      <button
+                        onClick={handleSaveMap}
+                        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-base rounded-lg transition-colors shrink-0"
                       >
-                        <button
-                          className="flex-1 min-w-0 text-left"
-                          onClick={() => {
-                            handleLoadSavedMap(map);
-                            setSelectedSavedMapId(map.id);
-                            setMapMode("awbw");
-                          }}
-                        >
-                          <div className="text-sm text-gray-900 font-medium truncate">{map.name}</div>
-                          <div className="text-sm text-gray-500">
-                            {map.width}×{map.height} · {new Date(map.savedAt).toLocaleDateString()}
-                          </div>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteSavedMap(map.id)}
-                          className="shrink-0 px-2 py-1 bg-gray-100 hover:bg-red-50 text-gray-400 hover:text-red-500 text-sm rounded transition-colors"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
+                        Save Map
+                      </button>
+                    </div>
                   </div>
+                )}
+                {awbwError && <p className="text-red-500 text-base">{awbwError}</p>}
+              </div>
+            )}
+
+            {mapMode === "saved" && (
+              <div className="space-y-3">
+                {savedMaps.length === 0 ? (
+                  <div className="text-gray-400 text-base py-4 text-center">
+                    No saved maps yet. Import a map in the Custom AWBW tab and save it.
+                  </div>
+                ) : (
+                  <>
+                    <div className="divide-y divide-gray-100">
+                      {savedMaps.map((map) => (
+                        <div
+                          key={map.id}
+                          className={`flex items-center gap-2 py-2.5 transition-colors ${
+                            selectedSavedMapId === map.id ? "bg-amber-50 -mx-5 px-5 rounded" : ""
+                          }`}
+                        >
+                          <button
+                            className="flex-1 min-w-0 text-left"
+                            onClick={() => {
+                              handleLoadSavedMap(map);
+                              setSelectedSavedMapId(map.id);
+                            }}
+                          >
+                            <div className={`text-base font-medium truncate ${selectedSavedMapId === map.id ? "text-amber-700" : "text-gray-900"}`}>
+                              {map.name}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {map.width}×{map.height} · {new Date(map.savedAt).toLocaleDateString()}
+                            </div>
+                          </button>
+                          <button
+                            onClick={() => {
+                              handleDeleteSavedMap(map.id);
+                              if (selectedSavedMapId === map.id) {
+                                setSelectedSavedMapId(null);
+                                setParsedPreview(null);
+                              }
+                            }}
+                            className="shrink-0 px-2 py-1 bg-gray-100 hover:bg-red-50 text-gray-400 hover:text-red-500 text-sm rounded transition-colors"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Preview for selected saved map */}
+                    {selectedSavedMapId && parsedPreview && (
+                      <div className="pt-1">
+                        <div className="flex items-center justify-between text-sm text-gray-500 mb-2">
+                          <span>Map Preview</span>
+                          <span className="font-mono">{parsedPreview.width}×{parsedPreview.height}</span>
+                        </div>
+                        <MapMinimap preview={parsedPreview} />
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -688,20 +670,25 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
             <div className="flex justify-between items-center pt-2">
               <button
                 onClick={() => setStep(0)}
-                className="text-gray-500 hover:text-gray-900 text-sm font-semibold transition-colors"
+                className="text-gray-500 hover:text-gray-900 text-lg font-semibold transition-colors"
               >
                 ← Back
               </button>
               <button
                 onClick={() => setStep(2)}
-                disabled={mapMode === "awbw" && !parsedPreview}
-                className="px-8 py-3 bg-amber-500 hover:bg-amber-400 disabled:bg-gray-200 disabled:text-gray-400 text-white font-black rounded-xl transition-colors"
+                disabled={(mapMode === "awbw" && !parsedPreview) || (mapMode === "saved" && !selectedSavedMapId)}
+                className="px-8 py-3 bg-amber-500 hover:bg-amber-400 disabled:bg-gray-200 disabled:text-gray-400 text-white font-black rounded-xl transition-colors text-lg"
               >
                 Continue →
               </button>
             </div>
           </div>
         </div>
+      {/* Bottom status bar */}
+      <div className="shrink-0 bg-white border-t border-gray-200 px-6 py-2 flex items-center justify-between text-sm font-mono text-gray-400 uppercase tracking-widest">
+        <span>{STEP_LABELS[step]}</span>
+        <span>{step + 1} / 4</span>
+      </div>
       </div>
     );
   }
@@ -709,28 +696,18 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
   // ── Step 2: Options ──────────────────────────────────────────────────────────
   if (step === 2) {
     return (
-      <div
-        className="min-h-screen bg-[#0a0f18] flex flex-col"
-        style={{
-          background:
-            "radial-gradient(ellipse 60% 50% at 0% 0%, rgba(239,68,68,0.13) 0%, transparent 70%), " +
-            "radial-gradient(ellipse 60% 50% at 100% 0%, rgba(59,130,246,0.13) 0%, transparent 70%), " +
-            "radial-gradient(ellipse 60% 50% at 0% 100%, rgba(34,197,94,0.10) 0%, transparent 70%), " +
-            "radial-gradient(ellipse 60% 50% at 100% 100%, rgba(234,179,8,0.11) 0%, transparent 70%), " +
-            "#0a0f18",
-        }}
-      >
+      <div className="min-h-screen flex flex-col" style={{ background: "#f0ece0" }}>
         {header}
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-10">
           <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-gray-100 p-8 space-y-5">
             <div>
-              <div className="text-gray-900 font-bold text-lg mb-1">Options</div>
-              <p className="text-gray-500 text-base mb-4">Configure match rules.</p>
+              <div className="text-gray-900 font-bold text-xl mb-1">Options</div>
+              <p className="text-gray-500 text-lg mb-4">Configure match rules.</p>
             </div>
 
             {/* Starting funds */}
             <div>
-              <label className="text-sm font-semibold text-gray-500 uppercase tracking-wide block mb-2">
+              <label className="text-lg font-semibold text-gray-500 uppercase tracking-wide block mb-2">
                 Starting Funds
               </label>
               <div className="flex flex-wrap gap-2">
@@ -738,7 +715,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
                   <button
                     key={v}
                     onClick={() => updateConfig({ startingFunds: v })}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-mono transition-colors ${
+                    className={`px-4 py-2 rounded-lg text-lg font-mono transition-colors ${
                       config.startingFunds === v
                         ? "bg-amber-500 text-white font-bold"
                         : "bg-white text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-400"
@@ -752,10 +729,10 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
 
             {/* Income per turn */}
             <div>
-              <label className="text-sm font-semibold text-gray-500 uppercase tracking-wide block mb-1">
+              <label className="text-lg font-semibold text-gray-500 uppercase tracking-wide block mb-1">
                 Income Per Property
               </label>
-              <p className="text-sm text-slate-500 mb-2">
+              <p className="text-lg text-slate-500 mb-2">
                 Multiplier on base property income (default: ¥1,000/property)
               </p>
               <div className="flex flex-wrap gap-2">
@@ -768,7 +745,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
                   <button
                     key={value}
                     onClick={() => updateConfig({ incomeMultiplier: value })}
-                    className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                    className={`px-4 py-2 rounded-lg text-lg transition-colors ${
                       config.incomeMultiplier === value
                         ? "bg-amber-500 text-white font-bold"
                         : "bg-white text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-400"
@@ -782,10 +759,10 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
 
             {/* Luck */}
             <div>
-              <label className="text-sm font-semibold text-gray-500 uppercase tracking-wide block mb-1">
+              <label className="text-lg font-semibold text-gray-500 uppercase tracking-wide block mb-1">
                 Luck
               </label>
-              <p className="text-sm text-slate-500 mb-2">
+              <p className="text-lg text-slate-500 mb-2">
                 Random variance added to each attack roll
               </p>
               <div className="flex gap-2">
@@ -793,14 +770,14 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
                   <button
                     key={v}
                     onClick={() => updateConfig({ luck: v })}
-                    className={`flex-1 py-1.5 rounded-lg text-sm capitalize transition-colors ${
+                    className={`flex-1 py-1.5 rounded-lg text-base capitalize transition-colors ${
                       config.luck === v
                         ? "bg-amber-500 text-white font-bold"
                         : "bg-white text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-400"
                     }`}
                   >
                     {v}
-                    <span className="block text-sm opacity-70">
+                    <span className="block text-base opacity-70">
                       {v === "off" ? "0%" : v === "normal" ? "±10%" : "±20%"}
                     </span>
                   </button>
@@ -810,7 +787,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
 
             {/* Turn limit */}
             <div>
-              <label className="text-sm font-semibold text-gray-500 uppercase tracking-wide block mb-2">
+              <label className="text-lg font-semibold text-gray-500 uppercase tracking-wide block mb-2">
                 Turn Limit
               </label>
               <div className="flex flex-wrap gap-2">
@@ -823,7 +800,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
                   <button
                     key={value}
                     onClick={() => updateConfig({ maxTurns: value })}
-                    className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                    className={`px-4 py-2 rounded-lg text-lg transition-colors ${
                       config.maxTurns === value
                         ? "bg-amber-500 text-white font-bold"
                         : "bg-white text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-400"
@@ -838,8 +815,8 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
             {/* Fog of War toggle */}
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm text-gray-900 font-medium">Fog of War</div>
-                <div className="text-sm text-gray-500">Hide enemy units outside vision range</div>
+                <div className="text-lg text-gray-900 font-medium">Fog of War</div>
+                <div className="text-lg text-gray-500">Hide enemy units outside vision range</div>
               </div>
               <button
                 onClick={() => updateConfig({ fogOfWar: !config.fogOfWar })}
@@ -857,8 +834,8 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
 
             {/* Turn Timer */}
             <div>
-              <label className="text-gray-900 font-semibold text-sm block mb-2">Turn Timer</label>
-              <p className="text-gray-500 text-sm mb-2">
+              <label className="text-gray-900 font-semibold text-lg block mb-2">Turn Timer</label>
+              <p className="text-gray-500 text-lg mb-2">
                 Auto-end turn when time expires (0 = no limit)
               </p>
               <div className="flex gap-2 flex-wrap">
@@ -866,7 +843,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
                   <button
                     key={s}
                     onClick={() => setConfig((c) => ({ ...c, turnTimeLimit: s }))}
-                    className={`px-3 py-1.5 text-sm rounded-lg border font-mono transition-colors ${
+                    className={`px-3 py-1.5 text-base rounded-lg border font-mono transition-colors ${
                       config.turnTimeLimit === s
                         ? "bg-amber-500/10 border-amber-500 text-amber-400"
                         : "bg-white border-gray-200 text-gray-500 hover:border-gray-400"
@@ -917,7 +894,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
             <div className="flex justify-between items-center pt-2">
               <button
                 onClick={() => setStep(1)}
-                className="text-gray-500 hover:text-gray-900 text-sm font-semibold transition-colors"
+                className="text-gray-500 hover:text-gray-900 text-lg font-semibold transition-colors"
               >
                 ← Back
               </button>
@@ -930,6 +907,11 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
             </div>
           </div>
         </div>
+      {/* Bottom status bar */}
+      <div className="shrink-0 bg-white border-t border-gray-200 px-6 py-2 flex items-center justify-between text-sm font-mono text-gray-400 uppercase tracking-widest">
+        <span>{STEP_LABELS[step]}</span>
+        <span>{step + 1} / 4</span>
+      </div>
       </div>
     );
   }
@@ -943,32 +925,22 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
         : `Default Skirmish (${DEFAULT_MAP_WIDTH}×${DEFAULT_MAP_HEIGHT})`;
 
   return (
-    <div
-      className="min-h-screen bg-[#0a0f18] flex flex-col"
-      style={{
-        background:
-          "radial-gradient(ellipse 60% 50% at 0% 0%, rgba(239,68,68,0.13) 0%, transparent 70%), " +
-          "radial-gradient(ellipse 60% 50% at 100% 0%, rgba(59,130,246,0.13) 0%, transparent 70%), " +
-          "radial-gradient(ellipse 60% 50% at 0% 100%, rgba(34,197,94,0.10) 0%, transparent 70%), " +
-          "radial-gradient(ellipse 60% 50% at 100% 100%, rgba(234,179,8,0.11) 0%, transparent 70%), " +
-          "#0a0f18",
-      }}
-    >
+    <div className="min-h-screen flex flex-col" style={{ background: "#f0ece0" }}>
       {header}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-10">
         <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-gray-100 p-8 space-y-4">
           <div>
-            <div className="text-gray-900 font-bold text-lg mb-1">Review</div>
-            <p className="text-gray-500 text-base mb-4">Confirm your setup and deploy.</p>
+            <div className="text-gray-900 font-bold text-xl mb-1">Review</div>
+            <p className="text-gray-500 text-lg mb-4">Confirm your setup and deploy.</p>
           </div>
 
           {/* Summary card */}
-          <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-2 text-sm shadow-sm">
+          <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-2 text-lg shadow-sm">
             {/* Players */}
             {Array.from({ length: playerCount }).map((_, i) => (
               <div key={i} className="flex justify-between">
                 <span className={`font-medium ${playerColors[i]}`}>Player {i + 1}</span>
-                <span className="text-gray-700 capitalize">
+                <span className="text-gray-700 font-semibold capitalize">
                   {CONTROLLER_OPTIONS.find((o) => o.value === players[i]?.controllerType)?.label ??
                     players[i]?.controllerType}
                 </span>
@@ -977,30 +949,30 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
 
             {/* Map */}
             <div className="border-t border-gray-200 pt-2 mt-2">
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-lg">
                 <span className="text-gray-500">Map</span>
-                <span className="text-gray-700">{mapLabel}</span>
+                <span className="text-gray-700 font-semibold">{mapLabel}</span>
               </div>
             </div>
 
             {/* Match options */}
-            <div className="grid grid-cols-2 gap-1 text-sm">
+            <div className="grid grid-cols-2 gap-1 text-lg">
               <span className="text-gray-500">Starting funds</span>
-              <span className="text-amber-400 font-mono">
+              <span className="text-amber-400 font-mono font-semibold">
                 ¥{config.startingFunds.toLocaleString()}
               </span>
               <span className="text-gray-500">Income</span>
-              <span className="text-gray-700">×{config.incomeMultiplier}</span>
+              <span className="text-gray-700 font-semibold">×{config.incomeMultiplier}</span>
               <span className="text-gray-500">Luck</span>
-              <span className="text-gray-700 capitalize">{config.luck}</span>
+              <span className="text-gray-700 font-semibold capitalize">{config.luck}</span>
               <span className="text-gray-500">Turn limit</span>
-              <span className="text-gray-700">
+              <span className="text-gray-700 font-semibold">
                 {config.maxTurns < 0 ? "Unlimited" : `${config.maxTurns} turns`}
               </span>
               <span className="text-gray-500">Fog of war</span>
-              <span className="text-gray-700">{config.fogOfWar ? "On" : "Off"}</span>
+              <span className="text-gray-700 font-semibold">{config.fogOfWar ? "On" : "Off"}</span>
               <span className="text-gray-500">Turn timer</span>
-              <span className="text-gray-700">
+              <span className="text-gray-700 font-semibold">
                 {config.turnTimeLimit === 0
                   ? "Off"
                   : config.turnTimeLimit < 60
@@ -1020,30 +992,26 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
           <button
             onClick={handleLaunch}
             disabled={loading}
-            className="w-full bg-amber-500 hover:bg-amber-400 disabled:bg-gray-200 disabled:text-gray-400 text-white font-black py-4 rounded-xl text-lg tracking-wide transition-colors shadow-lg"
+            className="w-full bg-red-500 hover:bg-red-400 disabled:bg-gray-200 disabled:text-gray-400 text-white font-black py-4 rounded-xl text-lg uppercase tracking-widest transition-colors"
           >
-            {loading ? "Loading…" : "Deploy Forces"}
-          </button>
-
-          {/* Secondary actions */}
-          <button
-            onClick={handleStartTestScenario}
-            disabled={loading}
-            className="w-full mt-2 text-gray-400 hover:text-gray-600 text-sm py-2 transition-colors"
-          >
-            Start test scenario
+            {loading ? "Loading…" : "DEPLOY FORCES ▶"}
           </button>
 
           {/* Back */}
           <div className="flex justify-start pt-1">
             <button
               onClick={() => setStep(2)}
-              className="text-gray-500 hover:text-gray-900 text-sm font-semibold transition-colors"
+              className="text-gray-500 hover:text-gray-900 text-lg font-semibold transition-colors"
             >
               ← Back
             </button>
           </div>
         </div>
+      </div>
+      {/* Bottom status bar */}
+      <div className="shrink-0 bg-white border-t border-gray-200 px-6 py-2 flex items-center justify-between text-sm font-mono text-gray-400 uppercase tracking-widest">
+        <span>{STEP_LABELS[step]}</span>
+        <span>{step + 1} / 4</span>
       </div>
     </div>
   );

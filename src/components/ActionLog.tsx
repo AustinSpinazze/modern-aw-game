@@ -59,9 +59,18 @@ type CommandDict = Record<string, unknown>;
 
 function formatEntry(cmd: CommandDict, playerName: string): string {
   const type = cmd.type as string;
+  const toX = cmd.to_x as number | undefined;
+  const toY = cmd.to_y as number | undefined;
+  const unitType = cmd.unit_type as string | undefined;
+
+  const coord = toX !== undefined && toY !== undefined ? ` (${toX},${toY})` : "";
+  const unitName = unitType
+    ? unitType.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())
+    : "unit";
+
   switch (type) {
     case "MOVE":
-      return `${playerName} moved unit`;
+      return `${playerName} moved${coord}`;
     case "WAIT":
       return `${playerName} waited`;
     case "ATTACK": {
@@ -71,9 +80,9 @@ function formatEntry(cmd: CommandDict, playerName: string): string {
         : `${playerName} attacked`;
     }
     case "CAPTURE":
-      return `${playerName} capturing property`;
+      return `${playerName} capturing${coord}`;
     case "BUY_UNIT":
-      return `${playerName} deployed unit`;
+      return `${playerName} deployed ${unitName}`;
     case "END_TURN":
       return `${playerName} ended turn`;
     case "BUILD_FOB":

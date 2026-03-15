@@ -21,7 +21,6 @@ export default function MainMenu({
   const [showSaves, setShowSaves] = useState(false);
   const [deletingName, setDeletingName] = useState<string | null>(null);
 
-  // Auto-expand saves if there are any
   useEffect(() => {
     if (saves.length > 0) setShowSaves(false);
   }, [saves.length]);
@@ -44,115 +43,117 @@ export default function MainMenu({
 
   return (
     <div
-      className="min-h-screen bg-[#0a0f18] flex flex-col items-center justify-center relative overflow-hidden select-none"
-      style={{
-        background:
-          "radial-gradient(ellipse 60% 50% at 0% 0%, rgba(239,68,68,0.13) 0%, transparent 70%), " +
-          "radial-gradient(ellipse 60% 50% at 100% 0%, rgba(59,130,246,0.13) 0%, transparent 70%), " +
-          "radial-gradient(ellipse 60% 50% at 0% 100%, rgba(34,197,94,0.10) 0%, transparent 70%), " +
-          "radial-gradient(ellipse 60% 50% at 100% 100%, rgba(234,179,8,0.11) 0%, transparent 70%), " +
-          "#0a0f18",
-      }}
+      className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden select-none"
+      style={{ background: "#f0ece0" }}
     >
-      {/* Subtle corner accent lines */}
-      <div className="absolute top-4 left-4 w-12 h-12 border-t-2 border-l-2 border-amber-500/30" />
-      <div className="absolute top-4 right-4 w-12 h-12 border-t-2 border-r-2 border-amber-500/30" />
-      <div className="absolute bottom-4 left-4 w-12 h-12 border-b-2 border-l-2 border-amber-500/30" />
-      <div className="absolute bottom-4 right-4 w-12 h-12 border-b-2 border-r-2 border-amber-500/30" />
+      {/* Corner targeting brackets */}
+      <div className="absolute top-4 left-4 w-12 h-12 border-t-2 border-l-2 border-amber-500/60" />
+      <div className="absolute top-4 right-4 w-12 h-12 border-t-2 border-r-2 border-amber-500/60" />
+      <div className="absolute bottom-4 left-4 w-12 h-12 border-b-2 border-l-2 border-amber-500/60" />
+      <div className="absolute bottom-4 right-4 w-12 h-12 border-b-2 border-r-2 border-amber-500/60" />
 
       {/* Title block */}
       <div className="text-center mb-10">
-        <p className="text-slate-500 tracking-[0.45em] text-[11px] uppercase mb-5 font-medium">
+        <p className="text-gray-400 tracking-[0.45em] text-sm uppercase mb-5 font-medium">
           Turn-Based Tactical
         </p>
-        <h1 className="text-[80px] leading-none font-black text-white tracking-wider uppercase">
-          Modern AW
+        <h1 className="text-[80px] font-black tracking-wider uppercase leading-none text-[#1a1f2e]">
+          MODERN
         </h1>
-        <div className="w-20 h-[3px] bg-amber-500 mx-auto my-4 rounded-full" />
-        <p className="text-slate-500 tracking-[0.35em] text-xs uppercase font-medium">Reimagined</p>
+        <h1 className="text-[80px] font-black tracking-wider uppercase leading-none text-amber-500">
+          AW
+        </h1>
+        <div className="w-20 h-[3px] bg-red-500 mx-auto my-4 rounded-full" />
+        <p className="text-gray-400 tracking-[0.35em] text-sm uppercase font-medium">Reimagined</p>
       </div>
 
       {/* Menu list */}
-      <nav className="w-80 mb-8">
-        {/* 01 NEW GAME */}
-        <button
-          onClick={onNewGame}
-          className="flex items-center gap-4 w-full px-5 py-4 bg-slate-800/60 hover:bg-slate-700/60 border border-slate-700/50 rounded-t-xl transition-colors group"
-        >
-          <span className="text-amber-500/70 font-mono text-sm w-5 shrink-0">01</span>
-          <span className="text-amber-400 font-black tracking-widest text-base flex-1 text-left">
-            New Game
-          </span>
-          <span className="text-amber-500 text-xs">▶</span>
-        </button>
-
-        {/* 02 CONTINUE */}
-        <button
-          onClick={() => hasSaves && setShowSaves((v) => !v)}
-          className={`flex items-center gap-4 w-full px-5 py-4 border-x border-slate-700/50 transition-colors group ${
-            hasSaves
-              ? "bg-slate-100/95 hover:bg-slate-200/95 text-slate-900"
-              : "bg-slate-100/30 text-slate-600 cursor-default"
-          }`}
-        >
-          <span
-            className={`font-mono text-sm w-5 shrink-0 ${hasSaves ? "text-slate-500" : "text-slate-600"}`}
+      <nav className="w-96 mb-8">
+        <div className="rounded-xl overflow-hidden shadow-sm border border-gray-200">
+          {/* 01 NEW GAME */}
+          <button
+            onClick={onNewGame}
+            className="flex items-center gap-4 w-full px-6 py-5 bg-[#1a1f2e] hover:bg-[#252c3d] border-b border-[#2d3548] transition-colors group"
           >
-            02
-          </span>
-          <span
-            className={`font-black tracking-widest text-base flex-1 text-left ${hasSaves ? "text-slate-900" : "text-slate-600"}`}
-          >
-            Continue
-          </span>
-          {hasSaves && <span className="text-slate-500 text-xs">{showSaves ? "▲" : "▼"}</span>}
-          {!hasSaves && <span className="text-slate-600 text-[10px]">No saves</span>}
-        </button>
+            <span className="text-amber-500/70 font-mono text-base w-6 shrink-0">01</span>
+            <span className="text-amber-400 font-black tracking-widest text-lg flex-1 text-left">
+              New Game
+            </span>
+            <span className="text-amber-500 text-sm">▶</span>
+          </button>
 
-        {/* Inline saves panel */}
-        {showSaves && hasSaves && (
-          <div className="border-x border-slate-700/50 bg-slate-50/95 divide-y divide-slate-200/50">
-            {saves.map((save) => (
-              <div key={save.name} className="flex items-center gap-3 px-5 py-3">
-                <div className="flex-1 min-w-0">
-                  <p className="text-slate-900 text-base font-semibold capitalize">{save.name}</p>
-                  <p className="text-slate-500 text-sm">
-                    Turn {save.turnNumber} · {save.playerCount}P · {formatSavedAt(save.savedAt)}
-                  </p>
+          {/* 02 CONTINUE */}
+          <button
+            onClick={() => hasSaves && setShowSaves((v) => !v)}
+            className={`flex items-center gap-4 w-full px-6 py-5 border-b border-gray-100 transition-colors group ${
+              hasSaves
+                ? "bg-white hover:bg-gray-50 text-gray-900"
+                : "bg-white/60 text-gray-400 cursor-default"
+            }`}
+          >
+            <span className="font-mono text-base w-6 shrink-0 text-gray-400">02</span>
+            <span
+              className={`font-black tracking-widest text-lg flex-1 text-left ${hasSaves ? "text-gray-900" : "text-gray-400"}`}
+            >
+              Continue
+            </span>
+            {hasSaves && <span className="text-gray-400 text-sm">{showSaves ? "▲" : "▼"}</span>}
+            {!hasSaves && <span className="text-gray-400 text-xs">No saves</span>}
+          </button>
+
+          {/* Inline saves panel */}
+          {showSaves && hasSaves && (
+            <div className="bg-white divide-y divide-gray-100 border-b border-gray-100">
+              {saves.map((save) => (
+                <div key={save.name} className="flex items-center gap-3 px-6 py-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-gray-900 text-base font-semibold capitalize">{save.name}</p>
+                    <p className="text-gray-400 text-sm">
+                      Turn {save.turnNumber} · {save.playerCount}P · {formatSavedAt(save.savedAt)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => onContinue(save.name)}
+                    className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-black text-sm font-bold rounded-lg transition-colors shrink-0"
+                  >
+                    Load
+                  </button>
+                  <button
+                    onClick={() => handleDeleteSave(save.name)}
+                    disabled={deletingName === save.name}
+                    className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-red-400 hover:bg-red-50 rounded transition-colors text-sm shrink-0"
+                    title="Delete save"
+                  >
+                    ✕
+                  </button>
                 </div>
-                <button
-                  onClick={() => onContinue(save.name)}
-                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold rounded-lg transition-colors shrink-0"
-                >
-                  Load
-                </button>
-                <button
-                  onClick={() => handleDeleteSave(save.name)}
-                  disabled={deletingName === save.name}
-                  className="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors text-xs shrink-0"
-                  title="Delete save"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
 
-        {/* 03 SETTINGS */}
-        <button
-          onClick={onSettings}
-          className="flex items-center gap-4 w-full px-5 py-4 bg-slate-100/95 hover:bg-slate-200/95 border border-slate-700/50 rounded-b-xl transition-colors group"
-        >
-          <span className="text-slate-500 font-mono text-sm w-5 shrink-0">03</span>
-          <span className="text-slate-900 font-black tracking-widest text-base flex-1 text-left">
-            Settings
-          </span>
-        </button>
+          {/* 03 SETTINGS */}
+          <button
+            onClick={onSettings}
+            className="flex items-center gap-4 w-full px-6 py-5 bg-white hover:bg-gray-50 transition-colors group"
+          >
+            <span className="text-gray-400 font-mono text-base w-6 shrink-0">03</span>
+            <span className="text-gray-900 font-black tracking-widest text-lg flex-1 text-left">
+              Settings
+            </span>
+          </button>
+        </div>
       </nav>
 
+      {/* Faction squares */}
+      <div className="flex gap-2 mb-5">
+        <div className="w-3.5 h-3.5 bg-red-500 rounded-sm" />
+        <div className="w-3.5 h-3.5 bg-blue-500 rounded-sm" />
+        <div className="w-3.5 h-3.5 bg-green-500 rounded-sm" />
+        <div className="w-3.5 h-3.5 bg-yellow-400 rounded-sm" />
+      </div>
+
       {/* Version */}
-      <p className="absolute bottom-5 text-slate-700 text-xs tracking-widest font-mono">
+      <p className="absolute bottom-5 text-gray-400 text-sm tracking-widest font-mono">
         {VERSION} · Modern AW
       </p>
     </div>

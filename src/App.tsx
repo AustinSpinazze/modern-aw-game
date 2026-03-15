@@ -109,6 +109,7 @@ interface SavedGameFile {
   state: GameState;
 }
 
+
 function AppContent() {
   const [view, setView] = useState<AppView>("menu");
   const [buyMenuTile, setBuyMenuTile] = useState<{ x: number; y: number } | null>(null);
