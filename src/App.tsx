@@ -24,9 +24,9 @@ import { runLLMTurn } from "./ai/llm-turn-runner";
 import {
   zoomIn,
   zoomOut,
-  resetPanZoom,
+  resetZoom,
   getZoomLevel,
-  MIN_ZOOM,
+  getMinZoom,
   MAX_ZOOM,
 } from "./rendering/pixi-app";
 
@@ -156,7 +156,7 @@ function AppContent() {
   }, []);
 
   const handleResetZoom = useCallback(() => {
-    resetPanZoom();
+    resetZoom();
     setZoomLevel(getZoomLevel());
   }, []);
 
@@ -440,7 +440,7 @@ function AppContent() {
           break;
 
         case "0":
-          resetPanZoom();
+          resetZoom();
           setZoomLevel(getZoomLevel());
           break;
       }
@@ -786,7 +786,7 @@ function AppContent() {
           <div className="shrink-0 flex items-center justify-center gap-1 px-4 py-2 border-t border-gray-100">
             <button
               onClick={handleZoomOut}
-              disabled={zoomLevel <= MIN_ZOOM}
+              disabled={zoomLevel <= getMinZoom()}
               title="Zoom Out (-)"
               className="w-8 h-8 bg-gray-100 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed rounded text-gray-600 font-bold text-lg transition-colors flex items-center justify-center"
             >

@@ -2,6 +2,7 @@
 // Uses WarsWorld sprite sheets with Pixi.js Spritesheet class.
 
 import { Application, Assets, Spritesheet, Texture } from "pixi.js";
+import type { GameState } from "../game/types";
 
 export const TILE_SIZE = 16;
 export const TILE_SCALE = 3; // Render at 3x for a crisp 48px display tile
@@ -19,42 +20,84 @@ let _currentInit: Promise<Application> | null = null;
 const spritesheets: Record<string, Spritesheet> = {};
 
 // ── Pan / Zoom state ──────────────────────────────────────────────────────────
-// The stage transform = fitMapToStage base * user pan/zoom on top
+// Fixed-scale rendering: tiles always render at TILE_SIZE * TILE_SCALE (48px).
+// _baseScale / _baseX / _baseY are always 1 / 0 / 0.
+// All camera positioning is done exclusively through _panOffsetX/Y + _userZoom.
 let _panOffsetX = 0;
 let _panOffsetY = 0;
 let _userZoom = 1.0;
 
-export const MIN_ZOOM = 0.4;
 export const MAX_ZOOM = 3.0;
 const ZOOM_STEP = 0.15;
 
-// Called by fitMapToStage — stores the base scale so we can multiply user zoom on top
+// Dynamic minimum zoom: zoom out until the whole map fits, but never below 0.25.
+// Updated by fitMapToStage() whenever map or canvas dimensions change.
+let _dynMinZoom = 0.25;
+export function getMinZoom(): number { return _dynMinZoom; }
+// Keep MIN_ZOOM exported as a static fallback for callers that reference it directly.
+export const MIN_ZOOM = 0.25;
+
+// _baseScale / _baseX / _baseY are kept for getStageTransform() compatibility
+// but are always 1 / 0 / 0 under fixed-scale rendering.
 let _baseScale = 1;
 let _baseX = 0;
 let _baseY = 0;
 
 function applyStageTransform(): void {
   if (!app) return;
-  const scale = _baseScale * _userZoom;
-  app.stage.scale.set(scale);
-  app.stage.x = Math.round(_baseX + _panOffsetX);
-  app.stage.y = Math.round(_baseY + _panOffsetY);
+  app.stage.scale.set(_userZoom); // _baseScale is always 1
+  app.stage.x = Math.round(_panOffsetX);
+  app.stage.y = Math.round(_panOffsetY);
+}
+
+/** Clamp _panOffsetX/Y so the camera never shows void outside the map. */
+function clampPan(): void {
+  if (!app || _lastMapW === 0 || _lastMapH === 0) return;
+  const mapPixelW = _lastMapW * TILE_SIZE * TILE_SCALE;
+  const mapPixelH = _lastMapH * TILE_SIZE * TILE_SCALE;
+  const scaledW = mapPixelW * _userZoom;
+  const scaledH = mapPixelH * _userZoom;
+  const canvasW = app.renderer.width;
+  const canvasH = app.renderer.height;
+
+  // If map is wider than viewport: clamp so edges don't show void
+  // If map is narrower: center it (user cannot pan)
+  if (scaledW >= canvasW) {
+    _panOffsetX = Math.max(canvasW - scaledW, Math.min(0, _panOffsetX));
+  } else {
+    _panOffsetX = (canvasW - scaledW) / 2;
+  }
+  if (scaledH >= canvasH) {
+    _panOffsetY = Math.max(canvasH - scaledH, Math.min(0, _panOffsetY));
+  } else {
+    _panOffsetY = (canvasH - scaledH) / 2;
+  }
 }
 
 export function resetPanZoom(): void {
   _panOffsetX = 0;
   _panOffsetY = 0;
   _userZoom = 1.0;
+  clampPan();
+  applyStageTransform();
+}
+
+/** Reset zoom to 1× without disturbing the pan position. */
+export function resetZoom(): void {
+  _userZoom = 1.0;
+  clampPan();
   applyStageTransform();
 }
 
 export function zoomIn(): void {
   _userZoom = Math.min(MAX_ZOOM, _userZoom + ZOOM_STEP);
+  clampPan();
   applyStageTransform();
 }
 
 export function zoomOut(): void {
-  _userZoom = Math.max(MIN_ZOOM, _userZoom - ZOOM_STEP);
+  _userZoom = Math.max(_dynMinZoom, _userZoom - ZOOM_STEP);
+  clampPan();
   applyStageTransform();
 }
 
@@ -92,6 +135,7 @@ export function enablePanZoom(canvas: HTMLCanvasElement): void {
     lastY = e.clientY;
     _panOffsetX += dx;
     _panOffsetY += dy;
+    clampPan();
     applyStageTransform();
   };
 
@@ -118,7 +162,7 @@ export function enablePanZoom(canvas: HTMLCanvasElement): void {
   const onWheel = (e: WheelEvent) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-    const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, _userZoom + delta));
+    const newZoom = Math.min(MAX_ZOOM, Math.max(_dynMinZoom, _userZoom + delta));
 
     // Zoom toward cursor position
     if (app) {
@@ -126,21 +170,20 @@ export function enablePanZoom(canvas: HTMLCanvasElement): void {
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
 
-      // World point under cursor before zoom
-      const oldScale = _baseScale * _userZoom;
-      const worldX = (mouseX - (_baseX + _panOffsetX)) / oldScale;
-      const worldY = (mouseY - (_baseY + _panOffsetY)) / oldScale;
+      // World point under cursor before zoom (_baseScale=1, _baseX/Y=0)
+      const worldX = (mouseX - _panOffsetX) / _userZoom;
+      const worldY = (mouseY - _panOffsetY) / _userZoom;
 
       _userZoom = newZoom;
 
       // Adjust pan so the world point stays under cursor
-      const newScale = _baseScale * _userZoom;
-      _panOffsetX = mouseX - _baseX - worldX * newScale;
-      _panOffsetY = mouseY - _baseY - worldY * newScale;
+      _panOffsetX = mouseX - worldX * _userZoom;
+      _panOffsetY = mouseY - worldY * _userZoom;
     } else {
       _userZoom = newZoom;
     }
 
+    clampPan();
     applyStageTransform();
   };
 
@@ -325,35 +368,106 @@ async function loadSpritesheets(): Promise<void> {
 }
 
 /**
- * Scale and center the stage so the map (mapW × mapH tiles) fills the canvas.
+ * Register map dimensions and update the dynamic minimum zoom.
+ * Under fixed-scale rendering the stage is always 1:1 — tiles render at 48px.
  * Called after terrain render and on canvas resize.
  */
 export function fitMapToStage(mapW: number, mapH: number): void {
   if (!app) return;
   _lastMapW = mapW;
   _lastMapH = mapH;
+  _baseScale = 1;
+  _baseX = 0;
+  _baseY = 0;
 
+  // Allow zooming out until the whole map fits the viewport, floor at 0.25.
   const mapPixelW = mapW * TILE_SIZE * TILE_SCALE;
   const mapPixelH = mapH * TILE_SIZE * TILE_SCALE;
   const canvasW = app.renderer.width;
   const canvasH = app.renderer.height;
+  _dynMinZoom = Math.max(0.25, Math.min(1.0, canvasW / mapPixelW, canvasH / mapPixelH));
 
-  const scaleX = canvasW / mapPixelW;
-  const scaleY = canvasH / mapPixelH;
-  _baseScale = Math.min(scaleX, scaleY);
-  _baseX = Math.round((canvasW - mapPixelW * _baseScale) / 2);
-  _baseY = Math.round((canvasH - mapPixelH * _baseScale) / 2);
-
+  clampPan();
   applyStageTransform();
 }
 
 /** Returns the current stage screen-space transform for UI overlay positioning. */
 export function getStageTransform(): { x: number; y: number; scale: number } {
   return {
-    x: _baseX + _panOffsetX,
-    y: _baseY + _panOffsetY,
-    scale: _baseScale * _userZoom,
+    x: _panOffsetX,
+    y: _panOffsetY,
+    scale: _userZoom,
   };
+}
+
+/**
+ * Pan the camera so P1's HQ (or first unit) sits at ~25% from the top-left corner.
+ * Call once after the first terrain render when a match starts.
+ */
+export function panToP1Start(gameState: GameState): void {
+  if (!app) return;
+  const TILE_PX = TILE_SIZE * TILE_SCALE;
+  const p1 = gameState.players[0];
+  let targetX = 0;
+  let targetY = 0;
+  let found = false;
+
+  outer:
+  for (let y = 0; y < gameState.map_height; y++) {
+    for (let x = 0; x < gameState.map_width; x++) {
+      const tile = gameState.tiles[y]?.[x];
+      if (tile && tile.terrain_type === "hq" && tile.owner_id === p1?.id) {
+        targetX = x;
+        targetY = y;
+        found = true;
+        break outer;
+      }
+    }
+  }
+
+  if (!found) {
+    const p1Unit = Object.values(gameState.units).find((u) => u.owner_id === p1?.id);
+    if (p1Unit) { targetX = p1Unit.x; targetY = p1Unit.y; }
+  }
+
+  const worldX = targetX * TILE_PX + TILE_PX / 2;
+  const worldY = targetY * TILE_PX + TILE_PX / 2;
+  const canvasW = app.renderer.width;
+  const canvasH = app.renderer.height;
+
+  _panOffsetX = canvasW * 0.25 - worldX * _userZoom;
+  _panOffsetY = canvasH * 0.25 - worldY * _userZoom;
+  clampPan();
+  applyStageTransform();
+}
+
+const SAFE_ZONE_INSET = 96; // px from viewport edge before camera pans
+const CAMERA_FOLLOW_LERP = 0.12;
+
+/**
+ * Call every frame during a movement animation.
+ * Smoothly pans so the given stage-local coordinate stays within a safe zone
+ * inset from the viewport edges.
+ */
+export function updateCameraFollow(worldX: number, worldY: number): void {
+  if (!app) return;
+  const canvasW = app.renderer.width;
+  const canvasH = app.renderer.height;
+  const screenX = _panOffsetX + worldX * _userZoom;
+  const screenY = _panOffsetY + worldY * _userZoom;
+
+  let desiredPanX = _panOffsetX;
+  let desiredPanY = _panOffsetY;
+
+  if (screenX < SAFE_ZONE_INSET)             desiredPanX = SAFE_ZONE_INSET - worldX * _userZoom;
+  if (screenX > canvasW - SAFE_ZONE_INSET)   desiredPanX = canvasW - SAFE_ZONE_INSET - worldX * _userZoom;
+  if (screenY < SAFE_ZONE_INSET)             desiredPanY = SAFE_ZONE_INSET - worldY * _userZoom;
+  if (screenY > canvasH - SAFE_ZONE_INSET)   desiredPanY = canvasH - SAFE_ZONE_INSET - worldY * _userZoom;
+
+  _panOffsetX += (desiredPanX - _panOffsetX) * CAMERA_FOLLOW_LERP;
+  _panOffsetY += (desiredPanY - _panOffsetY) * CAMERA_FOLLOW_LERP;
+  clampPan();
+  applyStageTransform();
 }
 
 export function destroyPixiApp(): void {
@@ -368,6 +482,8 @@ export function destroyPixiApp(): void {
   _baseY = 0;
   _lastMapW = 0;
   _lastMapH = 0;
+
+  _dynMinZoom = MIN_ZOOM;
 
   if (app) {
     try {

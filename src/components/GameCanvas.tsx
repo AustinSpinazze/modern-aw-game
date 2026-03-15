@@ -7,6 +7,8 @@ import {
   getApp,
   enablePanZoom,
   resetPanZoom,
+  panToP1Start,
+  updateCameraFollow,
 } from "../rendering/pixi-app";
 import { TerrainRenderer } from "../rendering/terrain-renderer";
 import { UnitRenderer } from "../rendering/unit-renderer";
@@ -68,6 +70,7 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
   const inputHandlerRef = useRef<InputHandler | null>(null);
   const onFacilityClickRef = useRef(onFacilityClick);
   onFacilityClickRef.current = onFacilityClick;
+  const initialPanFiredRef = useRef(false);
 
   // Track when Pixi is ready so the render effect knows to fire
   const [pixiReady, setPixiReady] = useState(false);
@@ -379,7 +382,11 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     const ticker = app.ticker;
     const onTick = () => {
       const mAnimator = movementAnimatorRef.current;
-      if (mAnimator?.isAnimating()) mAnimator.update();
+      if (mAnimator?.isAnimating()) {
+        mAnimator.update();
+        const pos = mAnimator.getActiveWorldPos();
+        if (pos) updateCameraFollow(pos.x, pos.y);
+      }
       const cAnimator = combatAnimatorRef.current;
       if (cAnimator?.isAnimating()) cAnimator.update();
     };
@@ -565,6 +572,12 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
 
     inputHandlerRef.current?.setMapSize(gameState.map_width, gameState.map_height);
     terrainRendererRef.current?.render(gameState, visibilityMap);
+
+    // Pan to P1's HQ on the very first render (fitMapToStage has already run inside terrain.render)
+    if (!initialPanFiredRef.current) {
+      initialPanFiredRef.current = true;
+      panToP1Start(gameState);
+    }
     // Pass the animating unit ID so we can hide it during movement animation
     // Could be player's unit (selectedUnit) or AI's unit (queueAnimatingUnitId)
     const animatingUnitId =

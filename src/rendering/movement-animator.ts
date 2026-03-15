@@ -44,6 +44,13 @@ export class MovementAnimator {
     return this.activeAnimation !== null;
   }
 
+  /** Returns the current world-pixel position (center) of the animating unit, or null. */
+  getActiveWorldPos(): { x: number; y: number } | null {
+    const sprite = this.activeAnimation?.sprite;
+    if (!sprite) return null;
+    return { x: sprite.x + DISPLAY / 2, y: sprite.y + DISPLAY / 2 };
+  }
+
   /** Start animating a unit along a path. Calls onComplete when done. */
   animate(unitType: string, ownerId: number, path: Vec2[], onComplete: () => void): void {
     if (path.length < 2) {
