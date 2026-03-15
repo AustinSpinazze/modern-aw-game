@@ -14,7 +14,8 @@ import type { SavedGameMeta } from "./types";
 import { useGameStore } from "./store/game-store";
 import { useGame } from "./hooks/useGame";
 import { useConfigStore } from "./store/config-store";
-import { loadGameData } from "./game/data-loader";
+import { loadGameData, getTerrainData } from "./game/data-loader";
+import { getTile } from "./game/game-state";
 import type { GameState } from "./game/types";
 
 // AI turn runners
@@ -167,6 +168,7 @@ function AppContent() {
   const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { gameState, currentPlayer, queueCommands, processingQueue } = useGame();
+  const hoveredTile = useGameStore((s) => s.hoveredTile);
 
   const prevPlayerIndexRef = useRef<number>(-1);
   const prevPhaseRef = useRef<string>("");
@@ -595,6 +597,11 @@ function AppContent() {
   const isHumanTurn = currentPlayer?.controller_type === "human" && gameState?.phase === "action";
   const isAnimating = useGameStore.getState().isAnimating;
 
+  // Bottom bar — hovered tile info
+  const hoveredTileData = hoveredTile && gameState ? getTile(gameState, hoveredTile.x, hoveredTile.y) : null;
+  const hoveredTerrainType = hoveredTileData?.has_fob ? "temporary_fob" : hoveredTileData?.terrain_type;
+  const hoveredTerrainData = hoveredTerrainType ? getTerrainData(hoveredTerrainType) : null;
+
   // Faction header uses a slightly darkened bg for yellow so white text is legible
   const TEAM_HEADER_BG: Record<number, string> = {
     0: "bg-red-500",
@@ -605,7 +612,7 @@ function AppContent() {
 
   // Game view
   return (
-    <div className="h-screen flex flex-col bg-gray-900">
+    <div className="h-screen flex flex-col" style={{ background: "#f0ece0" }}>
       {/* Top bar — faction-colored background, white text */}
       <header className={`h-14 shrink-0 flex items-center justify-between px-5 z-20 transition-colors ${TEAM_HEADER_BG[currentPlayer?.team ?? 0] ?? "bg-gray-700"}`}>
         {/* Left side — player number + name + day */}
@@ -732,7 +739,7 @@ function AppContent() {
         <main className="flex-1 relative overflow-hidden">
           {/* Concave corner: faction color fills top-right, dark inner div with rounded-tr carves the curve */}
           <div className={`absolute top-0 right-0 w-8 h-8 pointer-events-none z-10 transition-colors ${TEAM_HEADER_BG[currentPlayer?.team ?? 0] ?? "bg-gray-700"}`}>
-            <div className="w-full h-full bg-gray-900 rounded-tr-2xl" />
+            <div className="w-full h-full rounded-tr-2xl" style={{ background: "#f0ece0" }} />
           </div>
           <GameCanvas onFacilityClick={handleFacilityClick} />
           <ActionMenu />
@@ -791,6 +798,48 @@ function AppContent() {
             </button>
           </div>
         </aside>
+      </div>
+
+      {/* Bottom status bar */}
+      <div className="shrink-0 h-9 flex items-center px-4 gap-5 bg-white border-t border-gray-200 text-sm">
+        {hoveredTile ? (
+          <>
+            <span className="text-gray-400 font-mono text-xs">
+              POS{" "}
+              <span className="text-gray-700 font-bold">
+                {String(hoveredTile.x).padStart(2, "0")} · {String(hoveredTile.y).padStart(2, "0")}
+              </span>
+            </span>
+            {hoveredTerrainData && (
+              <>
+                <span className="text-gray-700 font-semibold text-sm">{hoveredTerrainData.name}</span>
+                <div className="flex items-center gap-0.5">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className={`w-2 h-2 rounded-full ${i < hoveredTerrainData.defense_stars ? "bg-amber-400" : "bg-gray-200"}`}
+                    />
+                  ))}
+                  <span className="text-gray-400 text-xs ml-1">Def</span>
+                </div>
+              </>
+            )}
+          </>
+        ) : (
+          <span className="text-gray-400 text-xs font-mono">Hover a tile</span>
+        )}
+        <div className="ml-auto flex items-center gap-3 text-gray-400 text-xs font-mono">
+          {isHumanTurn && (
+            <span>
+              <span className="bg-gray-100 border border-gray-300 rounded px-1.5 py-0.5 mr-1">E</span>
+              End Turn
+            </span>
+          )}
+          <span>
+            <span className="bg-gray-100 border border-gray-300 rounded px-1.5 py-0.5 mr-1">ESC</span>
+            Deselect
+          </span>
+        </div>
       </div>
 
       {/* Buy menu modal */}

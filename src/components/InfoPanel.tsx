@@ -32,6 +32,11 @@ export default function InfoPanel() {
   const colorClass = teamColors[currentPlayer.team] ?? "text-gray-900";
   const endTurnBg = teamBgColors[currentPlayer.team] ?? "bg-slate-700 hover:bg-slate-600";
 
+  // Quick stats for current player
+  const playerUnits = Object.values(gameState.units).filter((u) => u.owner_id === currentPlayer.id).length;
+  const playerProps = gameState.tiles.flat().filter((t) => t.owner_id === currentPlayer.id).length;
+  const incomePerTurn = Math.round(playerProps * (gameState.income_multiplier ?? 1) * 1000);
+
   const handleEndTurn = () => {
     submitCommand({ type: "END_TURN", player_id: currentPlayer.id });
   };
@@ -83,6 +88,23 @@ export default function InfoPanel() {
         </div>
         <div className={`font-mono font-black text-4xl ${colorClass}`}>
           ¥{currentPlayer.funds.toLocaleString()}
+        </div>
+        {/* Income / Units / Cities strip */}
+        <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-200">
+          <div className="text-center flex-1">
+            <div className="text-green-500 font-mono font-bold text-base">+{incomePerTurn.toLocaleString()}</div>
+            <div className="text-gray-400 text-xs uppercase tracking-wide">Income</div>
+          </div>
+          <div className="w-px h-8 bg-gray-200" />
+          <div className="text-center flex-1">
+            <div className="text-gray-900 font-mono font-bold text-base">{playerUnits}</div>
+            <div className="text-gray-400 text-xs uppercase tracking-wide">Units</div>
+          </div>
+          <div className="w-px h-8 bg-gray-200" />
+          <div className="text-center flex-1">
+            <div className="text-amber-500 font-mono font-bold text-base">{playerProps}</div>
+            <div className="text-gray-400 text-xs uppercase tracking-wide">Cities</div>
+          </div>
         </div>
       </div>
 

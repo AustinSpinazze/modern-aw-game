@@ -242,7 +242,7 @@ export function initPixiApp(canvas: HTMLCanvasElement): Promise<Application> {
       canvas,
       width: initW,
       height: initH,
-      backgroundColor: 0x1a1a2e,
+      backgroundColor: 0xf0ece0,
       antialias: false,
       resolution: window.devicePixelRatio || 1,
       autoDensity: true,
