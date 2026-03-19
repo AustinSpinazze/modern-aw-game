@@ -28,6 +28,7 @@ import {
   getZoomLevel,
   getMinZoom,
   MAX_ZOOM,
+  setZoomChangeCallback,
 } from "./rendering/pixi-app";
 
 // Error boundary to catch render errors
@@ -145,20 +146,15 @@ function AppContent() {
     }
   }, []);
 
-  const handleZoomIn = useCallback(() => {
-    zoomIn();
-    setZoomLevel(getZoomLevel());
+  // Keep zoomLevel state in sync with Pixi zoom (including scroll/pinch).
+  useEffect(() => {
+    setZoomChangeCallback(setZoomLevel);
+    return () => setZoomChangeCallback(null);
   }, []);
 
-  const handleZoomOut = useCallback(() => {
-    zoomOut();
-    setZoomLevel(getZoomLevel());
-  }, []);
-
-  const handleResetZoom = useCallback(() => {
-    resetZoom();
-    setZoomLevel(getZoomLevel());
-  }, []);
+  const handleZoomIn = useCallback(() => { zoomIn(); }, []);
+  const handleZoomOut = useCallback(() => { zoomOut(); }, []);
+  const handleResetZoom = useCallback(() => { resetZoom(); setZoomLevel(getZoomLevel()); }, []);
 
   // Turn transition banner state
   const [bannerText, setBannerText] = useState<string | null>(null);
@@ -430,13 +426,11 @@ function AppContent() {
         case "+":
         case "=":
           zoomIn();
-          setZoomLevel(getZoomLevel());
           break;
 
         case "-":
         case "_":
           zoomOut();
-          setZoomLevel(getZoomLevel());
           break;
 
         case "0":
@@ -626,21 +620,14 @@ function AppContent() {
         {/* Left side — player number + name + day */}
         <div className="flex items-center gap-4">
           {currentPlayer && (
-            <>
-              <div className="flex items-center gap-3">
-                <span className="text-white/60 font-black text-3xl leading-none select-none">
-                  {currentPlayer.id + 1}
-                </span>
-                <div className="leading-tight">
-                  <div className="text-white font-black text-base tracking-wide uppercase leading-none">
-                    Player {currentPlayer.id + 1}
-                  </div>
-                  <div className="text-white/60 text-xs mt-0.5 uppercase tracking-widest">
-                    Day {gameState?.turn_number ?? 1}
-                  </div>
-                </div>
+            <div className="leading-tight">
+              <div className="text-white font-black text-base tracking-wide uppercase leading-none">
+                Player {currentPlayer.id + 1}
               </div>
-            </>
+              <div className="text-white/60 text-xs mt-0.5 uppercase tracking-widest">
+                Day {gameState?.turn_number ?? 1}
+              </div>
+            </div>
           )}
         </div>
 

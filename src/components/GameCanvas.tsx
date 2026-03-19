@@ -593,8 +593,6 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     if (!highlights || !pathOverlay || !cursorOverlay) return;
 
     highlights.clear();
-    // Draw subtle grid lines over the entire map
-    highlights.drawGrid(gameState.map_width, gameState.map_height);
     pathOverlay.clear();
     cursorOverlay.clear();
 
@@ -642,7 +640,6 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     <canvas
       ref={canvasRef}
       className="block w-full h-full"
-      style={{ imageRendering: "pixelated" }}
     />
   );
 }

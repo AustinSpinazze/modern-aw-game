@@ -22,7 +22,7 @@ export const TERRAIN_SPRITES: Record<string, string> = {
   forest: "forest.png",
   mountain: "mountain.png",
   sea: "sea.png",
-  shoal: "shoal.png",
+  // shoal uses layered directional rendering — see terrain-renderer drawShoalTile
   reef: "reef.png",
 };
 

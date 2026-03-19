@@ -219,7 +219,7 @@ export class HighlightRenderer {
       g.moveTo(0, y * DISPLAY);
       g.lineTo(totalW, y * DISPLAY);
     }
-    g.stroke({ color: 0x000000, alpha: 0.12, width: 1 });
+    g.stroke({ color: 0x000000, alpha: 0.015, width: 1 });
     this.container.addChild(g);
   }
 

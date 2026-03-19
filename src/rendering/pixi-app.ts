@@ -1,7 +1,7 @@
 // Pixi.js Application singleton + lifecycle.
 // Uses WarsWorld sprite sheets with Pixi.js Spritesheet class.
 
-import { Application, Assets, Spritesheet, Texture } from "pixi.js";
+import { Application, Assets, Spritesheet, Texture, TextureSource } from "pixi.js";
 import type { GameState } from "../game/types";
 
 export const TILE_SIZE = 16;
@@ -28,7 +28,12 @@ let _panOffsetY = 0;
 let _userZoom = 1.0;
 
 export const MAX_ZOOM = 3.0;
-const ZOOM_STEP = 0.15;
+
+// Callback invoked whenever zoom changes (e.g. wheel), so React state can sync.
+let _zoomChangeCallback: ((zoom: number) => void) | null = null;
+export function setZoomChangeCallback(cb: ((zoom: number) => void) | null): void {
+  _zoomChangeCallback = cb;
+}
 
 // Dynamic minimum zoom: zoom out until the whole map fits, but never below 0.25.
 // Updated by fitMapToStage() whenever map or canvas dimensions change.
@@ -36,6 +41,14 @@ let _dynMinZoom = 0.25;
 export function getMinZoom(): number { return _dynMinZoom; }
 // Keep MIN_ZOOM exported as a static fallback for callers that reference it directly.
 export const MIN_ZOOM = 0.25;
+
+// Snap zoom to the nearest multiple of 1/TILE_SCALE so each source texel maps
+// to an exact integer number of screen pixels — eliminates moiré/grid patterns.
+// Valid levels: 1/3, 2/3, 1, 4/3, 5/3, 2, 7/3, 8/3, 3 …
+// At zoom k/TILE_SCALE each 16×16 texel is exactly k screen pixels wide.
+function snapZoom(z: number): number {
+  return Math.round(z * TILE_SCALE) / TILE_SCALE;
+}
 
 // _baseScale / _baseX / _baseY are kept for getStageTransform() compatibility
 // but are always 1 / 0 / 0 under fixed-scale rendering.
@@ -48,6 +61,7 @@ function applyStageTransform(): void {
   app.stage.scale.set(_userZoom); // _baseScale is always 1
   app.stage.x = Math.round(_panOffsetX);
   app.stage.y = Math.round(_panOffsetY);
+  _zoomChangeCallback?.(_userZoom);
 }
 
 /** Clamp _panOffsetX/Y so the camera never shows void outside the map. */
@@ -62,15 +76,16 @@ function clampPan(): void {
 
   // If map is wider than viewport: clamp so edges don't show void
   // If map is narrower: center it (user cannot pan)
+  // Round to integer pixels so the tile grid never drifts sub-pixel.
   if (scaledW >= canvasW) {
-    _panOffsetX = Math.max(canvasW - scaledW, Math.min(0, _panOffsetX));
+    _panOffsetX = Math.round(Math.max(canvasW - scaledW, Math.min(0, _panOffsetX)));
   } else {
-    _panOffsetX = (canvasW - scaledW) / 2;
+    _panOffsetX = Math.round((canvasW - scaledW) / 2);
   }
   if (scaledH >= canvasH) {
-    _panOffsetY = Math.max(canvasH - scaledH, Math.min(0, _panOffsetY));
+    _panOffsetY = Math.round(Math.max(canvasH - scaledH, Math.min(0, _panOffsetY)));
   } else {
-    _panOffsetY = (canvasH - scaledH) / 2;
+    _panOffsetY = Math.round((canvasH - scaledH) / 2);
   }
 }
 
@@ -90,13 +105,17 @@ export function resetZoom(): void {
 }
 
 export function zoomIn(): void {
-  _userZoom = Math.min(MAX_ZOOM, _userZoom + ZOOM_STEP);
+  // Step to the next higher snap level (multiples of 1/TILE_SCALE).
+  const nextLevel = (Math.round(_userZoom * TILE_SCALE) + 1) / TILE_SCALE;
+  _userZoom = Math.min(MAX_ZOOM, nextLevel);
   clampPan();
   applyStageTransform();
 }
 
 export function zoomOut(): void {
-  _userZoom = Math.max(_dynMinZoom, _userZoom - ZOOM_STEP);
+  // Step to the next lower snap level.
+  const prevLevel = (Math.round(_userZoom * TILE_SCALE) - 1) / TILE_SCALE;
+  _userZoom = Math.max(_dynMinZoom, prevLevel);
   clampPan();
   applyStageTransform();
 }
@@ -161,8 +180,11 @@ export function enablePanZoom(canvas: HTMLCanvasElement): void {
 
   const onWheel = (e: WheelEvent) => {
     e.preventDefault();
-    const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-    const newZoom = Math.min(MAX_ZOOM, Math.max(_dynMinZoom, _userZoom + delta));
+    // Step exactly one snap level in the scroll direction.
+    const stepped = e.deltaY > 0
+      ? (Math.round(_userZoom * TILE_SCALE) - 1) / TILE_SCALE
+      : (Math.round(_userZoom * TILE_SCALE) + 1) / TILE_SCALE;
+    const newZoom = Math.min(MAX_ZOOM, Math.max(_dynMinZoom, stepped));
 
     // Zoom toward cursor position
     if (app) {
@@ -177,8 +199,8 @@ export function enablePanZoom(canvas: HTMLCanvasElement): void {
       _userZoom = newZoom;
 
       // Adjust pan so the world point stays under cursor
-      _panOffsetX = mouseX - worldX * _userZoom;
-      _panOffsetY = mouseY - worldY * _userZoom;
+      _panOffsetX = Math.round(mouseX - worldX * _userZoom);
+      _panOffsetY = Math.round(mouseY - worldY * _userZoom);
     } else {
       _userZoom = newZoom;
     }
@@ -289,7 +311,6 @@ export function initPixiApp(canvas: HTMLCanvasElement): Promise<Application> {
       antialias: false,
       resolution: window.devicePixelRatio || 1,
       autoDensity: true,
-      roundPixels: true, // Prevent sub-pixel rendering artifacts
     });
 
     // Keep the renderer sized to the container
@@ -334,12 +355,17 @@ async function loadSpritesheets(): Promise<void> {
   const basePath = import.meta.env.BASE_URL || "/";
 
   const sheets = [
+    { key: "awbw-terrain", base: `${basePath}sprites/awbw-terrain` },
     { key: "neutral", base: `${basePath}sprites/warsworld/neutral` },
     { key: "orange-star", base: `${basePath}sprites/warsworld/orange-star` },
     { key: "blue-moon", base: `${basePath}sprites/warsworld/blue-moon` },
     { key: "green-earth", base: `${basePath}sprites/warsworld/green-earth` },
     { key: "yellow-comet", base: `${basePath}sprites/warsworld/yellow-comet` },
   ];
+
+  // All spritesheets are pixel-art — nearest-neighbor prevents GPU bilinear
+  // interpolation from bleeding colors across tile boundaries in the atlas.
+  TextureSource.defaultOptions.scaleMode = "nearest";
 
   const results = await Promise.allSettled(
     sheets.map(async ({ key, base }) => {
@@ -351,6 +377,13 @@ async function loadSpritesheets(): Promise<void> {
       const jsonData = await jsonRes.json();
 
       const baseTexture = await Assets.load(pngUrl);
+
+      // Force nearest-neighbor even if the texture was returned from cache
+      // with a previously-set linear filter.
+      if (baseTexture?.source) {
+        baseTexture.source.scaleMode = "nearest";
+        baseTexture.source.update();
+      }
 
       const sheet = new Spritesheet(baseTexture, jsonData);
       await sheet.parse();
@@ -385,7 +418,10 @@ export function fitMapToStage(mapW: number, mapH: number): void {
   const mapPixelH = mapH * TILE_SIZE * TILE_SCALE;
   const canvasW = app.renderer.width;
   const canvasH = app.renderer.height;
-  _dynMinZoom = Math.max(0.25, Math.min(1.0, canvasW / mapPixelW, canvasH / mapPixelH));
+  // Minimum zoom = scale that makes the map fill the viewport (no void borders).
+  // No upper cap: small maps can have dynMinZoom > 1 so they always fill the screen.
+  // Snap to integer tile-pixel boundary to prevent seam lines at the fit zoom level.
+  _dynMinZoom = snapZoom(Math.max(0.25, Math.min(canvasW / mapPixelW, canvasH / mapPixelH)));
 
   clampPan();
   applyStageTransform();
@@ -407,6 +443,9 @@ export function getStageTransform(): { x: number; y: number; scale: number } {
 export function panToP1Start(gameState: GameState): void {
   if (!app) return;
   const TILE_PX = TILE_SIZE * TILE_SCALE;
+
+  // Start at fit-to-screen zoom so the map fills the viewport (already snapped)
+  _userZoom = _dynMinZoom;
   const p1 = gameState.players[0];
   let targetX = 0;
   let targetY = 0;

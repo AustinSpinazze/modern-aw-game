@@ -29,6 +29,12 @@ export default function InfoPanel() {
     2: "border-l-4 border-green-500",
     3: "border-l-4 border-yellow-400",
   };
+  const teamDotColors: Record<number, string> = {
+    0: "bg-red-500",
+    1: "bg-blue-500",
+    2: "bg-green-600",
+    3: "bg-yellow-500",
+  };
   const colorClass = teamColors[currentPlayer.team] ?? "text-gray-900";
   const endTurnBg = teamBgColors[currentPlayer.team] ?? "bg-slate-700 hover:bg-slate-600";
 
@@ -164,10 +170,12 @@ export default function InfoPanel() {
               p.id === currentPlayer.id ? "bg-gray-100" : ""
             } ${p.is_defeated ? "opacity-40 line-through" : ""}`}
           >
-            <span className={`font-bold text-base ${teamColors[p.team] ?? "text-gray-900"}`}>
-              P{p.id + 1}
+            <span className="flex items-center gap-1.5">
+              <span className={`font-bold text-base ${teamColors[p.team] ?? "text-gray-900"}`}>
+                P{p.id + 1}
+              </span>
               {p.id === currentPlayer.id && (
-                <span className="text-gray-400 font-normal ml-1">◀</span>
+                <span className={`inline-block w-2 h-2 rounded-full ${teamDotColors[p.team] ?? "bg-gray-400"}`} />
               )}
             </span>
             <span className="text-amber-500 font-mono font-bold text-base">
@@ -181,7 +189,7 @@ export default function InfoPanel() {
       {combatStats && (
         <div className="border-t border-gray-200 pt-3">
           <div className="text-gray-500 text-sm uppercase tracking-wide mb-2">
-            Intel <span className="normal-case text-gray-400 text-xs">(fog off)</span>
+            Intel <span className="normal-case text-gray-400 text-xs font-normal">· Fog: Off</span>
           </div>
           <div className="space-y-2">
             {combatStats.map(({ playerId, built, alive, props }) => {

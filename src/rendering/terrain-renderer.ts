@@ -23,6 +23,10 @@ const MAX_CAPTURE_POINTS = 20;
 
 const DISPLAY = TILE_SIZE * TILE_SCALE; // 48px per tile on screen
 
+// Shallow-water sea colour used as the base layer under shoal direction sprites.
+// Matches the sea-area colour of the patched shoal sprites (approx RGB 99,146,252).
+const SHOAL_SEA_BG = 0x6392fc;
+
 // Dark blue-grey tint applied to sprites on tiles that are in fog of war.
 // Tinting multiplies each pixel channel, so 0x4a4a6e ≈ 29–43 % brightness with a
 // slight blue cast — visually equivalent to the old 65 % dark overlay approach.
@@ -68,6 +72,15 @@ function isRiverLike(t: TileState): boolean {
   return t.terrain_type === "river" || t.terrain_type === "sea" || t.terrain_type === "port";
 }
 
+// Sand only appears on the edge of a shoal tile that faces actual land.
+// Water-type neighbors (sea, river, shoal, reef) do NOT get a sand strip —
+// shoal-to-shoal edges are continuous shallow water; reef is in-water terrain.
+// Port IS treated as land — it's a coastal building that sits on land at the shore.
+function isLandForShoal(t: TileState): boolean {
+  const tt = t.terrain_type;
+  return tt !== "sea" && tt !== "river" && tt !== "shoal" && tt !== "reef";
+}
+
 // ─── Sprite key resolvers ───────────────────────────────────────────────────
 
 function getRoadSprite(state: GameState, x: number, y: number): string {
@@ -87,6 +100,8 @@ function getBridgeSprite(state: GameState, x: number, y: number): string {
   const vConn = (nb.n && isRoadLike(nb.n)) || (nb.s && isRoadLike(nb.s));
   return vConn ? BRIDGE_SPRITES.vertical : BRIDGE_SPRITES.horizontal;
 }
+
+// ─── Shoal tile renderer ────────────────────────────────────────────────────
 
 // ─── Building helpers ───────────────────────────────────────────────────────
 
@@ -185,6 +200,11 @@ export class TerrainRenderer {
       const effectiveOwner = fogged ? -1 : tile.owner_id;
       this.drawTerrainSprite("plains", px, py);
       this.drawBuildingSprite(terrainType, effectiveOwner, px, py);
+    } else if (terrainType === "shoal") {
+      // Shoal uses AWBW's layering technique: draw one directional sprite per
+      // land-adjacent neighbor. The sea-colored areas are the same opaque color
+      // across all 4 sprites, so stacking them composites correctly.
+      this.drawShoalTile(state, x, y, px, py);
     } else if (TRANSPARENT_TERRAIN.has(terrainType)) {
       // Mountains/forests have transparency - draw plains first
       this.drawTerrainSprite("plains", px, py);
@@ -195,6 +215,57 @@ export class TerrainRenderer {
       const spriteName = this.getTerrainSpriteName(state, tile, x, y);
       this.drawTerrainSprite(terrainType, px, py, spriteName);
     }
+  }
+
+  /**
+   * Shoal auto-tiling using AWBW's layering technique.
+   * For each neighbor that isn't deep water, draw the facing directional sprite.
+   * All 4 sprites share the same sea-color background, so stacking them
+   * composites correctly — N+W layers produce a NW corner beach, etc.
+   */
+  /**
+   * Shoal auto-tiling using a patched AWBW sprite sheet.
+   *
+   * The shoal PNG frames have had their sea-area pixels made transparent and
+   * shoal-w's stray right-edge sand column replaced with sea colour before
+   * transparency was applied.  With transparent sea areas the direction sprites
+   * only contribute sand pixels, so multiple beaches accumulate correctly on the
+   * same tile without overwriting each other.
+   *
+   * Rendering order for a tile with at least one land neighbour:
+   *   1. Solid SHOAL_SEA_BG rectangle  — shallow-water base colour
+   *   2. sea.png at 45 % alpha         — adds the deep-sea wave texture at a
+   *                                      reduced intensity so it reads as shallow
+   *   3. Land-facing direction sprites  — only sand pixels show (sea is transparent)
+   *
+   * For a tile surrounded entirely by water the same base + wave is used with
+   * no direction sprites, giving a consistent shallow-water appearance.
+   */
+  private drawShoalTile(state: GameState, x: number, y: number, px: number, py: number): void {
+    const nb = neighbors(state, x, y);
+
+    // Shallow-water base shared by all shoal tiles
+    const bg = new Graphics();
+    bg.rect(px, py, DISPLAY, DISPLAY);
+    bg.fill(SHOAL_SEA_BG);
+    this.container.addChild(bg);
+
+    const seaTex = getSprite("awbw-terrain", "sea.png") ?? getSprite("neutral", "sea.png");
+    if (seaTex) {
+      const wave = new Sprite(seaTex);
+      wave.x = px;
+      wave.y = py;
+      wave.width = DISPLAY;
+      wave.height = DISPLAY;
+      wave.alpha = 0.45;
+      this.container.addChild(wave);
+    }
+
+    // Draw beach direction sprites (transparent sea areas — only sand renders)
+    if (nb.n && isLandForShoal(nb.n)) this.drawTerrainSprite("shoal", px, py, "shoal-n.png");
+    if (nb.s && isLandForShoal(nb.s)) this.drawTerrainSprite("shoal", px, py, "shoal-s.png");
+    if (nb.e && isLandForShoal(nb.e)) this.drawTerrainSprite("shoal", px, py, "shoal-e.png");
+    if (nb.w && isLandForShoal(nb.w)) this.drawTerrainSprite("shoal", px, py, "shoal-w.png");
   }
 
   private getTerrainSpriteName(
@@ -234,7 +305,7 @@ export class TerrainRenderer {
     spriteName?: string | null
   ): void {
     const frameName = spriteName ?? TERRAIN_SPRITES[terrainType] ?? "plain.png";
-    const tex = getSprite("neutral", frameName);
+    const tex = getSprite("awbw-terrain", frameName) ?? getSprite("neutral", frameName);
 
     if (tex) {
       const sprite = new Sprite(tex);
@@ -260,7 +331,7 @@ export class TerrainRenderer {
     spriteName?: string | null
   ): void {
     const frameName = spriteName ?? TERRAIN_SPRITES[terrainType] ?? "plain.png";
-    const tex = getSprite("neutral", frameName);
+    const tex = getSprite("awbw-terrain", frameName) ?? getSprite("neutral", frameName);
 
     if (tex) {
       const sprite = new Sprite(tex);
