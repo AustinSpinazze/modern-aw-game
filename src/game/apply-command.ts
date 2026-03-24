@@ -401,17 +401,24 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
           const domain = unitDataForHeal?.domain ?? "ground";
 
           // Domain-aware healing on friendly properties
-          if (
-            standingTile &&
-            standingTile.owner_id === newPlayerId &&
-            unit.hp < 10
-          ) {
+          if (standingTile && standingTile.owner_id === newPlayerId && unit.hp < 10) {
             let canHealHere = false;
             if (domain === "air" && AIR_HEALING.has(standingTile.terrain_type)) canHealHere = true;
-            else if ((domain === "sea" || domain === "naval") && NAVAL_HEALING.has(standingTile.terrain_type)) canHealHere = true;
-            else if (domain !== "air" && domain !== "sea" && domain !== "naval" && GROUND_HEALING.has(standingTile.terrain_type)) canHealHere = true;
+            else if (
+              (domain === "sea" || domain === "naval") &&
+              NAVAL_HEALING.has(standingTile.terrain_type)
+            )
+              canHealHere = true;
+            else if (
+              domain !== "air" &&
+              domain !== "sea" &&
+              domain !== "naval" &&
+              GROUND_HEALING.has(standingTile.terrain_type)
+            )
+              canHealHere = true;
             // FOB heals ground units
-            if (standingTile.has_fob && domain !== "air" && domain !== "sea" && domain !== "naval") canHealHere = true;
+            if (standingTile.has_fob && domain !== "air" && domain !== "sea" && domain !== "naval")
+              canHealHere = true;
 
             if (canHealHere) {
               const hpToHeal = Math.min(2, 10 - unit.hp);

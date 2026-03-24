@@ -53,17 +53,16 @@ export default function ActionMenu() {
   })();
 
   // Stealth hide/unhide
-  const canHide =
-    unitData.special_actions.includes("hide") && !selectedUnit.is_hidden;
+  const canHide = unitData.special_actions.includes("hide") && !selectedUnit.is_hidden;
   const canUnhide =
     (unitData.special_actions.includes("hide") || unitData.special_actions.includes("unhide")) &&
     selectedUnit.is_hidden;
 
   // Submarine submerge/surface
-  const canSubmerge =
-    unitData.special_actions.includes("submerge") && !selectedUnit.is_submerged;
+  const canSubmerge = unitData.special_actions.includes("submerge") && !selectedUnit.is_submerged;
   const canSurface =
-    (unitData.special_actions.includes("submerge") || unitData.special_actions.includes("surface")) &&
+    (unitData.special_actions.includes("submerge") ||
+      unitData.special_actions.includes("surface")) &&
     selectedUnit.is_submerged;
 
   const canDigTrench =
@@ -388,7 +387,8 @@ export default function ActionMenu() {
           onClick={() => handleMerge(mergeTarget.id)}
           className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors text-blue-600 border-b border-gray-100"
         >
-          ⊕ Merge ({mergeTarget.hp + selectedUnit.hp > 10 ? 10 : mergeTarget.hp + selectedUnit.hp} HP)
+          ⊕ Merge ({mergeTarget.hp + selectedUnit.hp > 10 ? 10 : mergeTarget.hp + selectedUnit.hp}{" "}
+          HP)
         </button>
       )}
 

@@ -152,9 +152,16 @@ function AppContent() {
     return () => setZoomChangeCallback(null);
   }, []);
 
-  const handleZoomIn = useCallback(() => { zoomIn(); }, []);
-  const handleZoomOut = useCallback(() => { zoomOut(); }, []);
-  const handleResetZoom = useCallback(() => { resetZoom(); setZoomLevel(getZoomLevel()); }, []);
+  const handleZoomIn = useCallback(() => {
+    zoomIn();
+  }, []);
+  const handleZoomOut = useCallback(() => {
+    zoomOut();
+  }, []);
+  const handleResetZoom = useCallback(() => {
+    resetZoom();
+    setZoomLevel(getZoomLevel());
+  }, []);
 
   // Turn transition banner state
   const [bannerText, setBannerText] = useState<string | null>(null);

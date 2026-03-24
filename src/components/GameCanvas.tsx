@@ -636,10 +636,5 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     previewAttackableTiles,
   ]);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      className="block w-full h-full"
-    />
-  );
+  return <canvas ref={canvasRef} className="block w-full h-full" />;
 }

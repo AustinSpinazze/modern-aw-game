@@ -38,7 +38,9 @@ export function setZoomChangeCallback(cb: ((zoom: number) => void) | null): void
 // Dynamic minimum zoom: zoom out until the whole map fits, but never below 0.25.
 // Updated by fitMapToStage() whenever map or canvas dimensions change.
 let _dynMinZoom = 0.25;
-export function getMinZoom(): number { return _dynMinZoom; }
+export function getMinZoom(): number {
+  return _dynMinZoom;
+}
 // Keep MIN_ZOOM exported as a static fallback for callers that reference it directly.
 export const MIN_ZOOM = 0.25;
 
@@ -181,9 +183,10 @@ export function enablePanZoom(canvas: HTMLCanvasElement): void {
   const onWheel = (e: WheelEvent) => {
     e.preventDefault();
     // Step exactly one snap level in the scroll direction.
-    const stepped = e.deltaY > 0
-      ? (Math.round(_userZoom * TILE_SCALE) - 1) / TILE_SCALE
-      : (Math.round(_userZoom * TILE_SCALE) + 1) / TILE_SCALE;
+    const stepped =
+      e.deltaY > 0
+        ? (Math.round(_userZoom * TILE_SCALE) - 1) / TILE_SCALE
+        : (Math.round(_userZoom * TILE_SCALE) + 1) / TILE_SCALE;
     const newZoom = Math.min(MAX_ZOOM, Math.max(_dynMinZoom, stepped));
 
     // Zoom toward cursor position
@@ -451,8 +454,7 @@ export function panToP1Start(gameState: GameState): void {
   let targetY = 0;
   let found = false;
 
-  outer:
-  for (let y = 0; y < gameState.map_height; y++) {
+  outer: for (let y = 0; y < gameState.map_height; y++) {
     for (let x = 0; x < gameState.map_width; x++) {
       const tile = gameState.tiles[y]?.[x];
       if (tile && tile.terrain_type === "hq" && tile.owner_id === p1?.id) {
@@ -466,7 +468,10 @@ export function panToP1Start(gameState: GameState): void {
 
   if (!found) {
     const p1Unit = Object.values(gameState.units).find((u) => u.owner_id === p1?.id);
-    if (p1Unit) { targetX = p1Unit.x; targetY = p1Unit.y; }
+    if (p1Unit) {
+      targetX = p1Unit.x;
+      targetY = p1Unit.y;
+    }
   }
 
   const worldX = targetX * TILE_PX + TILE_PX / 2;
@@ -498,10 +503,12 @@ export function updateCameraFollow(worldX: number, worldY: number): void {
   let desiredPanX = _panOffsetX;
   let desiredPanY = _panOffsetY;
 
-  if (screenX < SAFE_ZONE_INSET)             desiredPanX = SAFE_ZONE_INSET - worldX * _userZoom;
-  if (screenX > canvasW - SAFE_ZONE_INSET)   desiredPanX = canvasW - SAFE_ZONE_INSET - worldX * _userZoom;
-  if (screenY < SAFE_ZONE_INSET)             desiredPanY = SAFE_ZONE_INSET - worldY * _userZoom;
-  if (screenY > canvasH - SAFE_ZONE_INSET)   desiredPanY = canvasH - SAFE_ZONE_INSET - worldY * _userZoom;
+  if (screenX < SAFE_ZONE_INSET) desiredPanX = SAFE_ZONE_INSET - worldX * _userZoom;
+  if (screenX > canvasW - SAFE_ZONE_INSET)
+    desiredPanX = canvasW - SAFE_ZONE_INSET - worldX * _userZoom;
+  if (screenY < SAFE_ZONE_INSET) desiredPanY = SAFE_ZONE_INSET - worldY * _userZoom;
+  if (screenY > canvasH - SAFE_ZONE_INSET)
+    desiredPanY = canvasH - SAFE_ZONE_INSET - worldY * _userZoom;
 
   _panOffsetX += (desiredPanX - _panOffsetX) * CAMERA_FOLLOW_LERP;
   _panOffsetY += (desiredPanY - _panOffsetY) * CAMERA_FOLLOW_LERP;

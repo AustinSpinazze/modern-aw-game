@@ -175,7 +175,9 @@ export default function InfoPanel() {
                 P{p.id + 1}
               </span>
               {p.id === currentPlayer.id && (
-                <span className={`inline-block w-2 h-2 rounded-full ${teamDotColors[p.team] ?? "bg-gray-400"}`} />
+                <span
+                  className={`inline-block w-2 h-2 rounded-full ${teamDotColors[p.team] ?? "bg-gray-400"}`}
+                />
               )}
             </span>
             <span className="text-amber-500 font-mono font-bold text-base">

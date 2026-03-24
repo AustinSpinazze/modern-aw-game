@@ -78,20 +78,20 @@ Backend commands already existed; this session added:
 
 Added `src/tests/new-mechanics.test.ts` with **47 tests**:
 
-| Category | Tests |
-|----------|-------|
-| Merge validation | 7 |
-| Merge apply (HP, ammo, fuel, refund) | 7 |
-| Counter-attack ammo depletion | 4 |
-| Domain-aware healing | 6 |
-| Economy helpers | 2 |
-| Auto-resupply | 4 |
-| Hide/Unhide validation | 5 |
-| Hide/Unhide apply | 2 |
-| Hidden stealth visibility (fog) | 2 |
-| Hidden stealth combat restriction | 2 |
-| Submerged sub targeting restriction | 3 |
-| Command parsing (MERGE/HIDE/UNHIDE) | 3 |
+| Category                             | Tests |
+| ------------------------------------ | ----- |
+| Merge validation                     | 7     |
+| Merge apply (HP, ammo, fuel, refund) | 7     |
+| Counter-attack ammo depletion        | 4     |
+| Domain-aware healing                 | 6     |
+| Economy helpers                      | 2     |
+| Auto-resupply                        | 4     |
+| Hide/Unhide validation               | 5     |
+| Hide/Unhide apply                    | 2     |
+| Hidden stealth visibility (fog)      | 2     |
+| Hidden stealth combat restriction    | 2     |
+| Submerged sub targeting restriction  | 3     |
+| Command parsing (MERGE/HIDE/UNHIDE)  | 3     |
 
 Updated 2 existing tests in `apply-command.test.ts` (healing now costs funds).
 Added mock data: `stealth`, `cruiser` units; `airport`, `port`, `forest` terrain.
@@ -100,20 +100,20 @@ Added mock data: `stealth`, `cruiser` units; `airport`, `port`, `forest` terrain
 
 ### Files Changed
 
-| File | Change |
-|------|--------|
-| `src/game/types.ts` | Added `is_hidden` to `UnitState`; `MERGE`, `HIDE`, `UNHIDE` to `CommandType`; 3 new command interfaces |
-| `src/game/commands.ts` | Added 3 new cases to `commandFromDict` |
-| `src/game/economy.ts` | Added `calculateHealCost()`, `calculateMergeRefund()` |
-| `src/game/combat.ts` | Exported `getCounterWeaponIndex`; ammo check in `canCounterattack` + `getCounterWeaponIndex`; submerged/hidden targeting restriction |
-| `src/game/validators.ts` | Added `validateMerge`, `validateHide`, `validateUnhide` |
-| `src/game/apply-command.ts` | Added MERGE/HIDE/UNHIDE handlers; counter-attack ammo fix; END_TURN overhaul (domain-aware healing + auto-resupply) |
-| `src/game/visibility.ts` | Hidden stealth post-processing in fog |
-| `src/components/ActionMenu.tsx` | Merge, Hide, Unhide, Submerge, Surface buttons |
-| `src/store/game-store.ts` | MERGE skip-MOVE logic; new command types in `clearTypes` |
-| `src/tests/new-mechanics.test.ts` | **New** — 47 tests for all 6 mechanics |
-| `src/tests/mock-data.ts` | Added `stealth`, `cruiser` units; `airport`, `port`, `forest` terrain |
-| `src/tests/apply-command.test.ts` | Updated 2 healing tests (healing now costs funds) |
+| File                              | Change                                                                                                                               |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/game/types.ts`               | Added `is_hidden` to `UnitState`; `MERGE`, `HIDE`, `UNHIDE` to `CommandType`; 3 new command interfaces                               |
+| `src/game/commands.ts`            | Added 3 new cases to `commandFromDict`                                                                                               |
+| `src/game/economy.ts`             | Added `calculateHealCost()`, `calculateMergeRefund()`                                                                                |
+| `src/game/combat.ts`              | Exported `getCounterWeaponIndex`; ammo check in `canCounterattack` + `getCounterWeaponIndex`; submerged/hidden targeting restriction |
+| `src/game/validators.ts`          | Added `validateMerge`, `validateHide`, `validateUnhide`                                                                              |
+| `src/game/apply-command.ts`       | Added MERGE/HIDE/UNHIDE handlers; counter-attack ammo fix; END_TURN overhaul (domain-aware healing + auto-resupply)                  |
+| `src/game/visibility.ts`          | Hidden stealth post-processing in fog                                                                                                |
+| `src/components/ActionMenu.tsx`   | Merge, Hide, Unhide, Submerge, Surface buttons                                                                                       |
+| `src/store/game-store.ts`         | MERGE skip-MOVE logic; new command types in `clearTypes`                                                                             |
+| `src/tests/new-mechanics.test.ts` | **New** — 47 tests for all 6 mechanics                                                                                               |
+| `src/tests/mock-data.ts`          | Added `stealth`, `cruiser` units; `airport`, `port`, `forest` terrain                                                                |
+| `src/tests/apply-command.test.ts` | Updated 2 healing tests (healing now costs funds)                                                                                    |
 
 ---
 

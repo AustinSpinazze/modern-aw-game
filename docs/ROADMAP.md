@@ -1,6 +1,6 @@
 # Modern AW — Project Roadmap
 
-Last Updated: 2026-03-09
+Last Updated: 2026-03-24
 
 ---
 
@@ -11,10 +11,12 @@ Last Updated: 2026-03-09
 - **Combat:** `combat-animator.ts` — fire/hit/destruction tile overlays; wired in GameCanvas for player and queued ATTACK.
 - **Fog of War:** Full implementation — `visibility.ts` (computeVisibility), `fog-renderer.ts`, `fog_of_war` in GameState; MatchSetup option; terrain/units respect visibility.
 - **Save/Load:** Save Game / Continue a Saved Game in UI; IPC save/load/list/delete; serialization tests.
-- **Camera:** Pan (Ctrl/Cmd + drag) and zoom in/out/reset in GameCanvas and App.
+- **Camera:** Pan (Ctrl/Cmd + drag) and zoom in/out/reset; **camera follow** during movement (`updateCameraFollow` in `pixi-app.ts`, driven from `GameCanvas` ticker while `MovementAnimator` runs).
 - **Tests:** Vitest (unit + game-state-serialization + visibility), E2E (Playwright), game-test and electron.test.
 - **Transport:** Load/unload (APC, T-Copter, Lander, Carrier) with UI; LOAD/UNLOAD commands.
 - **Fuel:** Air/naval fuel consumption, resupply, 0 fuel = no move; fuel in UI.
+- **Mechanics (Session 14):** Unit Merge command, ammo-aware counterattacks, domain-aware repair/healing costs, auto-resupply on properties, Stealth hide/unhide, and submerged/hidden targeting restrictions.
+- **Tests:** 197/197 passing after adding 47 tests for new mechanics (`src/tests/new-mechanics.test.ts`).
 
 The sections below still list some of these as planned; checkmarks and "In Progress" have been updated to match the codebase.
 
@@ -47,8 +49,10 @@ A modern Advance Wars-inspired turn-based strategy game that:
 - [x] Attack/combat system with damage calculations
 - [x] Building capture mechanics
 - [x] Unit production from factories/airports/ports
+- [x] Unit merge (AW Join mechanic) with HP cap + excess HP refund
 - [x] Victory conditions (HQ capture, unit elimination)
 - [x] Fog of War (visibility computation, fog renderer, match option; see `src/game/visibility.ts`, `src/rendering/fog-renderer.ts`)
+- [x] Hide/Unhide support for stealth units with fog-aware visibility rules
 
 ### Units (19 AWBW-canonical units)
 
@@ -84,6 +88,7 @@ A modern Advance Wars-inspired turn-based strategy game that:
 - [x] Movement animations (units walk/drive along path)
 - [x] Combat animations (tile overlays: fire, hit, destruction; see `src/rendering/combat-animator.ts`)
 - [x] Zoom and pan (GameCanvas; zoom in/out/reset in App)
+- [x] Camera follow during movement animation (safe-zone lerp; `updateCameraFollow` in `pixi-app.ts`)
 - [x] Save/load game (Electron IPC; Save Game / Continue in UI)
 - [x] Settings modal (API keys, AI provider, model)
 - [x] Local AI (OpenAI, Anthropic, local HTTP; heuristic fallback)
@@ -117,6 +122,15 @@ A modern Advance Wars-inspired turn-based strategy game that:
 - [ ] Multiple difficulty levels / AI personalities (future)
 - [ ] AI thinking indicator (optional polish)
 
+### Core Mechanics — Done ✅
+
+- [x] Unit merge (MERGE command): HP cap at 10, excess HP funds refund, max ammo/fuel retention
+- [x] Ammo-aware counterattacks (counter weapon must have ammo; counter consumes ammo)
+- [x] Domain-aware healing with funds cost (ground/city-family, air/airport, naval/port)
+- [x] Auto-resupply on friendly properties (ammo + fuel at turn start)
+- [x] Stealth hide/unhide (HIDE/UNHIDE) with combat/visibility constraints
+- [x] Submarine submerge/surface targeting restrictions (range > 1 blocked)
+
 ### Combat Animations — Done ✅
 
 - [x] Attack/hit/destruction (tile overlays: fire flash, hit flash, destruction flicker; see combat-animator.ts)
@@ -126,7 +140,7 @@ A modern Advance Wars-inspired turn-based strategy game that:
 ### Camera / Large Maps
 
 - [x] Map panning (Ctrl/Cmd + drag) and zoom in/out/reset
-- [ ] **Camera follow** — Camera follow during unit movement when map is larger than viewport; smooth transitions to keep moving unit in view.
+- [x] **Camera follow** — During movement animation, pan lerps so the unit stays inside a viewport safe zone (`updateCameraFollow` + `MovementAnimator.getActiveWorldPos()` in `GameCanvas`).
 
 ---
 
@@ -160,9 +174,10 @@ A modern Advance Wars-inspired turn-based strategy game that:
 
 - [x] **Transport load/unload** (APC, T-Copter, Lander, Carrier) — Load/unload UI; LOAD/UNLOAD commands; cargo/is_loaded; validators.
 - [x] **Fuel mechanics** — Air/naval fuel consumption; resupply; 0 fuel = no move; per-turn consumption; fuel in UI.
-- [ ] **Indirect fire** — Artillery, Rocket (and other indirect units) can attack at range (min_range > 1 or max_range > 1); no counterattack from target; line-of-fire or range-only rules per AW.
-- [ ] Ammo management
-- [ ] Supply from APC/cities
+- [x] **Indirect fire** — Artillery, Rocket (and other indirect units) can attack at range (min_range > 1 or max_range > 1); no counterattack from target; range behavior enforced.
+- [x] **Ammo management (core)** — Ammo depletion applies to normal and counterattacks; counter weapon selection requires available ammo.
+- [x] **Auto-resupply on properties** — Friendly properties restore ammo/fuel at turn start.
+- [ ] Supply from APC/cities (active supply mechanics/range, beyond property auto-resupply)
 - [ ] Weather effects (rain, snow, clear)
 - [x] Fog of War (full implementation in place; visibility + fog renderer + match option)
 
@@ -180,8 +195,8 @@ A modern Advance Wars-inspired turn-based strategy game that:
 
 ### Optional polish (visual & feedback)
 
-- [ ] **Camera follow** during unit movement (see Camera / Large Maps)
-- [ ] Smooth camera transitions
+- [x] **Camera follow** during unit movement (see Camera / Large Maps)
+- [ ] Smooth camera transitions (beyond follow-during-move; e.g. scripted pans)
 - [ ] Screen shake on explosions
 - [ ] Damage numbers or health bar feedback during combat
 - [ ] Particle effects (smoke, fire)
@@ -290,15 +305,15 @@ A modern Advance Wars-inspired turn-based strategy game that:
 | ~~Transport mechanics~~ | ~~Medium~~ | ~~Medium~~ | ✅ Done   | -     |
 | ~~Fuel mechanics~~      | ~~Medium~~ | ~~Medium~~ | ✅ Done   | -     |
 | ~~Indirect fire~~       | ~~High~~   | ~~Medium~~ | ✅ Done   | -     |
-| Camera follow           | Medium     | Low        | 🟡 Medium | 7     |
-| Optional polish         | Low        | Low–Medium | 🟢 Low    | 8     |
-| Online multiplayer      | High       | High       | 🟡 Medium | 9     |
-| Map preview             | Medium     | Low        | 🟡 Medium | 10    |
-| Map editor              | Medium     | High       | 🟢 Low    | 11    |
-| Shoal coastline tiles   | Medium     | Medium     | 🟡 Medium | 12    |
-| Custom units (units.md) | High       | High       | 🟢 Low    | 13    |
-| New buildings/tiles     | Medium     | Medium     | 🟢 Low    | 14    |
-| Audio/SFX               | Medium     | Low        | 🟢 Low    | 15    |
+| ~~Camera follow~~       | ~~Medium~~ | ~~Low~~    | ✅ Done   | -     |
+| Optional polish         | Low        | Low–Medium | 🟢 Low    | 7     |
+| Online multiplayer      | High       | High       | 🟡 Medium | 8     |
+| Map preview             | Medium     | Low        | 🟡 Medium | 9     |
+| Map editor              | Medium     | High       | 🟢 Low    | 10    |
+| Shoal coastline tiles   | Medium     | Medium     | 🟡 Medium | 11    |
+| Custom units (units.md) | High       | High       | 🟢 Low    | 12    |
+| New buildings/tiles     | Medium     | Medium     | 🟢 Low    | 13    |
+| Audio/SFX               | Medium     | Low        | 🟢 Low    | 14    |
 
 > **Note:** Electron migration comes before Audio because it enables local AI play with secure API key storage.
 > **Known gap:** WarsWorld assets only include one shoal sprite; coastlines render as uniform yellow. See Map Features → Shoal coastline auto-tiling.
@@ -309,31 +324,31 @@ A modern Advance Wars-inspired turn-based strategy game that:
 
 Single list of all planned features for easy reference. Order follows Priority Matrix where applicable.
 
-| #   | Feature                    | Notes                                                                          |
-| --- | -------------------------- | ------------------------------------------------------------------------------ |
-| –   | ~~Transport mechanics~~    | ✅ Done — Load/unload APC, T-Copter, Lander, Carrier; UI.                      |
-| –   | ~~Fuel mechanics~~         | ✅ Done — Air/naval fuel; resupply; 0 fuel = no move.                          |
-| –   | ~~Indirect fire~~          | ✅ Done — Artillery, Rocket, Missile range attacks; no counter from target.    |
-| 7   | Camera follow              | Camera follows moving unit when map larger than viewport.                      |
-| 8   | Optional polish            | Damage numbers, screen shake, AI thinking indicator, smooth camera, particles. |
-| 9   | Online multiplayer         | Partykit; create/join rooms; state sync.                                       |
-| 10  | Map preview                | Show map (name, size, thumbnail) before game start.                            |
-| 11  | Map editor                 | Create and edit maps in-app.                                                   |
-| 12  | Shoal coastline tiles      | Directional shoal sprites + auto-tiling.                                       |
-| 13  | Custom units (units.md)    | 30 designs; data + sprites.                                                    |
-| 14  | New buildings/tiles        | Radar, supply depot, new terrain.                                              |
-| 15  | Audio/SFX                  | In-game sounds and music. (Last.)                                              |
-| –   | Hot-seat multiplayer       | Same device, pass-and-play.                                                    |
-| –   | Minimap                    | In-game minimap.                                                               |
-| –   | Ammo management            | Track and display ammo; resupply rules.                                        |
-| –   | Supply from APC/cities     | Supply range and mechanics.                                                    |
-| –   | Weather effects            | Rain, snow, clear; affect movement/vision.                                     |
-| –   | UX refinement (menus)      | Per docs/UX_IMPROVEMENT_PLAN.md; map/sprites unchanged.                        |
-| –   | Multiple AI difficulty     | AI personalities / difficulty levels.                                          |
-| –   | Unit info panel            | Stats, HP, ammo, fuel at a glance.                                             |
-| –   | Damage preview             | Before attacking.                                                              |
-| –   | Undo last move             | Before confirming action.                                                      |
-| –   | Colorblind / accessibility | Team indicators, high contrast, etc.                                           |
+| #   | Feature                    | Notes                                                                             |
+| --- | -------------------------- | --------------------------------------------------------------------------------- |
+| –   | ~~Transport mechanics~~    | ✅ Done — Load/unload APC, T-Copter, Lander, Carrier; UI.                         |
+| –   | ~~Fuel mechanics~~         | ✅ Done — Air/naval fuel; resupply; 0 fuel = no move.                             |
+| –   | ~~Indirect fire~~          | ✅ Done — Artillery, Rocket, Missile range attacks; no counter from target.       |
+| –   | ~~Camera follow~~          | ✅ Done — Pan during move animation; safe-zone lerp (`pixi-app.ts` + GameCanvas). |
+| 7   | Optional polish            | Damage numbers, screen shake, AI thinking indicator, smooth camera, particles.    |
+| 8   | Online multiplayer         | Partykit; create/join rooms; state sync.                                          |
+| 9   | Map preview                | Show map (name, size, thumbnail) before game start.                               |
+| 10  | Map editor                 | Create and edit maps in-app.                                                      |
+| 11  | Shoal coastline tiles      | Directional shoal sprites + auto-tiling.                                          |
+| 12  | Custom units (units.md)    | 30 designs; data + sprites.                                                       |
+| 13  | New buildings/tiles        | Radar, supply depot, new terrain.                                                 |
+| 14  | Audio/SFX                  | In-game sounds and music. (Last.)                                                 |
+| –   | Hot-seat multiplayer       | Same device, pass-and-play.                                                       |
+| –   | Minimap                    | In-game minimap.                                                                  |
+| –   | ~~Ammo management~~        | ✅ Done (core) — ammo depletion + counter-attack ammo checks + property resupply. |
+| –   | Supply from APC/cities     | Supply range and mechanics.                                                       |
+| –   | Weather effects            | Rain, snow, clear; affect movement/vision.                                        |
+| –   | UX refinement (menus)      | Per docs/UX_IMPROVEMENT_PLAN.md; map/sprites unchanged.                           |
+| –   | Multiple AI difficulty     | AI personalities / difficulty levels.                                             |
+| –   | Unit info panel            | Stats, HP, ammo, fuel at a glance.                                                |
+| –   | Damage preview             | Before attacking.                                                                 |
+| –   | Undo last move             | Before confirming action.                                                         |
+| –   | Colorblind / accessibility | Team indicators, high contrast, etc.                                              |
 
 ---
 
