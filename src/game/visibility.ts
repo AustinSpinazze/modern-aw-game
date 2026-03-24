@@ -73,6 +73,22 @@ export function computeVisibility(state: GameState, playerId: number): boolean[]
     }
   }
 
+  // Post-process: hidden stealth units are invisible unless an ally is adjacent
+  for (const unit of Object.values(state.units)) {
+    if (!unit.is_hidden || allyIds.has(unit.owner_id)) continue;
+    const adjacent =
+      allyPositions.has(`${unit.x - 1},${unit.y}`) ||
+      allyPositions.has(`${unit.x + 1},${unit.y}`) ||
+      allyPositions.has(`${unit.x},${unit.y - 1}`) ||
+      allyPositions.has(`${unit.x},${unit.y + 1}`);
+    if (!adjacent) {
+      // The tile itself stays visible, but the unit on it should be hidden.
+      // We mark the tile as invisible so the unit renderer won't draw the unit.
+      // Note: this is a simplification; ideally we'd have a separate unit visibility layer.
+      visible[unit.y][unit.x] = false;
+    }
+  }
+
   return visible;
 }
 

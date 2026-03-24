@@ -39,6 +39,33 @@ export default function ActionMenu() {
 
   const canCapture =
     unitData.can_capture && terrainData?.can_capture && tile?.owner_id !== currentPlayer.id;
+
+  // Merge: same-type friendly unit on the destination tile with < 10 HP
+  // Merge: same-type friendly unit on the destination tile (at least one must be damaged)
+  const mergeTarget = (() => {
+    const destUnit = getUnitAt(gameState, pendingMove.x, pendingMove.y);
+    if (!destUnit) return null;
+    if (destUnit.id === selectedUnit.id) return null;
+    if (destUnit.owner_id !== currentPlayer.id) return null;
+    if (destUnit.unit_type !== selectedUnit.unit_type) return null;
+    if (selectedUnit.hp >= 10 && destUnit.hp >= 10) return null; // pointless if both full
+    return destUnit;
+  })();
+
+  // Stealth hide/unhide
+  const canHide =
+    unitData.special_actions.includes("hide") && !selectedUnit.is_hidden;
+  const canUnhide =
+    (unitData.special_actions.includes("hide") || unitData.special_actions.includes("unhide")) &&
+    selectedUnit.is_hidden;
+
+  // Submarine submerge/surface
+  const canSubmerge =
+    unitData.special_actions.includes("submerge") && !selectedUnit.is_submerged;
+  const canSurface =
+    (unitData.special_actions.includes("submerge") || unitData.special_actions.includes("surface")) &&
+    selectedUnit.is_submerged;
+
   const canDigTrench =
     unitData.special_actions.includes("dig_trench") &&
     terrainData?.can_build_trench &&
@@ -232,6 +259,31 @@ export default function ActionMenu() {
     });
   };
 
+  const handleMerge = (targetId: number) => {
+    startMoveAnimation({
+      type: "MERGE",
+      player_id: currentPlayer.id,
+      unit_id: selectedUnit.id,
+      target_id: targetId,
+    });
+  };
+
+  const handleHide = () => {
+    startMoveAnimation({ type: "HIDE", player_id: currentPlayer.id, unit_id: selectedUnit.id });
+  };
+
+  const handleUnhide = () => {
+    startMoveAnimation({ type: "UNHIDE", player_id: currentPlayer.id, unit_id: selectedUnit.id });
+  };
+
+  const handleSubmerge = () => {
+    startMoveAnimation({ type: "SUBMERGE", player_id: currentPlayer.id, unit_id: selectedUnit.id });
+  };
+
+  const handleSurface = () => {
+    startMoveAnimation({ type: "SURFACE", player_id: currentPlayer.id, unit_id: selectedUnit.id });
+  };
+
   const handleLoad = (unitId: number) => {
     startMoveAnimation({
       type: "LOAD",
@@ -328,6 +380,51 @@ export default function ActionMenu() {
           className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors text-orange-500 border-b border-gray-100"
         >
           🏗 Build FOB (¥5,000)
+        </button>
+      )}
+
+      {mergeTarget && (
+        <button
+          onClick={() => handleMerge(mergeTarget.id)}
+          className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors text-blue-600 border-b border-gray-100"
+        >
+          ⊕ Merge ({mergeTarget.hp + selectedUnit.hp > 10 ? 10 : mergeTarget.hp + selectedUnit.hp} HP)
+        </button>
+      )}
+
+      {canHide && (
+        <button
+          onClick={handleHide}
+          className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors text-purple-600 border-b border-gray-100"
+        >
+          👁 Hide
+        </button>
+      )}
+
+      {canUnhide && (
+        <button
+          onClick={handleUnhide}
+          className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors text-purple-600 border-b border-gray-100"
+        >
+          👁 Unhide
+        </button>
+      )}
+
+      {canSubmerge && (
+        <button
+          onClick={handleSubmerge}
+          className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors text-cyan-600 border-b border-gray-100"
+        >
+          ⬇ Submerge
+        </button>
+      )}
+
+      {canSurface && (
+        <button
+          onClick={handleSurface}
+          className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors text-cyan-600 border-b border-gray-100"
+        >
+          ⬆ Surface
         </button>
       )}
 

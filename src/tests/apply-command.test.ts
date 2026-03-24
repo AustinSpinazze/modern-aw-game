@@ -407,6 +407,7 @@ describe("END_TURN command", () => {
   it("heals units standing on allied buildings by 2 HP", () => {
     let s = makeState(5, 5);
     s = setTerrain(s, 0, 0, "city", { owner_id: 1 });
+    s = updatePlayer(s, 1, { funds: 10000 });
     s = addTestUnit(s, { id: 1, unit_type: "infantry", owner_id: 1, x: 0, y: 0, hp: 6 });
     s = applyCommand(s, { type: "END_TURN", player_id: 0 });
     expect(getUnit(s, 1)!.hp).toBe(8);
@@ -415,6 +416,7 @@ describe("END_TURN command", () => {
   it("does not heal above max HP (10)", () => {
     let s = makeState(5, 5);
     s = setTerrain(s, 0, 0, "city", { owner_id: 1 });
+    s = updatePlayer(s, 1, { funds: 10000 });
     s = addTestUnit(s, { id: 1, unit_type: "infantry", owner_id: 1, x: 0, y: 0, hp: 9 });
     s = applyCommand(s, { type: "END_TURN", player_id: 0 });
     expect(getUnit(s, 1)!.hp).toBe(10);

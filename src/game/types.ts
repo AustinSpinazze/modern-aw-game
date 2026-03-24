@@ -24,6 +24,7 @@ export interface UnitState {
   cargo: number[]; // unit IDs being transported
   is_loaded: boolean; // true if inside a transport
   is_submerged?: boolean; // true when submarine is diving
+  is_hidden?: boolean; // true when stealth unit is hidden
   fuel?: number; // optional fuel tracking for air/naval units
 }
 
@@ -75,7 +76,10 @@ export type CommandType =
   | "END_TURN"
   | "RESUPPLY"
   | "SUBMERGE"
-  | "SURFACE";
+  | "SURFACE"
+  | "MERGE"
+  | "HIDE"
+  | "UNHIDE";
 
 export interface CmdBase {
   type: CommandType;
@@ -168,6 +172,22 @@ export interface CmdSurface extends CmdBase {
   unit_id: number;
 }
 
+export interface CmdMerge extends CmdBase {
+  type: "MERGE";
+  unit_id: number; // the unit moving into the merge
+  target_id: number; // the unit being merged into
+}
+
+export interface CmdHide extends CmdBase {
+  type: "HIDE";
+  unit_id: number;
+}
+
+export interface CmdUnhide extends CmdBase {
+  type: "UNHIDE";
+  unit_id: number;
+}
+
 export type GameCommand =
   | CmdMove
   | CmdAttack
@@ -182,7 +202,10 @@ export type GameCommand =
   | CmdEndTurn
   | CmdResupply
   | CmdSubmerge
-  | CmdSurface;
+  | CmdSurface
+  | CmdMerge
+  | CmdHide
+  | CmdUnhide;
 
 // Raw dict representation used in logs and AI
 export type CommandDict = Record<string, unknown>;

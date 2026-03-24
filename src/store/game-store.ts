@@ -284,9 +284,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     let state = gameState;
 
+    // For MERGE: skip the MOVE entirely — the merging unit gets removed, target stays in place.
+    // The unit just needs to be validated & the merge applied directly.
+    let effectivePendingMove = pendingMove;
+    if (actionCmd.type === "MERGE" && pendingMove) {
+      effectivePendingMove = { x: selectedUnit.x, y: selectedUnit.y }; // stay in place, skip MOVE
+    }
+
     // For LOAD: if pendingMove is the transport's tile, redirect movement to the tile just before
     // the transport (infantry moves adjacent, then loads). This matches the AW click-onto-transport flow.
-    let effectivePendingMove = pendingMove;
     if (actionCmd.type === "LOAD" && pendingMove && !selectedUnit.has_moved) {
       const transport = getUnit(state, actionCmd.transport_id);
       if (transport && transport.x === pendingMove.x && transport.y === pendingMove.y) {
@@ -365,6 +371,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       "SELF_DESTRUCT",
       "BUY_UNIT",
       "MOVE",
+      "MERGE",
+      "HIDE",
+      "UNHIDE",
+      "SUBMERGE",
+      "SURFACE",
+      "RESUPPLY",
     ];
     if (clearTypes.includes(cmd.type)) {
       set({

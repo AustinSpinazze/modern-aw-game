@@ -117,6 +117,28 @@ export function commandFromDict(data: CommandDict): GameCommand | null {
         sequence,
         unit_id: data.unit_id as number,
       };
+    case "MERGE":
+      return {
+        type: "MERGE",
+        player_id,
+        sequence,
+        unit_id: data.unit_id as number,
+        target_id: data.target_id as number,
+      };
+    case "HIDE":
+      return {
+        type: "HIDE",
+        player_id,
+        sequence,
+        unit_id: data.unit_id as number,
+      };
+    case "UNHIDE":
+      return {
+        type: "UNHIDE",
+        player_id,
+        sequence,
+        unit_id: data.unit_id as number,
+      };
     default:
       console.warn("Unknown command type:", type);
       return null;

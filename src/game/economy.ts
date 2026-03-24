@@ -47,3 +47,15 @@ export function canAfford(state: GameState, playerId: number, unitType: string):
 }
 
 export const FOB_COST = 5000;
+
+/** Cost to heal a unit by the given HP amount (1/10 of unit cost per HP). */
+export function calculateHealCost(unitType: string, hpHealed: number): number {
+  const cost = getUnitData(unitType)?.cost ?? 0;
+  return Math.round((cost / 10) * hpHealed);
+}
+
+/** Funds refunded when merging two units whose combined HP exceeds 10. */
+export function calculateMergeRefund(unitType: string, excessHp: number): number {
+  const cost = getUnitData(unitType)?.cost ?? 0;
+  return Math.round((cost / 10) * excessHp);
+}

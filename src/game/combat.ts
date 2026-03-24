@@ -75,13 +75,19 @@ function canCounterattack(defender: UnitState, attacker: UnitState): boolean {
   for (const weapon of defenderData.weapons) {
     if (weapon.can_counterattack === false) continue;
     if (dist >= weapon.min_range && dist <= weapon.max_range) {
-      if ((weapon.damage_table[attacker.unit_type] ?? 0) > 0) return true;
+      if ((weapon.damage_table[attacker.unit_type] ?? 0) <= 0) continue;
+      // Check ammo for limited-ammo weapons
+      if (weapon.ammo > 0) {
+        const currentAmmo = defender.ammo[weapon.id] ?? weapon.ammo;
+        if (currentAmmo <= 0) continue;
+      }
+      return true;
     }
   }
   return false;
 }
 
-function getCounterWeaponIndex(defender: UnitState, attacker: UnitState): number {
+export function getCounterWeaponIndex(defender: UnitState, attacker: UnitState): number {
   const defenderData = getUnitData(defender.unit_type);
   if (!defenderData) return 0;
 
@@ -91,7 +97,13 @@ function getCounterWeaponIndex(defender: UnitState, attacker: UnitState): number
     const weapon = defenderData.weapons[i];
     if (weapon.can_counterattack === false) continue;
     if (dist >= weapon.min_range && dist <= weapon.max_range) {
-      if ((weapon.damage_table[attacker.unit_type] ?? 0) > 0) return i;
+      if ((weapon.damage_table[attacker.unit_type] ?? 0) <= 0) continue;
+      // Check ammo for limited-ammo weapons
+      if (weapon.ammo > 0) {
+        const currentAmmo = defender.ammo[weapon.id] ?? weapon.ammo;
+        if (currentAmmo <= 0) continue;
+      }
+      return i;
     }
   }
   return 0;
@@ -157,6 +169,19 @@ export function canAttackFromPosition(
   fromX: number,
   fromY: number
 ): boolean {
+  // Submerged subs can only attack with torpedoes (handled by weapon table);
+  // but non-sub units cannot target a submerged sub unless adjacent
+  if (defender.is_submerged) {
+    const dist = manhattanDistance(fromX, fromY, defender.x, defender.y);
+    if (dist > 1) return false;
+  }
+
+  // Hidden stealth units cannot be targeted unless adjacent
+  if (defender.is_hidden) {
+    const dist = manhattanDistance(fromX, fromY, defender.x, defender.y);
+    if (dist > 1) return false;
+  }
+
   const attackerData = getUnitData(attacker.unit_type);
   if (!attackerData || weaponIndex >= attackerData.weapons.length) return false;
 

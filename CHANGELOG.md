@@ -4,6 +4,128 @@ This file tracks significant changes made by AI agents (Claude Code, Cursor, etc
 
 ---
 
+## 2026-03-24 (Session 14) — 6 Core Game Mechanics + 47 Tests
+
+**Session:** Claude Code (claude-opus-4-6)
+**Status:** ✅ COMPLETE
+
+### Summary
+
+Implemented 6 missing core Advance Wars game mechanics: Unit Merging, Ammo Depletion (counter-attack fix), Domain-Aware Repair/Healing, Auto-Resupply on Properties, Stealth Hide/Unhide, and Submarine targeting restrictions. Added UI buttons for all new actions. Wrote 47 new tests covering all mechanics with zero regressions (197/197 total tests passing).
+
+---
+
+### 1. Unit Merging (MERGE command)
+
+Same-type friendly units on the same tile can merge (AW "Join" mechanic).
+
+- **HP**: Combined, capped at 10
+- **Excess HP refund**: Refunded as funds at 1/10 unit cost per HP (e.g. two 6+9 HP tanks → 10 HP tank + 3,500¥ refund)
+- **Ammo/Fuel**: Takes max of both units
+- **Full HP merge**: A full HP unit can merge into a damaged unit (only blocked when both are 10 HP)
+- **UI**: ActionMenu shows Merge button with preview of resulting HP
+
+### 2. Ammo Depletion (counter-attack fix)
+
+- **Counter-attack ammo**: Defender's counter-attack weapon now consumes ammo (was previously free)
+- **`canCounterattack`**: Now checks ammo for limited-ammo counter weapons — depleted weapons are skipped
+- **`getCounterWeaponIndex`**: Same ammo check added — falls back to next valid weapon (e.g. MG when cannon is empty)
+
+### 3. Domain-Aware Repair/Healing (costs funds)
+
+Healing on friendly properties at turn start, matching AW rules:
+
+- **Ground units**: Heal on City, Factory, HQ, FOB
+- **Air units**: Heal on Airport only
+- **Naval units**: Heal on Port only
+- **Cost**: 1/10 of unit cost per HP healed (2 HP max per turn)
+- **Partial heal**: If funds only cover 1 HP, heals 1 HP
+- **No funds**: No healing occurs
+
+### 4. Auto-Resupply on Properties
+
+- Units standing on friendly buildings (City, Factory, Airport, Port, HQ) get full ammo + fuel restored at turn start
+- Resupply happens before fuel consumption, so a fighter on an airport won't crash
+
+### 5. Stealth Hide/Unhide (HIDE / UNHIDE commands)
+
+- **`is_hidden` field**: New optional field on `UnitState`
+- **HIDE**: Sets `is_hidden = true`, marks unit as acted
+- **UNHIDE**: Sets `is_hidden = false`, marks unit as acted
+- **Fog of war**: Hidden enemy stealth units are invisible unless an allied unit is adjacent (same logic as submerged subs)
+- **Targeting restriction**: Hidden units cannot be attacked from range > 1 (only adjacent attacks allowed)
+- **Fuel drain**: Hidden stealth units consume extra fuel per turn
+- **UI**: ActionMenu shows Hide/Unhide buttons for units with `"hide"` special action
+
+### 6. Submarine Submerge/Surface (UI + targeting)
+
+Backend commands already existed; this session added:
+
+- **UI buttons**: ActionMenu now shows Submerge/Surface buttons for submarine units
+- **Targeting restriction**: Submerged subs cannot be attacked from range > 1 (added to `canAttackFromPosition`)
+- **Store integration**: SUBMERGE/SURFACE added to `clearTypes` for proper selection reset
+
+---
+
+### Economy Helpers
+
+- **`calculateHealCost(unitType, hpHealed)`**: Returns funds cost for healing (1/10 unit cost per HP)
+- **`calculateMergeRefund(unitType, excessHp)`**: Returns funds refunded for excess merge HP
+
+---
+
+### Test Coverage
+
+Added `src/tests/new-mechanics.test.ts` with **47 tests**:
+
+| Category | Tests |
+|----------|-------|
+| Merge validation | 7 |
+| Merge apply (HP, ammo, fuel, refund) | 7 |
+| Counter-attack ammo depletion | 4 |
+| Domain-aware healing | 6 |
+| Economy helpers | 2 |
+| Auto-resupply | 4 |
+| Hide/Unhide validation | 5 |
+| Hide/Unhide apply | 2 |
+| Hidden stealth visibility (fog) | 2 |
+| Hidden stealth combat restriction | 2 |
+| Submerged sub targeting restriction | 3 |
+| Command parsing (MERGE/HIDE/UNHIDE) | 3 |
+
+Updated 2 existing tests in `apply-command.test.ts` (healing now costs funds).
+Added mock data: `stealth`, `cruiser` units; `airport`, `port`, `forest` terrain.
+
+---
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/game/types.ts` | Added `is_hidden` to `UnitState`; `MERGE`, `HIDE`, `UNHIDE` to `CommandType`; 3 new command interfaces |
+| `src/game/commands.ts` | Added 3 new cases to `commandFromDict` |
+| `src/game/economy.ts` | Added `calculateHealCost()`, `calculateMergeRefund()` |
+| `src/game/combat.ts` | Exported `getCounterWeaponIndex`; ammo check in `canCounterattack` + `getCounterWeaponIndex`; submerged/hidden targeting restriction |
+| `src/game/validators.ts` | Added `validateMerge`, `validateHide`, `validateUnhide` |
+| `src/game/apply-command.ts` | Added MERGE/HIDE/UNHIDE handlers; counter-attack ammo fix; END_TURN overhaul (domain-aware healing + auto-resupply) |
+| `src/game/visibility.ts` | Hidden stealth post-processing in fog |
+| `src/components/ActionMenu.tsx` | Merge, Hide, Unhide, Submerge, Surface buttons |
+| `src/store/game-store.ts` | MERGE skip-MOVE logic; new command types in `clearTypes` |
+| `src/tests/new-mechanics.test.ts` | **New** — 47 tests for all 6 mechanics |
+| `src/tests/mock-data.ts` | Added `stealth`, `cruiser` units; `airport`, `port`, `forest` terrain |
+| `src/tests/apply-command.test.ts` | Updated 2 healing tests (healing now costs funds) |
+
+---
+
+### Verification
+
+- [x] `npx tsc --noEmit` — zero type errors
+- [x] `npx vitest run` — 197/197 tests passing (47 new + 150 existing)
+- [x] Unit merge works in-game (tested 6+9 HP tanks → 10 HP + refund)
+- [x] Full HP unit can merge into damaged unit
+
+---
+
 ## 2026-03-15 (Session 13) — UX Overhaul: Cream Theme, Main Menu, Match Setup Wizard, Game View Chrome
 
 **Session:** Claude Code (claude-sonnet-4-6)

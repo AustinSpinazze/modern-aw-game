@@ -15,6 +15,9 @@ import type {
   CmdResupply,
   CmdSubmerge,
   CmdSurface,
+  CmdMerge,
+  CmdHide,
+  CmdUnhide,
 } from "./types";
 import { getCurrentPlayer, getUnit, getUnitAt, getPlayer, getTile } from "./game-state";
 import { getUnitData, getTerrainData } from "./data-loader";
@@ -65,6 +68,12 @@ export function validateCommand(cmd: GameCommand, state: GameState): ValidationR
       return validateSubmerge(cmd, state);
     case "SURFACE":
       return validateSurface(cmd, state);
+    case "MERGE":
+      return validateMerge(cmd, state);
+    case "HIDE":
+      return validateHide(cmd, state);
+    case "UNHIDE":
+      return validateUnhide(cmd, state);
     default:
       return fail("Unknown command type");
   }
@@ -383,6 +392,49 @@ function validateSurface(cmd: CmdSurface, state: GameState): ValidationResult {
     !unitData?.special_actions.includes("surface")
   )
     return fail("Unit cannot surface");
+
+  return ok();
+}
+
+function validateMerge(cmd: CmdMerge, state: GameState): ValidationResult {
+  const unit = getUnit(state, cmd.unit_id);
+  if (!unit) return fail("Unit not found");
+  if (unit.owner_id !== cmd.player_id) return fail("Unit does not belong to player");
+  if (unit.has_acted) return fail("Unit has already acted");
+  if (unit.is_loaded) return fail("Unit is loaded in transport");
+
+  const target = getUnit(state, cmd.target_id);
+  if (!target) return fail("Target unit not found");
+  if (target.owner_id !== cmd.player_id) return fail("Target does not belong to player");
+  if (target.unit_type !== unit.unit_type) return fail("Cannot merge different unit types");
+  if (unit.hp >= 10 && target.hp >= 10) return fail("Both units are already at full HP");
+
+  return ok();
+}
+
+function validateHide(cmd: CmdHide, state: GameState): ValidationResult {
+  const unit = getUnit(state, cmd.unit_id);
+  if (!unit) return fail("Unit not found");
+  if (unit.owner_id !== cmd.player_id) return fail("Unit does not belong to player");
+  if (unit.has_acted) return fail("Unit has already acted");
+  if (unit.is_hidden) return fail("Unit is already hidden");
+
+  const unitData = getUnitData(unit.unit_type);
+  if (!unitData?.special_actions.includes("hide")) return fail("Unit cannot hide");
+
+  return ok();
+}
+
+function validateUnhide(cmd: CmdUnhide, state: GameState): ValidationResult {
+  const unit = getUnit(state, cmd.unit_id);
+  if (!unit) return fail("Unit not found");
+  if (unit.owner_id !== cmd.player_id) return fail("Unit does not belong to player");
+  if (unit.has_acted) return fail("Unit has already acted");
+  if (!unit.is_hidden) return fail("Unit is not hidden");
+
+  const unitData = getUnitData(unit.unit_type);
+  if (!unitData?.special_actions.includes("hide") && !unitData?.special_actions.includes("unhide"))
+    return fail("Unit cannot unhide");
 
   return ok();
 }

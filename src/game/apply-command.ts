@@ -16,8 +16,8 @@ import {
   duplicateState,
 } from "./game-state";
 import { getUnitData } from "./data-loader";
-import { executeCombat, executeSelfDestruct, damageFob } from "./combat";
-import { applyIncome } from "./economy";
+import { executeCombat, executeSelfDestruct, damageFob, getCounterWeaponIndex } from "./combat";
+import { applyIncome, calculateHealCost, calculateMergeRefund } from "./economy";
 import { FOB_COST } from "./economy";
 import { findPath } from "./pathfinding";
 
@@ -82,7 +82,7 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
         state = updateUnit(state, defender.id, { hp: newDefender.hp });
       }
 
-      // Consume ammo
+      // Consume attacker ammo
       const attackerData = getUnitData(attacker.unit_type);
       if (attackerData && cmd.weapon_index < attackerData.weapons.length) {
         const weapon = attackerData.weapons[cmd.weapon_index];
@@ -93,6 +93,24 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
             state = updateUnit(state, attacker.id, {
               ammo: { ...updatedUnit.ammo, [weapon.id]: currentAmmo - 1 },
             });
+          }
+        }
+      }
+
+      // Consume defender counter-attack ammo
+      if (result.defender_damage_dealt > 0 && !result.defender_destroyed) {
+        const defenderData = getUnitData(defender.unit_type);
+        if (defenderData) {
+          const counterIdx = getCounterWeaponIndex(defender, attacker);
+          const counterWeapon = defenderData.weapons[counterIdx];
+          if (counterWeapon && counterWeapon.ammo > 0) {
+            const currentAmmo = defender.ammo[counterWeapon.id] ?? counterWeapon.ammo;
+            const updatedDefender = getUnit(state, defender.id);
+            if (updatedDefender) {
+              state = updateUnit(state, defender.id, {
+                ammo: { ...updatedDefender.ammo, [counterWeapon.id]: currentAmmo - 1 },
+              });
+            }
           }
         }
       }
@@ -257,6 +275,72 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
       break;
     }
 
+    case "MERGE": {
+      const unit = getUnit(state, cmd.unit_id)!;
+      const target = getUnit(state, cmd.target_id)!;
+      const combinedHp = unit.hp + target.hp;
+      const finalHp = Math.min(10, combinedHp);
+      const excessHp = combinedHp - finalHp;
+
+      // Merge ammo: take max of each weapon's ammo
+      const targetData = getUnitData(target.unit_type);
+      const mergedAmmo: Record<string, number> = { ...target.ammo };
+      if (targetData) {
+        for (const w of targetData.weapons) {
+          if (w.ammo > 0) {
+            const unitAmmo = unit.ammo[w.id] ?? 0;
+            const targetAmmo = target.ammo[w.id] ?? 0;
+            mergedAmmo[w.id] = Math.min(w.ammo, Math.max(unitAmmo, targetAmmo));
+          }
+        }
+      }
+
+      // Merge fuel: take max
+      const fuelPatch: { fuel?: number } = {};
+      if (target.fuel !== undefined && unit.fuel !== undefined) {
+        const maxFuel = targetData?.fuel ?? Infinity;
+        fuelPatch.fuel = Math.min(maxFuel, Math.max(target.fuel, unit.fuel));
+      }
+
+      // Update target with merged stats
+      state = updateUnit(state, cmd.target_id, {
+        hp: finalHp,
+        ammo: mergedAmmo,
+        has_acted: true,
+        has_moved: true,
+        ...fuelPatch,
+      });
+
+      // Remove the merging unit
+      state = removeUnit(state, cmd.unit_id);
+
+      // Refund excess HP
+      if (excessHp > 0) {
+        const refund = calculateMergeRefund(target.unit_type, excessHp);
+        const player = getPlayer(state, cmd.player_id)!;
+        state = updatePlayer(state, cmd.player_id, { funds: player.funds + refund });
+      }
+      break;
+    }
+
+    case "HIDE": {
+      state = updateUnit(state, cmd.unit_id, {
+        is_hidden: true,
+        has_acted: true,
+        has_moved: true,
+      });
+      break;
+    }
+
+    case "UNHIDE": {
+      state = updateUnit(state, cmd.unit_id, {
+        is_hidden: false,
+        has_acted: true,
+        has_moved: true,
+      });
+      break;
+    }
+
     case "RESUPPLY": {
       const target = getUnit(state, cmd.target_id);
       if (target) {
@@ -296,36 +380,101 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
       // Increment turn when cycling back to player 0
       const newTurn = nextIndex === 0 ? state.turn_number + 1 : state.turn_number;
 
-      // Reset all units of new current player and heal units on allied buildings
+      // Reset all units of new current player, heal on properties, auto-resupply
       const newPlayerId = state.players[nextIndex].id;
       const HEALING_BUILDINGS = new Set(["city", "factory", "airport", "port", "hq"]);
+      // Domain-aware healing: ground heals on cities/factories/HQ,
+      // air heals on airports, naval heals on ports
+      const AIR_HEALING = new Set(["airport"]);
+      const NAVAL_HEALING = new Set(["port"]);
+      const GROUND_HEALING = new Set(["city", "factory", "hq"]);
+
+      let playerFunds = state.players[nextIndex].funds;
       const updatedUnits = { ...state.units };
+
       for (const uid in updatedUnits) {
         const unit = updatedUnits[uid];
         if (unit.owner_id === newPlayerId) {
           let healedHp = unit.hp;
           const standingTile = getTile(state, unit.x, unit.y);
+          const unitDataForHeal = getUnitData(unit.unit_type);
+          const domain = unitDataForHeal?.domain ?? "ground";
+
+          // Domain-aware healing on friendly properties
           if (
             standingTile &&
-            HEALING_BUILDINGS.has(standingTile.terrain_type) &&
-            standingTile.owner_id === newPlayerId
+            standingTile.owner_id === newPlayerId &&
+            unit.hp < 10
           ) {
-            healedHp = Math.min(10, unit.hp + 2);
+            let canHealHere = false;
+            if (domain === "air" && AIR_HEALING.has(standingTile.terrain_type)) canHealHere = true;
+            else if ((domain === "sea" || domain === "naval") && NAVAL_HEALING.has(standingTile.terrain_type)) canHealHere = true;
+            else if (domain !== "air" && domain !== "sea" && domain !== "naval" && GROUND_HEALING.has(standingTile.terrain_type)) canHealHere = true;
+            // FOB heals ground units
+            if (standingTile.has_fob && domain !== "air" && domain !== "sea" && domain !== "naval") canHealHere = true;
+
+            if (canHealHere) {
+              const hpToHeal = Math.min(2, 10 - unit.hp);
+              const healCost = calculateHealCost(unit.unit_type, hpToHeal);
+              if (playerFunds >= healCost) {
+                healedHp = unit.hp + hpToHeal;
+                playerFunds -= healCost;
+              } else if (playerFunds > 0) {
+                // Heal as much as affordable (1 HP)
+                const partialCost = calculateHealCost(unit.unit_type, 1);
+                if (playerFunds >= partialCost) {
+                  healedHp = unit.hp + 1;
+                  playerFunds -= partialCost;
+                }
+              }
+            }
+          }
+
+          // Auto-resupply on friendly properties
+          let resupplyAmmo = unit.ammo;
+          let resupplyFuel = unit.fuel;
+          if (
+            standingTile &&
+            standingTile.owner_id === newPlayerId &&
+            HEALING_BUILDINGS.has(standingTile.terrain_type)
+          ) {
+            if (unitDataForHeal) {
+              const fullAmmo: Record<string, number> = {};
+              for (const w of unitDataForHeal.weapons) {
+                if (w.ammo > 0) fullAmmo[w.id] = w.ammo;
+              }
+              resupplyAmmo = { ...unit.ammo, ...fullAmmo };
+              if (unit.fuel !== undefined && unitDataForHeal.fuel !== undefined) {
+                resupplyFuel = unitDataForHeal.fuel;
+              }
+            }
           }
 
           // Fuel consumption at start of turn for air/naval units
           const fuelUpdate: { fuel?: number } = {};
           let crashed = false;
-          if (unit.fuel !== undefined) {
-            const unitDataForFuel = getUnitData(unit.unit_type);
-            const fuelPerTurn = unitDataForFuel?.fuel_per_turn ?? 0;
+          if (resupplyFuel !== undefined) {
+            const fuelPerTurn = unitDataForHeal?.fuel_per_turn ?? 0;
+            // Hidden stealth units consume extra fuel
+            const extraFuel = unit.is_hidden ? (unitDataForHeal?.fuel_per_turn ?? 0) : 0;
+            const totalFuelCost = fuelPerTurn + extraFuel;
+            if (totalFuelCost > 0) {
+              const newFuel = Math.max(0, resupplyFuel - totalFuelCost);
+              fuelUpdate.fuel = newFuel;
+              if (newFuel === 0 && resupplyFuel > 0) {
+                // Air units crash and are destroyed when out of fuel
+                // Submerged submarines also crash (can't surface without fuel)
+                if (domain === "air" || unit.is_submerged) {
+                  crashed = true;
+                }
+              }
+            }
+          } else if (unit.fuel !== undefined) {
+            const fuelPerTurn = unitDataForHeal?.fuel_per_turn ?? 0;
             if (fuelPerTurn > 0) {
               const newFuel = Math.max(0, unit.fuel - fuelPerTurn);
               fuelUpdate.fuel = newFuel;
               if (newFuel === 0 && unit.fuel > 0) {
-                const domain = unitDataForFuel?.domain;
-                // Air units crash and are destroyed when out of fuel
-                // Submerged submarines also crash (can't surface without fuel)
                 if (domain === "air" || unit.is_submerged) {
                   crashed = true;
                 }
@@ -341,11 +490,16 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
               hp: healedHp,
               has_moved: false,
               has_acted: false,
+              ammo: resupplyAmmo,
+              ...(resupplyFuel !== undefined && !fuelUpdate.fuel ? { fuel: resupplyFuel } : {}),
               ...fuelUpdate,
             };
           }
         }
       }
+
+      // Apply healing cost deduction
+      state = updatePlayer(state, newPlayerId, { funds: playerFunds });
 
       // Reset capture points to 20 for any tile where the new player is capturing
       // (capture points only tick during active action, reset means they persist)
