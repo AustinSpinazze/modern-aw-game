@@ -67,8 +67,7 @@ export function computeStatsFromGameState(state: GameState): MapStats {
         if (tile.owner_id < 0) {
           buildings[t].neutral++;
         } else {
-          buildings[t].players[tile.owner_id] =
-            (buildings[t].players[tile.owner_id] ?? 0) + 1;
+          buildings[t].players[tile.owner_id] = (buildings[t].players[tile.owner_id] ?? 0) + 1;
           playersFound.add(tile.owner_id);
         }
       } else {

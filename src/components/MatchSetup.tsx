@@ -212,7 +212,11 @@ function MapStatsPanel({ stats }: { stats: MapStats }) {
               <th className="font-medium pr-2 py-0.5">Building</th>
               <th className="font-medium px-2 py-0.5">Neutral</th>
               {Array.from({ length: stats.playerCount }).map((_, i) => (
-                <th key={i} className="font-medium px-2 py-0.5" style={{ color: PLAYER_COLORS_HEX[i] }}>
+                <th
+                  key={i}
+                  className="font-medium px-2 py-0.5"
+                  style={{ color: PLAYER_COLORS_HEX[i] }}
+                >
                   P{i + 1}
                 </th>
               ))}
@@ -687,7 +691,10 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
                     setMapMode(tab.key);
                     if (tab.key === "default" && !defaultMapState) {
                       loadGameData().then(() => {
-                        const s = buildDefaultGameState(players.slice(0, playerCount), config.startingFunds);
+                        const s = buildDefaultGameState(
+                          players.slice(0, playerCount),
+                          config.startingFunds
+                        );
                         setDefaultMapState(s);
                         setDefaultMapStats(computeStatsFromGameState(s));
                       });
@@ -786,9 +793,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
                           Save Map
                         </button>
                       </div>
-                      {mapNameError && (
-                        <p className="text-red-500 text-sm">{mapNameError}</p>
-                      )}
+                      {mapNameError && <p className="text-red-500 text-sm">{mapNameError}</p>}
                       <input
                         type="text"
                         value={mapDescription}
@@ -888,11 +893,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
                   disabled={genLoading || genCooldown}
                   className="px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold rounded-lg transition-colors"
                 >
-                  {genLoading
-                    ? "Generating…"
-                    : genCooldown
-                      ? "Wait…"
-                      : "Generate Map"}
+                  {genLoading ? "Generating…" : genCooldown ? "Wait…" : "Generate Map"}
                 </button>
                 {genError && <p className="text-red-500 text-base">{genError}</p>}
                 {!getMapGenProvider() && (
@@ -940,9 +941,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
                           Save
                         </button>
                       </div>
-                      {mapNameError && (
-                        <p className="text-red-500 text-sm">{mapNameError}</p>
-                      )}
+                      {mapNameError && <p className="text-red-500 text-sm">{mapNameError}</p>}
                     </div>
                   </div>
                 )}
@@ -1270,18 +1269,19 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
           </div>
 
           {/* Map preview in review */}
-          {(mapMode === "awbw" || mapMode === "saved" || mapMode === "generate") && parsedPreview && (
-            <div className="space-y-3">
-              <MapMinimap preview={parsedPreview} />
-              <MapStatsPanel
-                stats={computeStatsFromAwbwTiles(
-                  parsedPreview.tiles,
-                  parsedPreview.width,
-                  parsedPreview.height
-                )}
-              />
-            </div>
-          )}
+          {(mapMode === "awbw" || mapMode === "saved" || mapMode === "generate") &&
+            parsedPreview && (
+              <div className="space-y-3">
+                <MapMinimap preview={parsedPreview} />
+                <MapStatsPanel
+                  stats={computeStatsFromAwbwTiles(
+                    parsedPreview.tiles,
+                    parsedPreview.width,
+                    parsedPreview.height
+                  )}
+                />
+              </div>
+            )}
           {mapMode === "default" && defaultMapState && (
             <div className="space-y-3">
               <GameStateMinimap state={defaultMapState} />

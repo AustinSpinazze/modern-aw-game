@@ -48,12 +48,10 @@ function cleanLlmCsvOutput(raw: string): string {
   let cleaned = raw.replace(/```(?:csv|text|plain)?\s*/gi, "").replace(/```/g, "");
 
   // Keep only lines that look like CSV (contain commas and digits)
-  const lines = cleaned
-    .split("\n")
-    .filter((line) => {
-      const trimmed = line.trim();
-      return trimmed.length > 0 && /^\d[\d,\s]*\d$/.test(trimmed);
-    });
+  const lines = cleaned.split("\n").filter((line) => {
+    const trimmed = line.trim();
+    return trimmed.length > 0 && /^\d[\d,\s]*\d$/.test(trimmed);
+  });
 
   return lines.join("\n");
 }
@@ -103,7 +101,10 @@ export async function generateMap(
 ): Promise<MapGenResult> {
   const messages: ChatMessage[] = [
     { role: "system", content: MAP_GEN_SYSTEM_PROMPT },
-    { role: "user", content: description || "Generate a balanced 2-player map with varied terrain." },
+    {
+      role: "user",
+      content: description || "Generate a balanced 2-player map with varied terrain.",
+    },
   ];
 
   const callOptions = { maxTokens: 4096 };
@@ -119,12 +120,20 @@ export async function generateMap(
 
   const csv = cleanLlmCsvOutput(raw);
   if (!csv.trim()) {
-    return { preview: { width: 0, height: 0, tiles: [] }, csv: "", error: "LLM returned no valid CSV data." };
+    return {
+      preview: { width: 0, height: 0, tiles: [] },
+      csv: "",
+      error: "LLM returned no valid CSV data.",
+    };
   }
 
   const mapData = parseAwbwMapText(csv);
   if (mapData.width === 0 || mapData.height === 0) {
-    return { preview: { width: 0, height: 0, tiles: [] }, csv, error: "Could not parse map from LLM output." };
+    return {
+      preview: { width: 0, height: 0, tiles: [] },
+      csv,
+      error: "Could not parse map from LLM output.",
+    };
   }
 
   const preview: ParsedPreview = {
