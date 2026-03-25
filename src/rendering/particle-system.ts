@@ -74,8 +74,7 @@ export class ParticleSystem {
     for (let i = 0; i < toSpawn; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = (0.5 + Math.random()) * PARTICLE_SPEED * speedScale;
-      const size =
-        PARTICLE_SIZE_MIN + Math.random() * (PARTICLE_SIZE_MAX - PARTICLE_SIZE_MIN);
+      const size = PARTICLE_SIZE_MIN + Math.random() * (PARTICLE_SIZE_MAX - PARTICLE_SIZE_MIN);
       const color = colors[Math.floor(Math.random() * colors.length)];
 
       const g = new Graphics();

@@ -205,6 +205,10 @@ export class TerrainRenderer {
       // land-adjacent neighbor. The sea-colored areas are the same opaque color
       // across all 4 sprites, so stacking them composites correctly.
       this.drawShoalTile(state, x, y, px, py);
+    } else if (terrainType === "reef") {
+      // Reef sprites have transparency — draw sea underneath like AWBW does
+      this.drawTerrainSprite("sea", px, py, "sea.png");
+      this.drawTerrainSprite("reef", px, py, "reef.png");
     } else if (TRANSPARENT_TERRAIN.has(terrainType)) {
       // Mountains/forests have transparency - draw plains first
       this.drawTerrainSprite("plains", px, py);
@@ -257,7 +261,7 @@ export class TerrainRenderer {
       wave.y = py;
       wave.width = DISPLAY;
       wave.height = DISPLAY;
-      wave.alpha = 0.45;
+      wave.alpha = 0.65;
       this.container.addChild(wave);
     }
 

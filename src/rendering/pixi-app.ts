@@ -422,10 +422,11 @@ export function fitMapToStage(mapW: number, mapH: number): void {
   const mapPixelH = mapH * TILE_SIZE * TILE_SCALE;
   const canvasW = app.renderer.width;
   const canvasH = app.renderer.height;
-  // Minimum zoom = scale that makes the map fill the viewport (no void borders).
-  // No upper cap: small maps can have dynMinZoom > 1 so they always fill the screen.
-  // Snap to integer tile-pixel boundary to prevent seam lines at the fit zoom level.
-  _dynMinZoom = snapZoom(Math.max(0.25, Math.min(canvasW / mapPixelW, canvasH / mapPixelH)));
+  // Minimum zoom = scale that makes the map fit entirely within the viewport.
+  // Use floor-snap (not round) so the snapped zoom never EXCEEDS the fit ratio,
+  // which would cause the map to overflow the viewport.
+  const fitRatio = Math.max(0.25, Math.min(canvasW / mapPixelW, canvasH / mapPixelH));
+  _dynMinZoom = Math.max(0.25, Math.floor(fitRatio * TILE_SCALE) / TILE_SCALE);
 
   clampPan();
   applyStageTransform();

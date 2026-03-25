@@ -15,6 +15,9 @@ import { loadGameData } from "../game/data-loader";
 import { parseAwbwMapText, importAwbwMap } from "../game/awbw-import";
 import { applyIncome } from "../game/economy";
 import { useGameStore } from "../store/game-store";
+import { computeStatsFromAwbwTiles, computeStatsFromGameState } from "../game/map-stats";
+import type { MapStats } from "../game/map-stats";
+import { generateMap, getMapGenProvider } from "../ai/map-generator";
 
 interface PlayerConfig {
   controllerType: ControllerType;
@@ -33,6 +36,7 @@ interface MatchConfig {
 interface SavedMap {
   id: string;
   name: string;
+  description?: string;
   csv: string;
   width: number;
   height: number;
@@ -186,6 +190,127 @@ function MapMinimap({ preview }: { preview: ParsedPreview }) {
   );
 }
 
+// ── Map Stats Panel ──────────────────────────────────────────────────────────
+const PLAYER_COLORS_HEX = ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f"];
+
+function MapStatsPanel({ stats }: { stats: MapStats }) {
+  const buildingTypes = Object.keys(stats.buildings);
+  if (buildingTypes.length === 0 && Object.keys(stats.terrain).length === 0) return null;
+
+  return (
+    <div className="text-sm space-y-2">
+      <div className="flex gap-4 text-gray-500">
+        <span>
+          {stats.width}×{stats.height}
+        </span>
+        <span>{stats.playerCount} players</span>
+      </div>
+      {buildingTypes.length > 0 && (
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-gray-400 text-left">
+              <th className="font-medium pr-2 py-0.5">Building</th>
+              <th className="font-medium px-2 py-0.5">Neutral</th>
+              {Array.from({ length: stats.playerCount }).map((_, i) => (
+                <th key={i} className="font-medium px-2 py-0.5" style={{ color: PLAYER_COLORS_HEX[i] }}>
+                  P{i + 1}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {buildingTypes.map((type) => {
+              const b = stats.buildings[type];
+              return (
+                <tr key={type} className="text-gray-600">
+                  <td className="pr-2 py-0.5 capitalize">{type}</td>
+                  <td className="px-2 py-0.5 font-mono">{b.neutral || "—"}</td>
+                  {Array.from({ length: stats.playerCount }).map((_, i) => (
+                    <td key={i} className="px-2 py-0.5 font-mono">
+                      {b.players[i] || "—"}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+      {Object.keys(stats.terrain).length > 0 && (
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-gray-500">
+          {Object.entries(stats.terrain)
+            .sort(([, a], [, b]) => b - a)
+            .slice(0, 6)
+            .map(([type, count]) => (
+              <span key={type} className="capitalize">
+                {type}: <span className="font-mono text-gray-700">{count}</span>
+              </span>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── GameState Minimap ───────────────────────────────────────────────────────
+const GS_TERRAIN_COLORS: Record<string, string> = {
+  plains: "#8bc34a",
+  mountain: "#95a5a6",
+  forest: "#27ae60",
+  river: "#2980b9",
+  road: "#bdc3c7",
+  bridge: "#7f8c8d",
+  sea: "#1a5276",
+  shoal: "#76d7c4",
+  reef: "#0e6655",
+  city: "#8e44ad",
+  factory: "#8e44ad",
+  airport: "#8e44ad",
+  port: "#8e44ad",
+  hq: "#8e44ad",
+};
+
+function GameStateMinimap({ state }: { state: GameState }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const MAX_PX = 320;
+    const tileSize = Math.max(
+      2,
+      Math.min(8, Math.floor(MAX_PX / Math.max(state.map_width, state.map_height)))
+    );
+    canvas.width = state.map_width * tileSize;
+    canvas.height = state.map_height * tileSize;
+
+    for (let y = 0; y < state.map_height; y++) {
+      for (let x = 0; x < state.map_width; x++) {
+        const tile = state.tiles[y]?.[x];
+        if (!tile) continue;
+        const isBuilding = ["city", "factory", "airport", "port", "hq"].includes(tile.terrain_type);
+        if (isBuilding && tile.owner_id >= 0 && tile.owner_id < FACTION_COLORS.length) {
+          ctx.fillStyle = FACTION_COLORS[tile.owner_id];
+        } else {
+          ctx.fillStyle = GS_TERRAIN_COLORS[tile.terrain_type] ?? "#8bc34a";
+        }
+        ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+      }
+    }
+  }, [state]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="rounded border border-slate-600 block mx-auto"
+      style={{ imageRendering: "pixelated", maxWidth: "100%" }}
+    />
+  );
+}
+
 // ── Step indicator ─────────────────────────────────────────────────────────────
 function StepIndicator({ current }: { current: number }) {
   return (
@@ -226,7 +351,7 @@ function StepIndicator({ current }: { current: number }) {
 export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: MatchSetupProps) {
   // Wizard state
   const [step, setStep] = useState(0);
-  const [mapMode, setMapMode] = useState<"default" | "awbw" | "saved">("default");
+  const [mapMode, setMapMode] = useState<"default" | "awbw" | "saved" | "generate">("default");
   const [selectedSavedMapId, setSelectedSavedMapId] = useState<string | null>(null);
 
   // Existing state
@@ -243,6 +368,16 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
   // Saved maps
   const [savedMaps, setSavedMaps] = useState<SavedMap[]>(() => loadSavedMaps());
   const [mapName, setMapName] = useState("");
+  const [mapNameError, setMapNameError] = useState("");
+  const [mapDescription, setMapDescription] = useState("");
+  // Default map stats
+  const [defaultMapState, setDefaultMapState] = useState<GameState | null>(null);
+  const [defaultMapStats, setDefaultMapStats] = useState<MapStats | null>(null);
+  // Generate tab
+  const [genDescription, setGenDescription] = useState("");
+  const [genLoading, setGenLoading] = useState(false);
+  const [genError, setGenError] = useState("");
+  const [genCooldown, setGenCooldown] = useState(false);
 
   const setGameState = useGameStore((s) => s.setGameState);
 
@@ -321,10 +456,14 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
 
   const handleSaveMap = () => {
     if (!parsedPreview || !awbwText.trim()) return;
-    const name = mapName.trim() || `Map ${parsedPreview.width}×${parsedPreview.height}`;
+    if (!mapName.trim()) {
+      setMapNameError("Please enter a map name.");
+      return;
+    }
     const newMap: SavedMap = {
       id: `map_${Date.now()}`,
-      name,
+      name: mapName.trim(),
+      description: mapDescription.trim() || undefined,
       csv: awbwText,
       width: parsedPreview.width,
       height: parsedPreview.height,
@@ -334,6 +473,8 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
     setSavedMaps(updated);
     persistSavedMaps(updated);
     setMapName("");
+    setMapDescription("");
+    setMapNameError("");
   };
 
   const handleLoadSavedMap = (map: SavedMap) => {
@@ -358,10 +499,39 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
   };
 
   const handleLaunch = async () => {
-    if ((mapMode === "awbw" || mapMode === "saved") && parsedPreview) {
+    if ((mapMode === "awbw" || mapMode === "saved" || mapMode === "generate") && parsedPreview) {
       await handleAwbwImport();
     } else {
       await handleStart();
+    }
+  };
+
+  const handleGenerate = async () => {
+    const providerInfo = getMapGenProvider();
+    if (!providerInfo) {
+      setGenError("No AI provider configured. Set up an API key in Settings.");
+      return;
+    }
+    setGenLoading(true);
+    setGenError("");
+    try {
+      const result = await generateMap(genDescription, providerInfo.provider, providerInfo.model);
+      if (result.error) {
+        setGenError(result.error);
+        if (result.preview.width > 0) {
+          setParsedPreview(result.preview);
+          setAwbwText(result.csv);
+        }
+      } else {
+        setParsedPreview(result.preview);
+        setAwbwText(result.csv);
+      }
+    } catch (e) {
+      setGenError(e instanceof Error ? e.message : "Generation failed.");
+    } finally {
+      setGenLoading(false);
+      setGenCooldown(true);
+      setTimeout(() => setGenCooldown(false), 5000);
     }
   };
 
@@ -503,47 +673,50 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
 
             {/* Tab navigation */}
             <div className="flex border-b border-gray-200 mb-4">
-              <button
-                onClick={() => setMapMode("default")}
-                className={`px-4 py-2.5 text-base font-bold uppercase tracking-wide transition-colors border-b-2 -mb-px ${
-                  mapMode === "default"
-                    ? "border-amber-500 text-amber-600"
-                    : "border-transparent text-gray-400 hover:text-gray-700"
-                }`}
-              >
-                Default Skirmish
-              </button>
-              <button
-                onClick={() => setMapMode("awbw")}
-                className={`px-4 py-2.5 text-base font-bold uppercase tracking-wide transition-colors border-b-2 -mb-px ${
-                  mapMode === "awbw"
-                    ? "border-amber-500 text-amber-600"
-                    : "border-transparent text-gray-400 hover:text-gray-700"
-                }`}
-              >
-                Custom AWBW
-              </button>
-              <button
-                onClick={() => setMapMode("saved")}
-                className={`px-4 py-2.5 text-base font-bold uppercase tracking-wide transition-colors border-b-2 -mb-px ${
-                  mapMode === "saved"
-                    ? "border-amber-500 text-amber-600"
-                    : "border-transparent text-gray-400 hover:text-gray-700"
-                }`}
-              >
-                Saved Maps
-                {savedMaps.length > 0 && (
-                  <span className="ml-1.5 text-xs bg-amber-100 text-amber-600 rounded-full px-1.5 py-0.5 font-bold">
-                    {savedMaps.length}
-                  </span>
-                )}
-              </button>
+              {(
+                [
+                  { key: "default", label: "Default" },
+                  { key: "awbw", label: "AWBW" },
+                  { key: "saved", label: "Saved" },
+                  { key: "generate", label: "Generate" },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => {
+                    setMapMode(tab.key);
+                    if (tab.key === "default" && !defaultMapState) {
+                      loadGameData().then(() => {
+                        const s = buildDefaultGameState(players.slice(0, playerCount), config.startingFunds);
+                        setDefaultMapState(s);
+                        setDefaultMapStats(computeStatsFromGameState(s));
+                      });
+                    }
+                  }}
+                  className={`px-4 py-2.5 text-base font-bold uppercase tracking-wide transition-colors border-b-2 -mb-px ${
+                    mapMode === tab.key
+                      ? "border-amber-500 text-amber-600"
+                      : "border-transparent text-gray-400 hover:text-gray-700"
+                  }`}
+                >
+                  {tab.label}
+                  {tab.key === "saved" && savedMaps.length > 0 && (
+                    <span className="ml-1.5 text-xs bg-amber-100 text-amber-600 rounded-full px-1.5 py-0.5 font-bold">
+                      {savedMaps.length}
+                    </span>
+                  )}
+                </button>
+              ))}
             </div>
 
             {/* Tab content */}
             {mapMode === "default" && (
-              <div className="text-gray-500 text-base py-4">
-                {DEFAULT_MAP_WIDTH}×{DEFAULT_MAP_HEIGHT} hand-crafted map. Always available.
+              <div className="space-y-3 py-2">
+                <div className="text-gray-500 text-base">
+                  {DEFAULT_MAP_WIDTH}×{DEFAULT_MAP_HEIGHT} hand-crafted map. Always available.
+                </div>
+                {defaultMapState && <GameStateMinimap state={defaultMapState} />}
+                {defaultMapStats && <MapStatsPanel stats={defaultMapStats} />}
               </div>
             )}
 
@@ -582,21 +755,47 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
                       <span className="text-gray-500">minimap preview</span>
                     </div>
                     <MapMinimap preview={parsedPreview} />
-                    <div className="flex gap-2">
+                    <MapStatsPanel
+                      stats={computeStatsFromAwbwTiles(
+                        parsedPreview.tiles,
+                        parsedPreview.width,
+                        parsedPreview.height
+                      )}
+                    />
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={mapName}
+                          onChange={(e) => {
+                            setMapName(e.target.value);
+                            setMapNameError("");
+                          }}
+                          placeholder="Map name (required)"
+                          className={`flex-1 bg-white border rounded-lg px-3 py-1.5 text-base text-gray-900 focus:outline-none ${
+                            mapNameError
+                              ? "border-red-400 focus:border-red-500"
+                              : "border-gray-300 focus:border-amber-500"
+                          }`}
+                          onKeyDown={(e) => e.key === "Enter" && handleSaveMap()}
+                        />
+                        <button
+                          onClick={handleSaveMap}
+                          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-base rounded-lg transition-colors shrink-0"
+                        >
+                          Save Map
+                        </button>
+                      </div>
+                      {mapNameError && (
+                        <p className="text-red-500 text-sm">{mapNameError}</p>
+                      )}
                       <input
                         type="text"
-                        value={mapName}
-                        onChange={(e) => setMapName(e.target.value)}
-                        placeholder="Map name (optional)"
-                        className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-base text-gray-900 focus:border-amber-500 focus:outline-none"
-                        onKeyDown={(e) => e.key === "Enter" && handleSaveMap()}
+                        value={mapDescription}
+                        onChange={(e) => setMapDescription(e.target.value)}
+                        placeholder="Description (optional)"
+                        className="w-full bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-base text-gray-900 focus:border-amber-500 focus:outline-none"
                       />
-                      <button
-                        onClick={handleSaveMap}
-                        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-base rounded-lg transition-colors shrink-0"
-                      >
-                        Save Map
-                      </button>
                     </div>
                   </div>
                 )}
@@ -654,7 +853,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
                     </div>
                     {/* Preview for selected saved map */}
                     {selectedSavedMapId && parsedPreview && (
-                      <div className="pt-1">
+                      <div className="pt-1 space-y-3">
                         <div className="flex items-center justify-between text-sm text-gray-500 mb-2">
                           <span>Map Preview</span>
                           <span className="font-mono">
@@ -662,9 +861,90 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
                           </span>
                         </div>
                         <MapMinimap preview={parsedPreview} />
+                        <MapStatsPanel
+                          stats={computeStatsFromAwbwTiles(
+                            parsedPreview.tiles,
+                            parsedPreview.width,
+                            parsedPreview.height
+                          )}
+                        />
                       </div>
                     )}
                   </>
+                )}
+              </div>
+            )}
+
+            {mapMode === "generate" && (
+              <div className="space-y-3">
+                <textarea
+                  value={genDescription}
+                  onChange={(e) => setGenDescription(e.target.value)}
+                  placeholder="Describe the map you want (e.g., 'A 20x15 island map with 2 players, lots of forests and mountains in the center')"
+                  className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-base text-gray-900 h-20 resize-y focus:border-amber-500 focus:outline-none"
+                />
+                <button
+                  onClick={handleGenerate}
+                  disabled={genLoading || genCooldown}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold rounded-lg transition-colors"
+                >
+                  {genLoading
+                    ? "Generating…"
+                    : genCooldown
+                      ? "Wait…"
+                      : "Generate Map"}
+                </button>
+                {genError && <p className="text-red-500 text-base">{genError}</p>}
+                {!getMapGenProvider() && (
+                  <p className="text-gray-400 text-sm">
+                    No AI provider configured. Set up an API key in Settings to use map generation.
+                  </p>
+                )}
+                {parsedPreview && mapMode === "generate" && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-base">
+                      <span className="text-green-600">
+                        {parsedPreview.width}×{parsedPreview.height} generated
+                      </span>
+                      <span className="text-gray-500">minimap preview</span>
+                    </div>
+                    <MapMinimap preview={parsedPreview} />
+                    <MapStatsPanel
+                      stats={computeStatsFromAwbwTiles(
+                        parsedPreview.tiles,
+                        parsedPreview.width,
+                        parsedPreview.height
+                      )}
+                    />
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={mapName}
+                          onChange={(e) => {
+                            setMapName(e.target.value);
+                            setMapNameError("");
+                          }}
+                          placeholder="Map name (required to save)"
+                          className={`flex-1 bg-white border rounded-lg px-3 py-1.5 text-base text-gray-900 focus:outline-none ${
+                            mapNameError
+                              ? "border-red-400 focus:border-red-500"
+                              : "border-gray-300 focus:border-amber-500"
+                          }`}
+                          onKeyDown={(e) => e.key === "Enter" && handleSaveMap()}
+                        />
+                        <button
+                          onClick={handleSaveMap}
+                          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-base rounded-lg transition-colors shrink-0"
+                        >
+                          Save
+                        </button>
+                      </div>
+                      {mapNameError && (
+                        <p className="text-red-500 text-sm">{mapNameError}</p>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -681,7 +961,8 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
                 onClick={() => setStep(2)}
                 disabled={
                   (mapMode === "awbw" && !parsedPreview) ||
-                  (mapMode === "saved" && !selectedSavedMapId)
+                  (mapMode === "saved" && !selectedSavedMapId) ||
+                  (mapMode === "generate" && !parsedPreview)
                 }
                 className="px-8 py-3 bg-amber-500 hover:bg-amber-400 disabled:bg-gray-200 disabled:text-gray-400 text-white font-black rounded-xl transition-colors text-lg"
               >
@@ -922,11 +1203,13 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
 
   // ── Step 3: Review ───────────────────────────────────────────────────────────
   const mapLabel =
-    mapMode === "awbw" && parsedPreview
-      ? `Custom AWBW Map (${parsedPreview.width}×${parsedPreview.height})`
-      : mapMode === "saved" && selectedSavedMapId
-        ? (savedMaps.find((m) => m.id === selectedSavedMapId)?.name ?? "Saved Map")
-        : `Default Skirmish (${DEFAULT_MAP_WIDTH}×${DEFAULT_MAP_HEIGHT})`;
+    mapMode === "generate" && parsedPreview
+      ? `Generated Map (${parsedPreview.width}×${parsedPreview.height})`
+      : mapMode === "awbw" && parsedPreview
+        ? `Custom AWBW Map (${parsedPreview.width}×${parsedPreview.height})`
+        : mapMode === "saved" && selectedSavedMapId
+          ? (savedMaps.find((m) => m.id === selectedSavedMapId)?.name ?? "Saved Map")
+          : `Default Skirmish (${DEFAULT_MAP_WIDTH}×${DEFAULT_MAP_HEIGHT})`;
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "#f0ece0" }}>
@@ -985,6 +1268,26 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
               </span>
             </div>
           </div>
+
+          {/* Map preview in review */}
+          {(mapMode === "awbw" || mapMode === "saved" || mapMode === "generate") && parsedPreview && (
+            <div className="space-y-3">
+              <MapMinimap preview={parsedPreview} />
+              <MapStatsPanel
+                stats={computeStatsFromAwbwTiles(
+                  parsedPreview.tiles,
+                  parsedPreview.width,
+                  parsedPreview.height
+                )}
+              />
+            </div>
+          )}
+          {mapMode === "default" && defaultMapState && (
+            <div className="space-y-3">
+              <GameStateMinimap state={defaultMapState} />
+              {defaultMapStats && <MapStatsPanel stats={defaultMapStats} />}
+            </div>
+          )}
 
           {awbwError && (
             <p className="text-red-400 text-sm bg-red-950/30 border border-red-900/50 rounded-lg px-3 py-2">

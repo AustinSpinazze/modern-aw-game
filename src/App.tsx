@@ -723,7 +723,10 @@ function AppContent() {
                 <div className="border-t border-gray-100 my-0.5" />
                 {isHumanTurn && gameState?.phase === "action" && (
                   <button
-                    onClick={() => { setShowResignConfirm(true); setMenuOpen(false); }}
+                    onClick={() => {
+                      setShowResignConfirm(true);
+                      setMenuOpen(false);
+                    }}
                     className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-gray-50 transition-colors"
                   >
                     Resign
@@ -906,7 +909,10 @@ function AppContent() {
             </p>
             <div className="flex gap-3">
               <button
-                onClick={() => { setShowResignConfirm(false); handleResign(); }}
+                onClick={() => {
+                  setShowResignConfirm(false);
+                  handleResign();
+                }}
                 className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded-lg transition-colors"
               >
                 Resign

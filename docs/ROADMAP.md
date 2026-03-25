@@ -1,6 +1,6 @@
 # Modern AW — Project Roadmap
 
-Last Updated: 2026-03-25
+Last Updated: 2026-03-26
 
 ---
 
@@ -29,7 +29,7 @@ A modern Advance Wars-inspired turn-based strategy game that:
 - Uses AWBW/WarsWorld as a foundation for terrain, units, and sprites
 - Eventually adds custom units and mechanics (see `docs/units.md`)
 - Runs as a **desktop Electron app** to simplify architecture and enable local AI play
-- Supports multiplayer via Partykit for online matches
+- Supports online multiplayer (PartyKit or another authoritative host — see Multiplayer Strategy; not pure P2P inside Electron alone)
 
 ### Known gaps (to address)
 
@@ -105,10 +105,34 @@ A modern Advance Wars-inspired turn-based strategy game that:
 - [x] AWBW map text import (CSV tile IDs)
 - [x] Tile ID mapping to internal terrain types
 
-### Multiplayer Foundation
+### Multiplayer Foundation — Planned, not yet implemented
 
-- [x] Partykit room setup
-- [x] Basic state synchronization
+Full implementation plan exists (see conversation transcript / plan). Key architecture decisions:
+
+- **PartyKit room** (`party/match.ts`) — authoritative server; validates all commands; derives player_id from connection slot
+- **Sync strategy** — Full state snapshot on every command (~50KB for 20x15 map); includes `lastCommand` + `seq` for client animation
+- **Message protocol** — `ClientMessage` (join, start_game, command, resign, ping) / `ServerMessage` (joined, player_joined, state_update, error, pong)
+- **Client** — `partysocket` WebSocket; connection manager in `src/multiplayer/connection.ts`
+- **Store** — `onlineMode` flag; `submitCommand` and `confirmMoveAndAction` route to server instead of local apply
+- **Lobby** — Room code, player slots, host starts game
+- **Security** — Server-side player_id derivation, rate limiting (10 msg/s), 64KB message cap, 30s disconnect timeout
+
+Implementation steps:
+
+- [ ] Install `partykit` (dev) + `partysocket` (runtime); add `partykit.json`, `tsconfig.party.json`, npm scripts
+- [ ] Create `src/multiplayer/types.ts` (shared message types)
+- [ ] Extract `party/build-game-state.ts` from MatchSetup
+- [ ] Create `party/match.ts` (room server)
+- [ ] Create `src/multiplayer/connection.ts` (client WebSocket manager)
+- [ ] Add online mode to `game-store.ts` (onlineMode, sendCommand, handleServerUpdate)
+- [ ] Update `useGame.ts` (isOnline, isOnlineMyTurn)
+- [ ] Add game mode selector to MatchSetup (Local / Online Host / Online Join)
+- [ ] Create `OnlineLobby.tsx` component
+- [ ] Wire lobby view in App.tsx; disable AI turn effect when online
+- [ ] Update InfoPanel, BuyMenu to use sendCommand
+- [ ] Room logic tests
+- [ ] Full end-to-end two-browser verification
+- [ ] Deploy to Cloudflare (`pnpm partykit:deploy`)
 
 ---
 
@@ -306,26 +330,26 @@ A modern Advance Wars-inspired turn-based strategy game that:
 
 ## 📊 Priority Matrix
 
-| Feature                 | Impact     | Effort     | Priority  | Order |
-| ----------------------- | ---------- | ---------- | --------- | ----- |
-| ~~Movement animations~~ | ~~High~~   | ~~Medium~~ | ✅ Done   | -     |
-| ~~Electron migration~~  | ~~High~~   | ~~High~~   | ✅ Done   | -     |
-| ~~AI opponents~~        | ~~High~~   | ~~Medium~~ | ✅ Done   | -     |
-| ~~Save/Load~~           | ~~High~~   | ~~Low~~    | ✅ Done   | -     |
-| ~~Combat animations~~   | ~~Medium~~ | ~~Low~~    | ✅ Done   | -     |
-| ~~Fog of War~~          | ~~High~~   | ~~Medium~~ | ✅ Done   | -     |
-| ~~Transport mechanics~~ | ~~Medium~~ | ~~Medium~~ | ✅ Done   | -     |
-| ~~Fuel mechanics~~      | ~~Medium~~ | ~~Medium~~ | ✅ Done   | -     |
-| ~~Indirect fire~~       | ~~High~~   | ~~Medium~~ | ✅ Done   | -     |
-| ~~Camera follow~~       | ~~Medium~~ | ~~Low~~    | ✅ Done   | -     |
-| ~~Optional polish~~     | ~~Low~~    | ~~Low–Med~~| ✅ Done   | -     |
-| Online multiplayer      | High       | High       | 🟡 Medium | 8     |
-| Map preview             | Medium     | Low        | 🟡 Medium | 9     |
-| Map editor              | Medium     | High       | 🟢 Low    | 10    |
-| Shoal coastline tiles   | Medium     | Medium     | 🟡 Medium | 11    |
-| Custom units (units.md) | High       | High       | 🟢 Low    | 12    |
-| New buildings/tiles     | Medium     | Medium     | 🟢 Low    | 13    |
-| Audio/SFX               | Medium     | Low        | 🟢 Low    | 14    |
+| Feature                 | Impact     | Effort      | Priority  | Order |
+| ----------------------- | ---------- | ----------- | --------- | ----- |
+| ~~Movement animations~~ | ~~High~~   | ~~Medium~~  | ✅ Done   | -     |
+| ~~Electron migration~~  | ~~High~~   | ~~High~~    | ✅ Done   | -     |
+| ~~AI opponents~~        | ~~High~~   | ~~Medium~~  | ✅ Done   | -     |
+| ~~Save/Load~~           | ~~High~~   | ~~Low~~     | ✅ Done   | -     |
+| ~~Combat animations~~   | ~~Medium~~ | ~~Low~~     | ✅ Done   | -     |
+| ~~Fog of War~~          | ~~High~~   | ~~Medium~~  | ✅ Done   | -     |
+| ~~Transport mechanics~~ | ~~Medium~~ | ~~Medium~~  | ✅ Done   | -     |
+| ~~Fuel mechanics~~      | ~~Medium~~ | ~~Medium~~  | ✅ Done   | -     |
+| ~~Indirect fire~~       | ~~High~~   | ~~Medium~~  | ✅ Done   | -     |
+| ~~Camera follow~~       | ~~Medium~~ | ~~Low~~     | ✅ Done   | -     |
+| ~~Optional polish~~     | ~~Low~~    | ~~Low–Med~~ | ✅ Done   | -     |
+| Online multiplayer      | High       | Medium      | 🟡 Medium | 8     |
+| Map preview             | Medium     | Low         | 🟡 Medium | 9     |
+| Map editor              | Medium     | High        | 🟢 Low    | 10    |
+| Shoal coastline tiles   | Medium     | Medium      | 🟡 Medium | 11    |
+| Custom units (units.md) | High       | High        | 🟢 Low    | 12    |
+| New buildings/tiles     | Medium     | Medium      | 🟢 Low    | 13    |
+| Audio/SFX               | Medium     | Low         | 🟢 Low    | 14    |
 
 > **Note:** Electron migration comes before Audio because it enables local AI play with secure API key storage.
 > **Known gap:** WarsWorld assets only include one shoal sprite; coastlines render as uniform yellow. See Map Features → Shoal coastline auto-tiling.
@@ -336,31 +360,31 @@ A modern Advance Wars-inspired turn-based strategy game that:
 
 Single list of all planned features for easy reference. Order follows Priority Matrix where applicable.
 
-| #   | Feature                    | Notes                                                                                                                                                                                         |
-| --- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| –   | ~~Transport mechanics~~    | ✅ Done — Load/unload APC, T-Copter, Lander, Carrier; UI.                                                                                                                                     |
-| –   | ~~Fuel mechanics~~         | ✅ Done — Air/naval fuel; resupply; 0 fuel = no move.                                                                                                                                         |
-| –   | ~~Indirect fire~~          | ✅ Done — Artillery, Rocket, Missile range attacks; no counter from target.                                                                                                                   |
-| –   | ~~Camera follow~~          | ✅ Done — Pan during move animation; safe-zone lerp (`pixi-app.ts` + GameCanvas).                                                                                                             |
-| –   | ~~Optional polish~~        | ✅ Done — Smooth camera transitions, screen shake, particles, AI thinking indicator, preview move animation, unload highlights, resign confirmation. Day/night + weather visuals deferred.     |
-| 8   | Online multiplayer         | Partykit; create/join rooms; state sync.                                                                                                                                                      |
-| 9   | Map preview                | Show map (name, size, thumbnail) before game start.                                                                                                                                           |
-| 10  | Map editor                 | Create and edit maps in-app.                                                                                                                                                                  |
-| 11  | Shoal coastline tiles      | Directional shoal sprites + auto-tiling.                                                                                                                                                      |
-| 12  | Custom units (units.md)    | 30 designs; data + sprites.                                                                                                                                                                   |
-| 13  | New buildings/tiles        | Radar, supply depot, new terrain.                                                                                                                                                             |
-| 14  | Audio/SFX                  | In-game sounds and music. (Last.)                                                                                                                                                             |
-| –   | Hot-seat multiplayer       | Same device, pass-and-play.                                                                                                                                                                   |
-| –   | Minimap                    | In-game minimap.                                                                                                                                                                              |
-| –   | ~~Ammo management~~        | ✅ Done (core) — ammo depletion + counter-attack ammo checks + property resupply.                                                                                                             |
-| –   | Supply from APC/cities     | Supply range and mechanics.                                                                                                                                                                   |
-| –   | Weather effects            | Rain, snow, clear; affect movement/vision.                                                                                                                                                    |
-| –   | UX refinement (menus)      | Per docs/UX_IMPROVEMENT_PLAN.md; map/sprites unchanged.                                                                                                                                       |
-| –   | Multiple AI difficulty     | AI personalities / difficulty levels.                                                                                                                                                         |
-| –   | Unit info panel            | Stats, HP, ammo, fuel at a glance.                                                                                                                                                            |
-| –   | Damage preview             | Before attacking.                                                                                                                                                                             |
-| –   | Undo last move             | Before confirming action.                                                                                                                                                                     |
-| –   | Colorblind / accessibility | Team indicators, high contrast, etc.                                                                                                                                                          |
+| #   | Feature                    | Notes                                                                                                                                                                                                                                                                                                         |
+| --- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| –   | ~~Transport mechanics~~    | ✅ Done — Load/unload APC, T-Copter, Lander, Carrier; UI.                                                                                                                                                                                                                                                     |
+| –   | ~~Fuel mechanics~~         | ✅ Done — Air/naval fuel; resupply; 0 fuel = no move.                                                                                                                                                                                                                                                         |
+| –   | ~~Indirect fire~~          | ✅ Done — Artillery, Rocket, Missile range attacks; no counter from target.                                                                                                                                                                                                                                   |
+| –   | ~~Camera follow~~          | ✅ Done — Pan during move animation; safe-zone lerp (`pixi-app.ts` + GameCanvas).                                                                                                                                                                                                                             |
+| –   | ~~Optional polish~~        | ✅ Done — Smooth camera transitions, screen shake, particles, AI thinking indicator, preview move animation, unload highlights, resign confirmation. Day/night + weather visuals deferred.                                                                                                                    |
+| 8   | Online multiplayer         | **Paused — architecture:** PartyKit is **not P2P**; match logic runs on **hosted** infra (e.g. Cloudflare via deploy) or **`partykit dev`** — not “one Electron app hosts the other” by itself. True host-on-PC needs WebSocket-in-main + NAT/LAN/VPN, WebRTC, or a relay. Pick approach, then finish wiring. |
+| 9   | Map preview                | Show map (name, size, thumbnail) before game start.                                                                                                                                                                                                                                                           |
+| 10  | Map editor                 | Create and edit maps in-app.                                                                                                                                                                                                                                                                                  |
+| 11  | Shoal coastline tiles      | Directional shoal sprites + auto-tiling.                                                                                                                                                                                                                                                                      |
+| 12  | Custom units (units.md)    | 30 designs; data + sprites.                                                                                                                                                                                                                                                                                   |
+| 13  | New buildings/tiles        | Radar, supply depot, new terrain.                                                                                                                                                                                                                                                                             |
+| 14  | Audio/SFX                  | In-game sounds and music. (Last.)                                                                                                                                                                                                                                                                             |
+| –   | Hot-seat multiplayer       | Same device, pass-and-play.                                                                                                                                                                                                                                                                                   |
+| –   | Minimap                    | In-game minimap.                                                                                                                                                                                                                                                                                              |
+| –   | ~~Ammo management~~        | ✅ Done (core) — ammo depletion + counter-attack ammo checks + property resupply.                                                                                                                                                                                                                             |
+| –   | Supply from APC/cities     | Supply range and mechanics.                                                                                                                                                                                                                                                                                   |
+| –   | Weather effects            | Rain, snow, clear; affect movement/vision.                                                                                                                                                                                                                                                                    |
+| –   | UX refinement (menus)      | Per docs/UX_IMPROVEMENT_PLAN.md; map/sprites unchanged.                                                                                                                                                                                                                                                       |
+| –   | Multiple AI difficulty     | AI personalities / difficulty levels.                                                                                                                                                                                                                                                                         |
+| –   | Unit info panel            | Stats, HP, ammo, fuel at a glance.                                                                                                                                                                                                                                                                            |
+| –   | Damage preview             | Before attacking.                                                                                                                                                                                                                                                                                             |
+| –   | Undo last move             | Before confirming action.                                                                                                                                                                                                                                                                                     |
+| –   | Colorblind / accessibility | Team indicators, high contrast, etc.                                                                                                                                                                                                                                                                          |
 
 ---
 
@@ -375,10 +399,13 @@ Single list of all planned features for easy reference. Order follows Priority M
 
 ### Multiplayer Strategy
 
-- Keep Partykit for online matches (no AI needed server-side)
-- AI games are local-only (Electron desktop)
-- Web version = online multiplayer only
-- Desktop version = AI + local + online multiplayer
+- **PartyKit ≠ peer-to-peer.** Rooms are **server-authoritative**: your `party/match.ts` (or equivalent) runs on **Cloudflare’s edge** when deployed, or on **`partykit dev`** as a **separate process** on a machine that both clients can reach. Two Electron installs alone do **not** host that logic unless you add something else.
+- **Why “host on my PC” felt right:** True “one player hosts” usually means **(A)** a small **WebSocket server in Electron’s main process** (guest connects to host’s IP — needs **port forwarding**, often fails on CGNAT), **(B)** **LAN** or **Tailscale/ZeroTier** so the guest has a route to the host, **(C)** **WebRTC** (signaling still needs a rendezvous server unless LAN), or **(D)** accept a **cheap always-on relay** (PartyKit, Fly.io, etc.).
+- **PartyKit path (if you keep it):** Still no AI on server for v1 human vs human. Authoritative room validates commands; `partysocket` clients; full snapshots + `seq` / `lastCommand` for animations (see existing plan).
+- **Sync strategy (recommended regardless of host):** Full state snapshots (not deltas) until bandwidth forces otherwise.
+- **Dev workflow (PartyKit):** `pnpm partykit:dev` → local server (e.g. `localhost:1999`); production → `partykit deploy` to Cloudflare.
+- **AI games:** Local-only (Electron) is fine; online can stay humans-only for v1.
+- **Out of scope (v1):** Spectators, replays, matchmaking, ELO, AI players in online matches, cross-region lag compensation, rollback netcode, chat, save/load for online matches.
 
 ### Out of scope
 
@@ -396,7 +423,7 @@ Single list of all planned features for easy reference. Order follows Priority M
 
 **Q2 2026**
 
-- Online multiplayer (Partykit)
+- Online multiplayer — **blocked on hosting model** (PartyKit = deployed server; or implement host-on-LAN / WebSocket-in-Electron / WebRTC)
 - Audio/SFX
 - Map editor; map preview
 

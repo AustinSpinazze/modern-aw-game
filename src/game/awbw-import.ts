@@ -218,7 +218,7 @@ const AWBW_TILE_MAP: Record<number, TileResult> = {
 };
 
 // Map an AWBW tile ID to our terrain type + owner
-function mapAwbwTile(id: number): TileResult {
+export function mapAwbwTile(id: number): TileResult {
   // First check the explicit mapping
   const mapped = AWBW_TILE_MAP[id];
   if (mapped) return mapped;

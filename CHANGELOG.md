@@ -41,19 +41,20 @@ Completely reworked the movement flow to match official Advance Wars behavior:
 
 ### Files changed
 
-| File | Change |
-|------|--------|
-| `src/store/game-store.ts` | Added `unloadTiles`, `unloadingCargoIndex`, `previewAnimating`, `setUnloadMode`, `onPreviewAnimationComplete`; preview animation logic in `setPendingMove` and `startMoveAnimation` |
-| `src/components/GameCanvas.tsx` | Preview animation effect, unload tile click handling, arrow only during hover phase, right-click preview priority fix |
-| `src/components/ActionMenu.tsx` | Unload state from store, menu positioning to avoid unload tiles, hidden during preview animation, merge condition fix |
-| `src/rendering/unit-renderer.ts` | Added `previewPos` parameter to render unit at pending destination |
-| `src/rendering/highlight-renderer.ts` | Added `drawUnloadable()` method (teal-green overlay) |
-| `src/rendering/pixi-app.ts` | Added `roundPixels: true` to fix sub-pixel gaps |
-| `src/game/validators.ts` | Merge validation: `target.hp >= 10` check |
-| `src/game/apply-command.ts` | UNLOAD: added `has_acted: true` to cargo unit |
-| `src/App.tsx` | Resign confirmation modal |
+| File                                  | Change                                                                                                                                                                              |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/store/game-store.ts`             | Added `unloadTiles`, `unloadingCargoIndex`, `previewAnimating`, `setUnloadMode`, `onPreviewAnimationComplete`; preview animation logic in `setPendingMove` and `startMoveAnimation` |
+| `src/components/GameCanvas.tsx`       | Preview animation effect, unload tile click handling, arrow only during hover phase, right-click preview priority fix                                                               |
+| `src/components/ActionMenu.tsx`       | Unload state from store, menu positioning to avoid unload tiles, hidden during preview animation, merge condition fix                                                               |
+| `src/rendering/unit-renderer.ts`      | Added `previewPos` parameter to render unit at pending destination                                                                                                                  |
+| `src/rendering/highlight-renderer.ts` | Added `drawUnloadable()` method (teal-green overlay)                                                                                                                                |
+| `src/rendering/pixi-app.ts`           | Added `roundPixels: true` to fix sub-pixel gaps                                                                                                                                     |
+| `src/game/validators.ts`              | Merge validation: `target.hp >= 10` check                                                                                                                                           |
+| `src/game/apply-command.ts`           | UNLOAD: added `has_acted: true` to cargo unit                                                                                                                                       |
+| `src/App.tsx`                         | Resign confirmation modal                                                                                                                                                           |
 
 ### Verification
+
 - `npx tsc --noEmit` — zero errors
 - Movement preview animation plays correctly along path
 - Unload tiles render as highlights, click-to-unload works
@@ -68,31 +69,36 @@ Completely reworked the movement flow to match official Advance Wars behavior:
 **Status:** COMPLETE
 
 ### Problem
+
 Terrain defense was being applied to air units (should be 0 stars always). The damage formula also had 3 other deviations from the official AW formula.
 
 ### Changes to `calculateDamage()` in `src/game/combat.ts`
 
-| Aspect | Before (wrong) | After (official AW) |
-|--------|----------------|---------------------|
-| Air terrain defense | Air units got terrain stars | Air units always get 0 defense stars |
-| Sea terrain defense | Applied normally | Applied normally (ports/reefs give defense) |
-| Defense scaling | `(1 - Dts × 0.1)` — flat % | `(100 - Dhp × Dts) / 100` — scales with defender HP |
-| Luck | Multiplicative `× (1 + luck)` | Additive `+ floor(normalized × Ahp)` (0 to Ahp-1) |
-| Rounding | `Math.round()` | `Math.floor()` (matches official AW) |
+| Aspect              | Before (wrong)                | After (official AW)                                 |
+| ------------------- | ----------------------------- | --------------------------------------------------- |
+| Air terrain defense | Air units got terrain stars   | Air units always get 0 defense stars                |
+| Sea terrain defense | Applied normally              | Applied normally (ports/reefs give defense)         |
+| Defense scaling     | `(1 - Dts × 0.1)` — flat %    | `(100 - Dhp × Dts) / 100` — scales with defender HP |
+| Luck                | Multiplicative `× (1 + luck)` | Additive `+ floor(normalized × Ahp)` (0 to Ahp-1)   |
+| Rounding            | `Math.round()`                | `Math.floor()` (matches official AW)                |
 
 **Official AW formula implemented:**
+
 ```
 damage% = B × (Ahp/10) × (100 − Dhp × Dts) / 100 + luck
 HP_damage = floor(damage% / 10)
 ```
 
 ### Also fixed
+
 - `executeSelfDestruct()` — same air defense and HP-scaled defense fixes
 
 ### Files changed
+
 - `src/game/combat.ts` — Rewrote `calculateDamage()` and `executeSelfDestruct()`
 
 ### Verification
+
 - `npx tsc --noEmit` — zero errors
 - `npx vitest run` — 197/197 tests pass
 
@@ -113,14 +119,15 @@ HP_damage = floor(damage% / 10)
 
 ### Files changed
 
-| File | Change |
-|------|--------|
-| `src/game/pathfinding.ts` | Removed domain-based enemy bypass in `findPath()` and `getReachableTiles()` — enemy units always block |
-| `src/rendering/combat-animator.ts` | Added `onDestroy` callback + `DESTROY_VFX_FRAME` timing constant |
-| `src/rendering/particle-system.ts` | Increased `PARTICLES_PER_DESTROY` (14→20) and `PARTICLE_SIZE_MAX` (5→6) |
-| `src/components/GameCanvas.tsx` | Wired `onDestroy` callback in both player and AI combat animation paths |
+| File                               | Change                                                                                                 |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `src/game/pathfinding.ts`          | Removed domain-based enemy bypass in `findPath()` and `getReachableTiles()` — enemy units always block |
+| `src/rendering/combat-animator.ts` | Added `onDestroy` callback + `DESTROY_VFX_FRAME` timing constant                                       |
+| `src/rendering/particle-system.ts` | Increased `PARTICLES_PER_DESTROY` (14→20) and `PARTICLE_SIZE_MAX` (5→6)                                |
+| `src/components/GameCanvas.tsx`    | Wired `onDestroy` callback in both player and AI combat animation paths                                |
 
 ### Verification
+
 - `npx tsc --noEmit` — zero errors
 - `npx vitest run` — 197/197 tests pass
 
@@ -143,13 +150,13 @@ HP_damage = floor(damage% / 10)
 
 ### Files changed
 
-| File | Change |
-|------|--------|
-| `src/rendering/pixi-app.ts` | Added `animatePanTo()`, `updateCameraPan()`, `cancelCameraPan()`, `isCameraPanning()`, `startShake()`, `updateShake()`, `isShaking()` + tuning constants |
-| `src/rendering/particle-system.ts` | **New file** — `ParticleSystem` class with `emitHit()`, `emitDestroy()`, `update()`, `clear()` |
-| `src/rendering/combat-animator.ts` | Added `onHit` and `onCounterHit` callbacks to `CombatAnimParams`, fired at impact frames |
-| `src/components/GameCanvas.tsx` | Wired particle system + shake + camera pan into ticker loop and all combat animation paths (player + AI queue) |
-| `src/App.tsx` | Enhanced AI indicator with spinner animation + added header-bar "AI TURN" pill |
+| File                               | Change                                                                                                                                                   |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/rendering/pixi-app.ts`        | Added `animatePanTo()`, `updateCameraPan()`, `cancelCameraPan()`, `isCameraPanning()`, `startShake()`, `updateShake()`, `isShaking()` + tuning constants |
+| `src/rendering/particle-system.ts` | **New file** — `ParticleSystem` class with `emitHit()`, `emitDestroy()`, `update()`, `clear()`                                                           |
+| `src/rendering/combat-animator.ts` | Added `onHit` and `onCounterHit` callbacks to `CombatAnimParams`, fired at impact frames                                                                 |
+| `src/components/GameCanvas.tsx`    | Wired particle system + shake + camera pan into ticker loop and all combat animation paths (player + AI queue)                                           |
+| `src/App.tsx`                      | Enhanced AI indicator with spinner animation + added header-bar "AI TURN" pill                                                                           |
 
 ### How to tune
 
@@ -158,6 +165,7 @@ HP_damage = floor(damage% / 10)
 - **Camera pan speed**: `CAMERA_PAN_LERP` in `pixi-app.ts` (lower = slower/smoother)
 
 ### Verification
+
 - `npx tsc --noEmit` — zero errors
 - `npx vitest run` — 197/197 tests pass
 - No new test files (rendering code is visual-only, not unit-testable without canvas)

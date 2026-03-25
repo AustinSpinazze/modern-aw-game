@@ -249,9 +249,15 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
                   }
                   // Apply moved state immediately (unit jumps, selection clears)
                   useGameStore.getState().applyPostMoveState(movedState);
-                  const ok = runCombatAnimation(cAnim, movedState, attackCmd, (postState) => {
-                    useGameStore.getState().setGameState(postState);
-                  }, particleSystemRef.current);
+                  const ok = runCombatAnimation(
+                    cAnim,
+                    movedState,
+                    attackCmd,
+                    (postState) => {
+                      useGameStore.getState().setGameState(postState);
+                    },
+                    particleSystemRef.current
+                  );
                   if (ok) return;
                 }
                 // Fallback: no combat animator available
@@ -259,10 +265,7 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
                 return;
               }
               // Check if clicking an unload tile
-              const {
-                unloadTiles: uTiles,
-                unloadingCargoIndex: uIdx,
-              } = useGameStore.getState();
+              const { unloadTiles: uTiles, unloadingCargoIndex: uIdx } = useGameStore.getState();
               if (uIdx !== null && uTiles.some((t) => t.x === pos.x && t.y === pos.y)) {
                 const startMoveAnim = useGameStore.getState().startMoveAnimation;
                 startMoveAnim({
@@ -517,9 +520,15 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
 
         // Commit post-move state (unit at destination), clear animation/selection state.
         store.applyPostMoveState(movedState);
-        const ok = runCombatAnimation(cAnim, movedState, pendingAct, (postState) => {
-          useGameStore.getState().setGameState(postState);
-        }, particleSystemRef.current);
+        const ok = runCombatAnimation(
+          cAnim,
+          movedState,
+          pendingAct,
+          (postState) => {
+            useGameStore.getState().setGameState(postState);
+          },
+          particleSystemRef.current
+        );
         if (!ok) onAnimationComplete();
       } else {
         // Non-attack action (Capture, Wait, etc.) — standard apply path.

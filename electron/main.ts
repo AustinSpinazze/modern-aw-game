@@ -264,7 +264,7 @@ ipcMain.handle(
     _event,
     provider: string,
     messages: Array<{ role: string; content: string }>,
-    options?: { model?: string }
+    options?: { model?: string; maxTokens?: number }
   ): Promise<{ text: string } | { error: string }> => {
     try {
       // Load the API key from encrypted storage
@@ -291,7 +291,7 @@ ipcMain.handle(
 
         const body: Record<string, unknown> = {
           model,
-          max_tokens: 1024,
+          max_tokens: options?.maxTokens ?? 1024,
           messages: nonSystemMsgs,
         };
         if (systemMsg) body.system = systemMsg.content;
@@ -324,7 +324,7 @@ ipcMain.handle(
             Authorization: `Bearer ${apiKey}`,
             "content-type": "application/json",
           },
-          body: JSON.stringify({ model, messages, max_tokens: 1024 }),
+          body: JSON.stringify({ model, messages, max_tokens: options?.maxTokens ?? 1024 }),
         });
 
         if (!response.ok) {

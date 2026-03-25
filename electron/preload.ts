@@ -33,7 +33,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   runAI: (
     provider: string,
     messages: Array<{ role: string; content: string }>,
-    options?: { model?: string }
+    options?: { model?: string; maxTokens?: number }
   ) => ipcRenderer.invoke("ai:run", provider, messages, options),
 });
 
@@ -54,7 +54,7 @@ declare global {
       runAI: (
         provider: string,
         messages: Array<{ role: string; content: string }>,
-        options?: { model?: string }
+        options?: { model?: string; maxTokens?: number }
       ) => Promise<{ text: string } | { error: string }>;
     };
   }
