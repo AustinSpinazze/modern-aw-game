@@ -1,6 +1,6 @@
 # Modern AW — Project Roadmap
 
-Last Updated: 2026-03-24
+Last Updated: 2026-03-25
 
 ---
 
@@ -86,7 +86,14 @@ A modern Advance Wars-inspired turn-based strategy game that:
 - [x] Attack range only shows when enemies present
 - [x] Units darken (tint) when acted, not transparent
 - [x] Movement animations (units walk/drive along path)
+- [x] Preview move animation (unit walks to destination before action menu, AW-accurate)
+- [x] Unload tile highlights (teal-green tiles on map, click-to-unload)
+- [x] Right-click range preview works during friendly unit selection
 - [x] Combat animations (tile overlays: fire, hit, destruction; see `src/rendering/combat-animator.ts`)
+- [x] Screen shake on explosions (hit + destruction intensity levels)
+- [x] Particle effects (hit sparks, destruction smoke/fire bursts)
+- [x] Smooth camera transitions (eased pan to combat midpoint)
+- [x] AI thinking indicator (spinner + header bar pill)
 - [x] Zoom and pan (GameCanvas; zoom in/out/reset in App)
 - [x] Camera follow during movement animation (safe-zone lerp; `updateCameraFollow` in `pixi-app.ts`)
 - [x] Save/load game (Electron IPC; Save Game / Continue in UI)
@@ -119,8 +126,8 @@ A modern Advance Wars-inspired turn-based strategy game that:
 - [x] Local AI using OpenAI/Anthropic APIs (IPC; renderer triggers, main runs)
 - [x] API key input in settings (stored locally in Electron)
 - [x] Basic heuristic AI fallback (no API needed)
+- [x] AI thinking indicator (spinner animation + header bar "AI TURN" pill)
 - [ ] Multiple difficulty levels / AI personalities (future)
-- [ ] AI thinking indicator (optional polish)
 
 ### Core Mechanics — Done ✅
 
@@ -134,8 +141,9 @@ A modern Advance Wars-inspired turn-based strategy game that:
 ### Combat Animations — Done ✅
 
 - [x] Attack/hit/destruction (tile overlays: fire flash, hit flash, destruction flicker; see combat-animator.ts)
-- [ ] Damage numbers or health bar feedback (optional)
-- [ ] Screen shake / particle effects (optional polish)
+- [x] Screen shake on explosions (0.5x hit, 1.0x destruction; exponential decay)
+- [x] Particle effects (hit sparks, destruction smoke/fire bursts; `particle-system.ts`)
+- **Won’t do:** Damage numbers or health bar feedback — hover / tile info already exposes the relevant combat context.
 
 ### Camera / Large Maps
 
@@ -154,7 +162,8 @@ A modern Advance Wars-inspired turn-based strategy game that:
 ### AI Opponents — Implemented ✅
 
 - [x] Local AI (OpenAI, Anthropic, local HTTP); API keys in settings; heuristic fallback
-- [ ] Multiple difficulty levels / AI personalities; AI thinking indicator (optional)
+- [x] AI thinking indicator (spinner + header bar pill)
+- [ ] Multiple difficulty levels / AI personalities
 
 ### Game Modes
 
@@ -193,16 +202,19 @@ A modern Advance Wars-inspired turn-based strategy game that:
 
 ## 🎨 UX Polish & Improvements
 
-### Optional polish (visual & feedback)
+### Optional polish (visual & feedback) — Mostly Done ✅
 
 - [x] **Camera follow** during unit movement (see Camera / Large Maps)
-- [ ] Smooth camera transitions (beyond follow-during-move; e.g. scripted pans)
-- [ ] Screen shake on explosions
-- [ ] Damage numbers or health bar feedback during combat
-- [ ] Particle effects (smoke, fire)
-- [ ] AI thinking indicator (clear “AI is deciding…” state)
-- [ ] Day/night cycle visual
-- [ ] Weather visual effects
+- [x] Smooth camera transitions (eased pan to combat midpoint; `animatePanTo` in `pixi-app.ts`)
+- [x] Screen shake on explosions (hit 0.5x, destruction 1.0x; exponential decay)
+- [x] Particle effects (hit sparks, destruction smoke/fire; `particle-system.ts`)
+- [x] AI thinking indicator (spinner + “AI TURN” header bar pill)
+- [x] Preview move animation (AW-accurate: unit walks to destination before action menu)
+- [x] Unload tile highlights (teal-green map highlights, click-to-unload)
+- [x] Resign confirmation modal
+- **Won’t do:** Damage numbers or health bar feedback during combat — cursor hover / tile panel already shows the needed info.
+- [ ] **Day/night cycle visual** — Nice-to-have; **deferred** until a deliberate pass on custom map/unit styling (may revisit with a different approach).
+- [ ] **Weather visual effects** — Same as day/night: **deferred** with custom art direction; gameplay weather (if ever added) is separate from this cosmetic layer.
 
 ### Information Display
 
@@ -306,7 +318,7 @@ A modern Advance Wars-inspired turn-based strategy game that:
 | ~~Fuel mechanics~~      | ~~Medium~~ | ~~Medium~~ | ✅ Done   | -     |
 | ~~Indirect fire~~       | ~~High~~   | ~~Medium~~ | ✅ Done   | -     |
 | ~~Camera follow~~       | ~~Medium~~ | ~~Low~~    | ✅ Done   | -     |
-| Optional polish         | Low        | Low–Medium | 🟢 Low    | 7     |
+| ~~Optional polish~~     | ~~Low~~    | ~~Low–Med~~| ✅ Done   | -     |
 | Online multiplayer      | High       | High       | 🟡 Medium | 8     |
 | Map preview             | Medium     | Low        | 🟡 Medium | 9     |
 | Map editor              | Medium     | High       | 🟢 Low    | 10    |
@@ -324,31 +336,31 @@ A modern Advance Wars-inspired turn-based strategy game that:
 
 Single list of all planned features for easy reference. Order follows Priority Matrix where applicable.
 
-| #   | Feature                    | Notes                                                                             |
-| --- | -------------------------- | --------------------------------------------------------------------------------- |
-| –   | ~~Transport mechanics~~    | ✅ Done — Load/unload APC, T-Copter, Lander, Carrier; UI.                         |
-| –   | ~~Fuel mechanics~~         | ✅ Done — Air/naval fuel; resupply; 0 fuel = no move.                             |
-| –   | ~~Indirect fire~~          | ✅ Done — Artillery, Rocket, Missile range attacks; no counter from target.       |
-| –   | ~~Camera follow~~          | ✅ Done — Pan during move animation; safe-zone lerp (`pixi-app.ts` + GameCanvas). |
-| 7   | Optional polish            | Damage numbers, screen shake, AI thinking indicator, smooth camera, particles.    |
-| 8   | Online multiplayer         | Partykit; create/join rooms; state sync.                                          |
-| 9   | Map preview                | Show map (name, size, thumbnail) before game start.                               |
-| 10  | Map editor                 | Create and edit maps in-app.                                                      |
-| 11  | Shoal coastline tiles      | Directional shoal sprites + auto-tiling.                                          |
-| 12  | Custom units (units.md)    | 30 designs; data + sprites.                                                       |
-| 13  | New buildings/tiles        | Radar, supply depot, new terrain.                                                 |
-| 14  | Audio/SFX                  | In-game sounds and music. (Last.)                                                 |
-| –   | Hot-seat multiplayer       | Same device, pass-and-play.                                                       |
-| –   | Minimap                    | In-game minimap.                                                                  |
-| –   | ~~Ammo management~~        | ✅ Done (core) — ammo depletion + counter-attack ammo checks + property resupply. |
-| –   | Supply from APC/cities     | Supply range and mechanics.                                                       |
-| –   | Weather effects            | Rain, snow, clear; affect movement/vision.                                        |
-| –   | UX refinement (menus)      | Per docs/UX_IMPROVEMENT_PLAN.md; map/sprites unchanged.                           |
-| –   | Multiple AI difficulty     | AI personalities / difficulty levels.                                             |
-| –   | Unit info panel            | Stats, HP, ammo, fuel at a glance.                                                |
-| –   | Damage preview             | Before attacking.                                                                 |
-| –   | Undo last move             | Before confirming action.                                                         |
-| –   | Colorblind / accessibility | Team indicators, high contrast, etc.                                              |
+| #   | Feature                    | Notes                                                                                                                                                                                         |
+| --- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| –   | ~~Transport mechanics~~    | ✅ Done — Load/unload APC, T-Copter, Lander, Carrier; UI.                                                                                                                                     |
+| –   | ~~Fuel mechanics~~         | ✅ Done — Air/naval fuel; resupply; 0 fuel = no move.                                                                                                                                         |
+| –   | ~~Indirect fire~~          | ✅ Done — Artillery, Rocket, Missile range attacks; no counter from target.                                                                                                                   |
+| –   | ~~Camera follow~~          | ✅ Done — Pan during move animation; safe-zone lerp (`pixi-app.ts` + GameCanvas).                                                                                                             |
+| –   | ~~Optional polish~~        | ✅ Done — Smooth camera transitions, screen shake, particles, AI thinking indicator, preview move animation, unload highlights, resign confirmation. Day/night + weather visuals deferred.     |
+| 8   | Online multiplayer         | Partykit; create/join rooms; state sync.                                                                                                                                                      |
+| 9   | Map preview                | Show map (name, size, thumbnail) before game start.                                                                                                                                           |
+| 10  | Map editor                 | Create and edit maps in-app.                                                                                                                                                                  |
+| 11  | Shoal coastline tiles      | Directional shoal sprites + auto-tiling.                                                                                                                                                      |
+| 12  | Custom units (units.md)    | 30 designs; data + sprites.                                                                                                                                                                   |
+| 13  | New buildings/tiles        | Radar, supply depot, new terrain.                                                                                                                                                             |
+| 14  | Audio/SFX                  | In-game sounds and music. (Last.)                                                                                                                                                             |
+| –   | Hot-seat multiplayer       | Same device, pass-and-play.                                                                                                                                                                   |
+| –   | Minimap                    | In-game minimap.                                                                                                                                                                              |
+| –   | ~~Ammo management~~        | ✅ Done (core) — ammo depletion + counter-attack ammo checks + property resupply.                                                                                                             |
+| –   | Supply from APC/cities     | Supply range and mechanics.                                                                                                                                                                   |
+| –   | Weather effects            | Rain, snow, clear; affect movement/vision.                                                                                                                                                    |
+| –   | UX refinement (menus)      | Per docs/UX_IMPROVEMENT_PLAN.md; map/sprites unchanged.                                                                                                                                       |
+| –   | Multiple AI difficulty     | AI personalities / difficulty levels.                                                                                                                                                         |
+| –   | Unit info panel            | Stats, HP, ammo, fuel at a glance.                                                                                                                                                            |
+| –   | Damage preview             | Before attacking.                                                                                                                                                                             |
+| –   | Undo last move             | Before confirming action.                                                                                                                                                                     |
+| –   | Colorblind / accessibility | Team indicators, high contrast, etc.                                                                                                                                                          |
 
 ---
 
@@ -384,13 +396,15 @@ Single list of all planned features for easy reference. Order follows Priority M
 
 **Q2 2026**
 
-- Polish and bug fixes; audio
-- Transport mechanics; supply (optional)
+- Online multiplayer (Partykit)
+- Audio/SFX
+- Map editor; map preview
 
 **Q3 2026**
 
-- Advanced mechanics (transport, supply if not in Q2)
-- Shoal coastline; map editor (optional)
+- Shoal coastline auto-tiling
+- Custom units (from docs/units.md)
+- Supply from APC/cities
 
 **Q4 2026**
 

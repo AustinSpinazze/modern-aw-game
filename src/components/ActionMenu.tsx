@@ -1,7 +1,6 @@
 // Unit action popup: Move/Attack/Capture/Wait/etc.
 // Shown after selecting a unit with a pending move destination.
 
-import { useState } from "react";
 import { useGameStore } from "../store/game-store";
 import { getTerrainData, getUnitData } from "../game/data-loader";
 import { getTile, getUnit, getUnitAt } from "../game/game-state";
@@ -17,16 +16,17 @@ export default function ActionMenu() {
   const selectedUnit = useGameStore((s) => s.selectedUnit);
   const pendingMove = useGameStore((s) => s.pendingMove);
   const isAnimating = useGameStore((s) => s.isAnimating);
+  const previewAnimating = useGameStore((s) => s.previewAnimating);
   const startMoveAnimation = useGameStore((s) => s.startMoveAnimation);
   const cancelPendingMove = useGameStore((s) => s.cancelPendingMove);
-
-  // Local state for unload destination picker
-  const [unloadingCargoIndex, setUnloadingCargoIndex] = useState<number | null>(null);
+  const unloadingCargoIndex = useGameStore((s) => s.unloadingCargoIndex);
+  const unloadTiles = useGameStore((s) => s.unloadTiles);
+  const setUnloadMode = useGameStore((s) => s.setUnloadMode);
 
   if (!gameState || !selectedUnit) return null;
   if (!pendingMove) return null;
   if (selectedUnit.has_acted) return null;
-  if (isAnimating) return null;
+  if (isAnimating || previewAnimating) return null;
 
   const currentPlayer = gameState.players[gameState.current_player_index];
   if (!currentPlayer || selectedUnit.owner_id !== currentPlayer.id) return null;
@@ -48,7 +48,7 @@ export default function ActionMenu() {
     if (destUnit.id === selectedUnit.id) return null;
     if (destUnit.owner_id !== currentPlayer.id) return null;
     if (destUnit.unit_type !== selectedUnit.unit_type) return null;
-    if (selectedUnit.hp >= 10 && destUnit.hp >= 10) return null; // pointless if both full
+    if (destUnit.hp >= 10) return null; // pointless if target is already full HP
     return destUnit;
   })();
 
@@ -76,8 +76,6 @@ export default function ActionMenu() {
   const transportInfo = unitData.transport;
   const loadableUnits: Array<{ unitId: number; unitName: string }> = [];
   const cargoUnits: Array<{ unitId: number; unitName: string; cargoIndex: number }> = [];
-  const unloadTiles: Vec2[] = [];
-
   // Get in: adjacent transports that can carry this unit (shown on non-transport units)
   const getInTransports: Array<{ transportId: number; transportName: string }> = [];
   if (!transportInfo && !selectedUnit.has_acted) {
@@ -136,9 +134,10 @@ export default function ActionMenu() {
     }
   }
 
-  // Compute valid unload tiles when a cargo slot is selected
-  if (unloadingCargoIndex !== null && transportInfo) {
-    const cargoId = selectedUnit.cargo[unloadingCargoIndex];
+  // Compute valid unload tiles for a given cargo slot
+  const computeUnloadTiles = (cargoIndex: number): Vec2[] => {
+    const tiles: Vec2[] = [];
+    const cargoId = selectedUnit.cargo[cargoIndex];
     const cargoUnit = getUnit(gameState, cargoId);
     const cargoData = cargoUnit ? getUnitData(cargoUnit.unit_type) : null;
     const moveType = cargoData?.move_type ?? "foot";
@@ -157,9 +156,10 @@ export default function ActionMenu() {
       if (!isPassable(terrainType, moveType)) continue;
       const unitOnTile = getUnitAt(gameState, tx, ty);
       if (unitOnTile) continue;
-      unloadTiles.push({ x: tx, y: ty });
+      tiles.push({ x: tx, y: ty });
     }
-  }
+    return tiles;
+  };
 
   // Build a temp attacker at pending position for damage calc
   const tempAttacker = { ...selectedUnit, x: pendingMove.x, y: pendingMove.y };
@@ -292,18 +292,6 @@ export default function ActionMenu() {
     });
   };
 
-  const handleUnloadDest = (x: number, y: number) => {
-    if (unloadingCargoIndex === null) return;
-    startMoveAnimation({
-      type: "UNLOAD",
-      player_id: currentPlayer.id,
-      transport_id: selectedUnit.id,
-      unit_index: unloadingCargoIndex,
-      dest_x: x,
-      dest_y: y,
-    });
-  };
-
   // Position near the pending move tile, accounting for stage pan/zoom.
   const { x: stageX, y: stageY, scale } = getStageTransform();
   const tileScreenX = stageX + pendingMove.x * DISPLAY * scale;
@@ -312,16 +300,30 @@ export default function ActionMenu() {
   const menuW = 180;
   const menuH = 200; // approximate
 
-  // Prefer right of tile; flip left if near right edge
+  // Check which sides have unload tiles to avoid covering them
+  const hasUnloadRight = unloadTiles.some((t) => t.x > pendingMove.x);
+  const hasUnloadLeft = unloadTiles.some((t) => t.x < pendingMove.x);
+  const hasUnloadBelow = unloadTiles.some((t) => t.y > pendingMove.y);
+
+  // Prefer right of tile; flip left if near right edge or unload tiles are to the right
   const viewportW = window.innerWidth;
-  let left = tileScreenX + tileDisplaySize + 4;
-  if (left + menuW > viewportW - 8) {
+  const preferLeft = hasUnloadRight && !hasUnloadLeft;
+  let left: number;
+  if (preferLeft) {
     left = tileScreenX - menuW - 4;
+    if (left < 8) left = tileScreenX + tileDisplaySize + 4;
+  } else {
+    left = tileScreenX + tileDisplaySize + 4;
+    if (left + menuW > viewportW - 8) left = tileScreenX - menuW - 4;
   }
 
-  // Prefer at tile top; shift up if near bottom
+  // Prefer at tile top; shift up if near bottom or if unload tiles are below
   const viewportH = window.innerHeight;
   let top = tileScreenY;
+  if (hasUnloadBelow) {
+    // Shift menu above the tile if there are unload tiles below
+    top = tileScreenY - menuH + tileDisplaySize;
+  }
   if (top + menuH > viewportH - 8) {
     top = viewportH - menuH - 8;
   }
@@ -428,26 +430,14 @@ export default function ActionMenu() {
         </button>
       )}
 
-      {/* Unload destination picker */}
+      {/* Unload destination picker — tiles highlighted on map */}
       {unloadingCargoIndex !== null && (
         <>
-          <div className="px-3 py-1.5 text-xs text-gray-500 bg-gray-50 border-b border-gray-100">
-            Pick unload tile:
+          <div className="px-3 py-2 text-xs text-gray-500 bg-gray-50 border-b border-gray-100">
+            Click a highlighted tile to unload
           </div>
-          {unloadTiles.length === 0 && (
-            <div className="px-3 py-2 text-xs text-gray-400">No valid tiles</div>
-          )}
-          {unloadTiles.map(({ x, y }) => (
-            <button
-              key={`tile-${x}-${y}`}
-              onClick={() => handleUnloadDest(x, y)}
-              className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors text-teal-600 border-b border-gray-100"
-            >
-              → ({x}, {y})
-            </button>
-          ))}
           <button
-            onClick={() => setUnloadingCargoIndex(null)}
+            onClick={() => setUnloadMode(null, [])}
             className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors text-gray-400 border-b border-gray-200"
           >
             ← Back
@@ -491,7 +481,7 @@ export default function ActionMenu() {
         cargoUnits.map(({ unitId, unitName, cargoIndex }) => (
           <button
             key={`unload-${unitId}`}
-            onClick={() => setUnloadingCargoIndex(cargoIndex)}
+            onClick={() => setUnloadMode(cargoIndex, computeUnloadTiles(cargoIndex))}
             className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors text-teal-600 border-b border-gray-100"
           >
             ↓ Unload {unitName}

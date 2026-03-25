@@ -50,7 +50,12 @@ interface GameStore {
   pendingPath: Vec2[]; // path from unit to pendingMove (after click) - for rendering arrow
   animationPath: Vec2[]; // path used for actual animation (preserved after arrow cleared)
   isAnimating: boolean; // true while a movement animation is playing
+  previewAnimating: boolean; // true while preview-move animation plays (before action menu)
   pendingAction: GameCommand | null; // action to execute after animation
+
+  // Unload tile picking mode
+  unloadTiles: Vec2[];
+  unloadingCargoIndex: number | null;
 
   // Range preview (right-click on any visible unit)
   previewUnit: UnitState | null;
@@ -70,11 +75,13 @@ interface GameStore {
   setPendingMove: (dest: Vec2 | null) => void;
   startMoveAnimation: (actionCmd: GameCommand) => void; // starts animation, stores pending action
   onAnimationComplete: () => void; // called when animation finishes
+  onPreviewAnimationComplete: () => void; // called when preview-move animation finishes
   confirmMoveAndAction: (actionCmd: GameCommand) => { success: boolean; error?: string };
   submitCommand: (cmd: GameCommand) => { success: boolean; error?: string };
   resetSelection: () => void;
   cancelPendingMove: () => void;
 
+  setUnloadMode: (cargoIndex: number | null, tiles: Vec2[]) => void;
   setPreviewUnit: (unit: UnitState | null) => void;
 
   // Queue system for AI/external commands
@@ -99,7 +106,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   pendingPath: [],
   animationPath: [],
   isAnimating: false,
+  previewAnimating: false,
   pendingAction: null,
+  unloadTiles: [],
+  unloadingCargoIndex: null,
   previewUnit: null,
   previewReachableTiles: [],
   previewAttackableTiles: [],
@@ -137,7 +147,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       pendingPath: [],
       animationPath: [],
       isAnimating: false,
+      previewAnimating: false,
       pendingAction: null,
+      unloadTiles: [],
+      unloadingCargoIndex: null,
       previewUnit: null,
       previewReachableTiles: [],
       previewAttackableTiles: [],
@@ -239,28 +252,42 @@ export const useGameStore = create<GameStore>((set, get) => ({
       });
     }
 
+    // Trigger preview animation if moving to a different tile
+    const needsPreviewAnim = isMovingAway && path.length >= 2;
+
     set({
       pendingMove: dest,
       pendingPath: path,
       hoverPath: [], // Clear hover path once we have a pending move
       reachableTiles: [], // Hide reachable overlay once destination picked
       attackableTiles: attackableWithEnemies, // Only show attack tiles with enemies
+      previewAnimating: needsPreviewAnim,
     });
   },
 
-  // Start movement animation before executing the action
+  // Start movement animation before executing the action.
+  // If preview animation already played (unit at destination), skip the movement animation.
   startMoveAnimation: (actionCmd) => {
-    const { pendingPath } = get();
-    // Copy path to animationPath for the animator, clear visual overlays
+    const { pendingPath, previewAnimating } = get();
+    // If preview animation already ran, the unit is visually at the destination —
+    // use an empty animationPath so the action effect fires immediately.
+    const alreadyMoved = !previewAnimating && pendingPath.length >= 2;
     set({
       isAnimating: true,
       pendingAction: actionCmd,
-      animationPath: pendingPath, // Animator uses this
+      animationPath: alreadyMoved ? [] : pendingPath, // skip anim if preview already played
       pendingPath: [], // Clear arrow immediately
       hoverPath: [],
       attackableTiles: [],
       reachableTiles: [],
+      unloadTiles: [],
+      unloadingCargoIndex: null,
     });
+  },
+
+  // Called when preview-move animation completes (unit arrived at destination, open action menu)
+  onPreviewAnimationComplete: () => {
+    set({ previewAnimating: false });
   },
 
   // Called when animation completes - executes the pending action
@@ -344,6 +371,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       animationPath: [],
       hoverPath: [],
       pendingAction: null,
+      previewAnimating: false,
+      unloadTiles: [],
+      unloadingCargoIndex: null,
     });
 
     return { success: true };
@@ -386,6 +416,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         pendingMove: null,
         pendingPath: [],
         hoverPath: [],
+        unloadTiles: [],
+        unloadingCargoIndex: null,
       });
     }
 
@@ -402,7 +434,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       animationPath: [],
       hoverPath: [],
       isAnimating: false,
+      previewAnimating: false,
       pendingAction: null,
+      unloadTiles: [],
+      unloadingCargoIndex: null,
       previewUnit: null,
       previewReachableTiles: [],
       previewAttackableTiles: [],
@@ -411,7 +446,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   cancelPendingMove: () => {
     const { selectedUnit, gameState } = get();
     if (!selectedUnit || !gameState) {
-      set({ pendingMove: null, pendingPath: [], hoverPath: [] });
+      set({ pendingMove: null, pendingPath: [], hoverPath: [], previewAnimating: false });
       return;
     }
     // Restore reachable tiles when canceling, but don't show attack squares
@@ -425,7 +460,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
       hoverPath: [],
       reachableTiles: reachable,
       attackableTiles: [], // Don't show attack squares until destination is clicked
+      unloadTiles: [],
+      unloadingCargoIndex: null,
+      previewAnimating: false,
     });
+  },
+
+  setUnloadMode: (cargoIndex, tiles) => {
+    set({ unloadingCargoIndex: cargoIndex, unloadTiles: tiles });
   },
 
   setPreviewUnit: (unit) => {
@@ -524,6 +566,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       gameState: newState,
       visibilityMap,
       isAnimating: false,
+      previewAnimating: false,
       pendingAction: null,
       selectedUnit: null,
       reachableTiles: [],
@@ -532,6 +575,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       pendingPath: [],
       animationPath: [],
       hoverPath: [],
+      unloadTiles: [],
+      unloadingCargoIndex: null,
     });
   },
 

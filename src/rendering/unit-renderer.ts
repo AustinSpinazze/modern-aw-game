@@ -62,7 +62,12 @@ export class UnitRenderer {
     return this.container;
   }
 
-  render(state: GameState, animatingUnitId?: number, visibility?: boolean[][] | null): void {
+  render(
+    state: GameState,
+    animatingUnitId?: number,
+    visibility?: boolean[][] | null,
+    previewPos?: { unitId: number; x: number; y: number }
+  ): void {
     // Stop all AnimatedSprites before removing to release ticker references
     for (const child of this.container.children) {
       if (child instanceof AnimatedSprite) child.stop();
@@ -80,13 +85,16 @@ export class UnitRenderer {
       // Skip the unit being animated (it's rendered by MovementAnimator)
       if (unit.id === animatingUnitId) continue;
 
-      // Fog of war: hide units on non-visible tiles (own units always shown via vision)
-      if (visibility && !visibility[unit.y][unit.x]) continue;
+      // Preview position override: show unit at pending destination
+      const isPreview = previewPos && unit.id === previewPos.unitId;
+      const ux = isPreview ? previewPos.x : unit.x;
+      const uy = isPreview ? previewPos.y : unit.y;
 
-      // Always draw unit at its current position
-      // Unit only moves after action is confirmed
-      const px = unit.x * DISPLAY;
-      const py = unit.y * DISPLAY;
+      // Fog of war: hide units on non-visible tiles (own units always shown via vision)
+      if (visibility && !visibility[uy][ux]) continue;
+
+      const px = ux * DISPLAY;
+      const py = uy * DISPLAY;
       this.drawUnit(unit, px, py);
     }
   }

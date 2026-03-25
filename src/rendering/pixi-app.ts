@@ -312,6 +312,7 @@ export function initPixiApp(canvas: HTMLCanvasElement): Promise<Application> {
       height: initH,
       backgroundColor: 0xf0ece0,
       antialias: false,
+      roundPixels: true,
       resolution: window.devicePixelRatio || 1,
       autoDensity: true,
     });
@@ -516,7 +517,128 @@ export function updateCameraFollow(worldX: number, worldY: number): void {
   applyStageTransform();
 }
 
+// ── Smooth camera pan (eased transition to a world-space point) ─────────────
+// Used for combat focus, turn start, AI turn begin.
+// Does NOT fight manual pan — only triggers programmatically and lerps gently.
+// Call updateCameraPan() every frame from the ticker; it no-ops when idle.
+
+const CAMERA_PAN_LERP = 0.08; // ease speed (lower = slower, smoother)
+const CAMERA_PAN_THRESHOLD = 0.5; // px — snap when close enough
+
+let _panTargetX: number | null = null;
+let _panTargetY: number | null = null;
+
+/**
+ * Start an eased camera pan so that (tileX, tileY) ends up roughly centered.
+ * Safe to call any time — overwrites any in-progress pan.
+ */
+export function animatePanTo(tileX: number, tileY: number): void {
+  if (!app) return;
+  const TILE_PX = TILE_SIZE * TILE_SCALE;
+  const worldX = tileX * TILE_PX + TILE_PX / 2;
+  const worldY = tileY * TILE_PX + TILE_PX / 2;
+  const canvasW = app.renderer.width;
+  const canvasH = app.renderer.height;
+  _panTargetX = canvasW / 2 - worldX * _userZoom;
+  _panTargetY = canvasH / 2 - worldY * _userZoom;
+}
+
+/** Call every frame from the ticker. Lerps toward the target, then stops. */
+export function updateCameraPan(): void {
+  if (_panTargetX === null || _panTargetY === null) return;
+
+  const dx = _panTargetX - _panOffsetX;
+  const dy = _panTargetY - _panOffsetY;
+
+  if (Math.abs(dx) < CAMERA_PAN_THRESHOLD && Math.abs(dy) < CAMERA_PAN_THRESHOLD) {
+    _panOffsetX = _panTargetX;
+    _panOffsetY = _panTargetY;
+    _panTargetX = null;
+    _panTargetY = null;
+    clampPan();
+    applyStageTransform();
+    return;
+  }
+
+  _panOffsetX += dx * CAMERA_PAN_LERP;
+  _panOffsetY += dy * CAMERA_PAN_LERP;
+  clampPan();
+  applyStageTransform();
+}
+
+/** Cancel any in-progress eased pan (e.g. when user starts manual panning). */
+export function cancelCameraPan(): void {
+  _panTargetX = null;
+  _panTargetY = null;
+}
+
+/** Whether an eased camera pan is currently in progress. */
+export function isCameraPanning(): boolean {
+  return _panTargetX !== null;
+}
+
+// ── Screen shake ────────────────────────────────────────────────────────────
+// Implemented as a temporary offset added to pan before applyStageTransform.
+// Decays exponentially. Caller triggers via startShake(), ticker calls updateShake().
+
+// Tuning constants (exported so callers can reference them for documentation)
+export const SHAKE_INTENSITY = 6; // max pixel displacement at zoom 1
+export const SHAKE_DURATION = 18; // frames (~300ms at 60fps)
+export const SHAKE_DECAY = 0.85; // exponential decay per frame
+
+let _shakeFrame = 0;
+let _shakeAmplitude = 0;
+let _shakeOffsetX = 0;
+let _shakeOffsetY = 0;
+
+/**
+ * Trigger a screen shake. `intensity` scales the default SHAKE_INTENSITY.
+ * Destruction uses 1.0, regular hit uses 0.5.
+ */
+export function startShake(intensity = 1.0): void {
+  _shakeFrame = 0;
+  _shakeAmplitude = SHAKE_INTENSITY * intensity;
+}
+
+/** Call every frame from the ticker. Applies shake offset, decays, then removes. */
+export function updateShake(): void {
+  if (_shakeAmplitude < 0.3) {
+    // Shake finished — ensure offset is zeroed
+    if (_shakeOffsetX !== 0 || _shakeOffsetY !== 0) {
+      _shakeOffsetX = 0;
+      _shakeOffsetY = 0;
+      applyStageTransform();
+    }
+    return;
+  }
+
+  _shakeFrame++;
+  _shakeAmplitude *= SHAKE_DECAY;
+
+  // Scale shake down when zoomed out (small maps look bad with big shake)
+  const zoomScale = Math.min(1, _userZoom);
+
+  // Random direction each frame for organic feel
+  const angle = Math.random() * Math.PI * 2;
+  _shakeOffsetX = Math.cos(angle) * _shakeAmplitude * zoomScale;
+  _shakeOffsetY = Math.sin(angle) * _shakeAmplitude * zoomScale;
+
+  if (!app) return;
+  // Apply shake as an additional offset — don't persist into _panOffsetX/Y
+  app.stage.x = Math.round(_panOffsetX + _shakeOffsetX);
+  app.stage.y = Math.round(_panOffsetY + _shakeOffsetY);
+}
+
+/** Whether a shake is currently active. */
+export function isShaking(): boolean {
+  return _shakeAmplitude >= 0.3;
+}
+
 export function destroyPixiApp(): void {
+  cancelCameraPan();
+  _shakeAmplitude = 0;
+  _shakeOffsetX = 0;
+  _shakeOffsetY = 0;
   disablePanZoom();
   resizeObserver?.disconnect();
   resizeObserver = null;

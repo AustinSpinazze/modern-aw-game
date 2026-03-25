@@ -212,6 +212,7 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
         x: cmd.dest_x,
         y: cmd.dest_y,
         has_moved: true,
+        has_acted: true,
       });
       break;
     }

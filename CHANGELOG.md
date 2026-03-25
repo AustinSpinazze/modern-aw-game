@@ -4,6 +4,166 @@ This file tracks significant changes made by AI agents (Claude Code, Cursor, etc
 
 ---
 
+## 2026-03-25 (Session 16) — Movement UX Overhaul, Unload Highlights, Bug Fixes
+
+**Session:** Claude Code (claude-opus-4-6)
+**Status:** COMPLETE
+
+### Movement UX — Preview Animation (AW-accurate)
+
+Completely reworked the movement flow to match official Advance Wars behavior:
+
+1. **Preview move animation** — When selecting a destination tile, the unit now plays its walk/drive animation along the path to the destination before the ActionMenu appears (not a teleport)
+2. **Arrow disappears on movement** — The path arrow and reachable tile overlay vanish as soon as the unit starts moving, matching AW behavior
+3. **Cancel snaps back** — If cancelled from the ActionMenu, the unit teleports back to its original position (no reverse animation)
+4. **Right-click range preview works during selection** — Can now right-click any unit to see its movement/attack range even while a friendly unit is selected
+5. **No arrow during action menu** — Arrow is only visible during the hover phase, not while the action menu is open
+
+**Technical approach:** Added `previewAnimating` boolean to the store, separate from `isAnimating` (action animation). Preview reuses the existing `MovementAnimator`. When action is later confirmed, `startMoveAnimation` sets empty `animationPath` since the unit is already at the destination.
+
+### Unload UX Overhaul
+
+- **Unload tiles shown as highlights** — Teal-green highlighted tiles on the map replace the old coordinate list menu
+- **Click-to-unload** — Click a highlighted tile to unload cargo there (instead of selecting from a list)
+- **ActionMenu repositioning** — Menu avoids covering unload highlight tiles by shifting position based on which direction unload tiles exist
+- **State moved to store** — `unloadTiles` and `unloadingCargoIndex` moved from ActionMenu local state to Zustand store so GameCanvas can render highlights and handle clicks
+
+### Bug Fixes
+
+1. **Merge validation too permissive** — Was only blocking when BOTH units were at full HP. Now blocks when target unit is already at 10 HP (`destUnit.hp >= 10`)
+2. **Thin white line artifact** — Sub-pixel gaps between tile rows at certain zoom levels. Fixed by adding `roundPixels: true` to Pixi Application init
+3. **Lingering selection highlight during animation** — Selection highlight now clears immediately when action is confirmed and animation begins
+4. **Unloaded units not marked as waited** — `apply-command.ts` UNLOAD handler was missing `has_acted: true` on the cargo unit, so unloaded units didn't appear greyed out
+
+### UI
+
+- **Resign confirmation modal** — "Are you sure?" modal when clicking Resign, matching the existing exit confirmation style
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `src/store/game-store.ts` | Added `unloadTiles`, `unloadingCargoIndex`, `previewAnimating`, `setUnloadMode`, `onPreviewAnimationComplete`; preview animation logic in `setPendingMove` and `startMoveAnimation` |
+| `src/components/GameCanvas.tsx` | Preview animation effect, unload tile click handling, arrow only during hover phase, right-click preview priority fix |
+| `src/components/ActionMenu.tsx` | Unload state from store, menu positioning to avoid unload tiles, hidden during preview animation, merge condition fix |
+| `src/rendering/unit-renderer.ts` | Added `previewPos` parameter to render unit at pending destination |
+| `src/rendering/highlight-renderer.ts` | Added `drawUnloadable()` method (teal-green overlay) |
+| `src/rendering/pixi-app.ts` | Added `roundPixels: true` to fix sub-pixel gaps |
+| `src/game/validators.ts` | Merge validation: `target.hp >= 10` check |
+| `src/game/apply-command.ts` | UNLOAD: added `has_acted: true` to cargo unit |
+| `src/App.tsx` | Resign confirmation modal |
+
+### Verification
+- `npx tsc --noEmit` — zero errors
+- Movement preview animation plays correctly along path
+- Unload tiles render as highlights, click-to-unload works
+- Cancel returns unit to original position
+- Right-click preview works during friendly unit selection
+
+---
+
+## 2026-03-24 (Session 15c) — Damage Formula Rewrite to Match Official AW Rules
+
+**Session:** Claude Code (claude-opus-4-6)
+**Status:** COMPLETE
+
+### Problem
+Terrain defense was being applied to air units (should be 0 stars always). The damage formula also had 3 other deviations from the official AW formula.
+
+### Changes to `calculateDamage()` in `src/game/combat.ts`
+
+| Aspect | Before (wrong) | After (official AW) |
+|--------|----------------|---------------------|
+| Air terrain defense | Air units got terrain stars | Air units always get 0 defense stars |
+| Sea terrain defense | Applied normally | Applied normally (ports/reefs give defense) |
+| Defense scaling | `(1 - Dts × 0.1)` — flat % | `(100 - Dhp × Dts) / 100` — scales with defender HP |
+| Luck | Multiplicative `× (1 + luck)` | Additive `+ floor(normalized × Ahp)` (0 to Ahp-1) |
+| Rounding | `Math.round()` | `Math.floor()` (matches official AW) |
+
+**Official AW formula implemented:**
+```
+damage% = B × (Ahp/10) × (100 − Dhp × Dts) / 100 + luck
+HP_damage = floor(damage% / 10)
+```
+
+### Also fixed
+- `executeSelfDestruct()` — same air defense and HP-scaled defense fixes
+
+### Files changed
+- `src/game/combat.ts` — Rewrote `calculateDamage()` and `executeSelfDestruct()`
+
+### Verification
+- `npx tsc --noEmit` — zero errors
+- `npx vitest run` — 197/197 tests pass
+
+---
+
+## 2026-03-24 (Session 15b) — Bug Fixes: Pathfinding Enemy Blocking + Destruction VFX
+
+**Session:** Claude Code (claude-opus-4-6)
+**Status:** COMPLETE
+
+### Bugs fixed
+
+1. **Arrow/path crossing enemy tiles** — `findPath()` and `getReachableTiles()` had a domain-based bypass that let air units path through enemy air tiles (and ground through enemy air). In AW, you cannot move through ANY enemy-occupied tile regardless of domain. Removed the bypass — all enemy units now block pathfinding unconditionally.
+
+2. **Apache attacking from enemy-occupied tile** — Consequence of bug 1. The reachable tiles included enemy air tiles, so the player could move there and attack. Fixed by the pathfinding change above.
+
+3. **Destruction VFX not visible** — Particles were only emitted at the initial hit (frame 5), but the unit doesn't visually disappear until frame 28. Added `onDestroy` callback to `CombatAnimator` that fires at the visual "death" moment (frame ~16, when flicker ends and dark fade begins). This emits a second big particle burst + shake right as the unit dies. Also increased destruction particle count (14→20) and max particle size (5→6).
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `src/game/pathfinding.ts` | Removed domain-based enemy bypass in `findPath()` and `getReachableTiles()` — enemy units always block |
+| `src/rendering/combat-animator.ts` | Added `onDestroy` callback + `DESTROY_VFX_FRAME` timing constant |
+| `src/rendering/particle-system.ts` | Increased `PARTICLES_PER_DESTROY` (14→20) and `PARTICLE_SIZE_MAX` (5→6) |
+| `src/components/GameCanvas.tsx` | Wired `onDestroy` callback in both player and AI combat animation paths |
+
+### Verification
+- `npx tsc --noEmit` — zero errors
+- `npx vitest run` — 197/197 tests pass
+
+---
+
+## 2026-03-24 (Session 15) — Visual Polish: Camera Transitions, Screen Shake, Particles, AI Indicator
+
+**Session:** Claude Code (claude-opus-4-6)
+**Status:** COMPLETE
+
+### What shipped
+
+1. **Smooth camera transitions** — New `animatePanTo(tileX, tileY)` eased pan in `pixi-app.ts`. Camera gently pans to the combat midpoint when attacks resolve. Respects existing `clampPan()` and user zoom. Cancel anytime via `cancelCameraPan()`. Lerps at 0.08/frame, snaps when <0.5px from target.
+
+2. **Screen shake** — Triggered on combat hit (0.5x intensity) and unit destruction (1.0x). Implemented as temporary random-angle offset on the stage, not by mutating tile positions. Decays exponentially (0.85/frame) over ~18 frames (~300ms). Scales down when zoomed out to avoid looking bad on small maps. Tuning constants exported: `SHAKE_INTENSITY=6`, `SHAKE_DURATION=18`, `SHAKE_DECAY=0.85`.
+
+3. **Particle VFX** — New `src/rendering/particle-system.ts`. Short-lived colored quad bursts at impact tiles using Pixi Graphics. Hit = 8 orange/fire particles, Destroy = 14 fire+smoke particles. Physics: slight upward bias, gravity pull, fade in last 40% of life. Hard cap of 60 concurrent particles prevents perf issues during long AI turns. Particles sit above combat effects, below path overlay.
+
+4. **AI thinking indicator** — Enhanced the existing bottom-of-screen pill: now has a spinning border animation, slightly larger, "AI is thinking..." text. Added a compact header-bar indicator with spinning icon + "AI TURN" label in a frosted pill, visible even when bottom UI is obscured. Both clear reliably when `processingQueue` ends or turn changes.
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `src/rendering/pixi-app.ts` | Added `animatePanTo()`, `updateCameraPan()`, `cancelCameraPan()`, `isCameraPanning()`, `startShake()`, `updateShake()`, `isShaking()` + tuning constants |
+| `src/rendering/particle-system.ts` | **New file** — `ParticleSystem` class with `emitHit()`, `emitDestroy()`, `update()`, `clear()` |
+| `src/rendering/combat-animator.ts` | Added `onHit` and `onCounterHit` callbacks to `CombatAnimParams`, fired at impact frames |
+| `src/components/GameCanvas.tsx` | Wired particle system + shake + camera pan into ticker loop and all combat animation paths (player + AI queue) |
+| `src/App.tsx` | Enhanced AI indicator with spinner animation + added header-bar "AI TURN" pill |
+
+### How to tune
+
+- **Shake**: Adjust `SHAKE_INTENSITY` (px), `SHAKE_DECAY` (0-1), and the intensity multiplier in `startShake()` calls (0.5 for hit, 1.0 for destroy)
+- **Particles**: Edit constants at top of `particle-system.ts` — `MAX_PARTICLES`, `PARTICLES_PER_HIT`, `PARTICLE_LIFETIME`, colors arrays
+- **Camera pan speed**: `CAMERA_PAN_LERP` in `pixi-app.ts` (lower = slower/smoother)
+
+### Verification
+- `npx tsc --noEmit` — zero errors
+- `npx vitest run` — 197/197 tests pass
+- No new test files (rendering code is visual-only, not unit-testable without canvas)
+
+---
+
 ## 2026-03-24 (Session 14) — 6 Core Game Mechanics + 47 Tests
 
 **Session:** Claude Code (claude-opus-4-6)

@@ -22,33 +22,44 @@ export function calculateDamage(
   const baseDamage = weapon.damage_table[defender.unit_type] ?? 0;
   if (baseDamage <= 0) return { damage: 0, luckRoll: 0 };
 
-  // Scale by attacker HP%
-  const hpModifier = attacker.hp / 10.0;
-  let scaledDamage = baseDamage * hpModifier;
+  // ── Official AW damage formula ──────────────────────────────────────────
+  // damage% = B × (Ahp / 10) × (100 − Dhp × Dts) / 100 + luck
+  // HP_damage = floor(damage% / 10)
+  //
+  //   B   = base damage from damage chart
+  //   Ahp = attacker HP (1–10)
+  //   Dhp = defender HP (1–10)
+  //   Dts = defender terrain stars (0 for air units; ground & sea get stars)
+  //   luck = additive, random 0 to (Ahp − 1)
 
-  // Terrain defense
-  const defenderTile = getTile(state, defender.x, defender.y);
-  let defenseStars = 0;
-  let trenchBonus = 0;
+  // Step 1: Base damage scaled by attacker HP
+  let damagePercent = baseDamage * (attacker.hp / 10.0);
 
-  if (defenderTile) {
-    const terrainType = defenderTile.has_fob ? "temporary_fob" : defenderTile.terrain_type;
-    const terrainData = getTerrainData(terrainType);
-    defenseStars = terrainData?.defense_stars ?? 0;
+  // Step 2: Terrain defense — air units NEVER get terrain defense;
+  // ground and sea units benefit from terrain stars.
+  const defenderData = getUnitData(defender.unit_type);
+  let totalDefenseStars = 0;
 
-    if (defenderTile.has_trench) {
-      const defenderData = getUnitData(defender.unit_type);
-      if (defenderData?.tags.includes("infantry_class")) {
-        trenchBonus = 2;
+  if (defenderData && defenderData.domain !== "air") {
+    const defenderTile = getTile(state, defender.x, defender.y);
+    if (defenderTile) {
+      const terrainType = defenderTile.has_fob ? "temporary_fob" : defenderTile.terrain_type;
+      const terrainData = getTerrainData(terrainType);
+      totalDefenseStars = terrainData?.defense_stars ?? 0;
+
+      // Trench bonus — infantry only
+      if (defenderTile.has_trench && defenderData.tags.includes("infantry_class")) {
+        totalDefenseStars += 2;
       }
     }
   }
 
-  const totalDefenseStars = defenseStars + trenchBonus;
-  const defenseReduction = totalDefenseStars * 0.1;
-  scaledDamage = scaledDamage * (1.0 - defenseReduction);
+  // Official: defense scales with defender HP. A 1HP unit on 3★ terrain
+  // only gets 3% reduction; a 10HP unit gets 30%.
+  damagePercent = (damagePercent * (100 - defender.hp * totalDefenseStars)) / 100;
 
-  // Luck roll
+  // Step 3: Luck — additive, 0 to (Ahp − 1) in official AW.
+  // We use the deterministic RNG, normalize to [0, 1], then scale.
   const luckRoll = rollLuck(
     state.match_seed,
     state.turn_number,
@@ -58,10 +69,13 @@ export function calculateDamage(
     state.luck_min,
     state.luck_max
   );
-  scaledDamage = scaledDamage * (1.0 + luckRoll);
+  const luckRange = state.luck_max - state.luck_min;
+  const luckNormalized = luckRange > 0 ? (luckRoll - state.luck_min) / luckRange : 0;
+  const luckValue = Math.floor(luckNormalized * attacker.hp);
+  damagePercent += luckValue;
 
-  // Convert to HP units (divide by 10, round)
-  let finalDamage = Math.round(scaledDamage / 10.0);
+  // Step 4: Convert to HP units — floor, not round (per official AW)
+  let finalDamage = Math.floor(damagePercent / 10.0);
   finalDamage = Math.max(0, Math.min(finalDamage, defender.hp));
   return { damage: finalDamage, luckRoll };
 }
@@ -227,15 +241,19 @@ export function executeSelfDestruct(
   const uavData = getUnitData(uav.unit_type);
   const baseDamage = uavData?.self_destruct_damage ?? 40;
 
-  const targetTile = getTile(stateIn, target.x, target.y);
+  // Terrain defense — air units don't benefit
+  const targetData = getUnitData(target.unit_type);
   let defenseStars = 0;
-  if (targetTile) {
-    const terrainType = targetTile.has_fob ? "temporary_fob" : targetTile.terrain_type;
-    defenseStars = getTerrainData(terrainType)?.defense_stars ?? 0;
+  if (targetData && targetData.domain !== "air") {
+    const targetTile = getTile(stateIn, target.x, target.y);
+    if (targetTile) {
+      const terrainType = targetTile.has_fob ? "temporary_fob" : targetTile.terrain_type;
+      defenseStars = getTerrainData(terrainType)?.defense_stars ?? 0;
+    }
   }
 
-  const defenseReduction = defenseStars * 0.1;
-  let scaledDamage = baseDamage * (1.0 - defenseReduction);
+  // Use HP-scaled defense like the main formula
+  let scaledDamage = (baseDamage * (100 - target.hp * defenseStars)) / 100;
 
   let state = incrementAttackCounter(stateIn);
   const luckRoll = rollLuck(

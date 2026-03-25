@@ -408,6 +408,7 @@ function validateMerge(cmd: CmdMerge, state: GameState): ValidationResult {
   if (target.owner_id !== cmd.player_id) return fail("Target does not belong to player");
   if (target.unit_type !== unit.unit_type) return fail("Cannot merge different unit types");
   if (unit.hp >= 10 && target.hp >= 10) return fail("Both units are already at full HP");
+  if (target.hp >= 10) return fail("Target unit is already at full HP");
 
   return ok();
 }

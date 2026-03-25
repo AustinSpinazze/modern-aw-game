@@ -24,12 +24,21 @@ const DESTRUCT_START = 8;
 const DESTRUCT_END = 28;
 const TOTAL = 28;
 
+// Frame when the flicker ends and dark fade begins — visual "death" moment
+const DESTROY_VFX_FRAME = DESTRUCT_START + Math.round((DESTRUCT_END - DESTRUCT_START) * 0.4);
+
 export interface CombatAnimParams {
   attackerPos: Vec2;
   defenderPos: Vec2;
   attackerDestroyed: boolean;
   defenderDestroyed: boolean;
   onComplete: () => void;
+  /** Called once when the hit impact lands on the defender (frame HIT_START). */
+  onHit?: (pos: Vec2, destroyed: boolean) => void;
+  /** Called once if attacker is destroyed by counterattack (frame DESTRUCT_START). */
+  onCounterHit?: (pos: Vec2) => void;
+  /** Called once per destroyed unit at the visual "death" moment (end of flicker phase). */
+  onDestroy?: (pos: Vec2) => void;
 }
 
 function prog(f: number, s: number, e: number): number {
@@ -55,6 +64,10 @@ export class CombatAnimator {
   private container: Container;
   private frame = 0;
   private active: CombatAnimParams | null = null;
+  private hitFired = false;
+  private counterHitFired = false;
+  private defDestroyFired = false;
+  private atkDestroyFired = false;
 
   private fireG: Graphics | null = null;
   private hitG: Graphics | null = null;
@@ -77,6 +90,10 @@ export class CombatAnimator {
     this.cancel();
     this.active = params;
     this.frame = 0;
+    this.hitFired = false;
+    this.counterHitFired = false;
+    this.defDestroyFired = false;
+    this.atkDestroyFired = false;
 
     this.fireG = new Graphics();
     this.hitG = new Graphics();
@@ -109,6 +126,18 @@ export class CombatAnimator {
         const alpha = t < 0.3 ? (t / 0.3) * 0.75 : ((1 - t) / 0.7) * 0.75;
         drawTileOverlay(this.fireG, p.attackerPos.x, p.attackerPos.y, 0xffee44, alpha);
       }
+    }
+
+    // Fire onHit callback at impact moment
+    if (f >= HIT_START && !this.hitFired) {
+      this.hitFired = true;
+      p.onHit?.(p.defenderPos, p.defenderDestroyed);
+    }
+
+    // Fire onCounterHit when attacker gets destroyed by counter
+    if (f >= DESTRUCT_START && p.attackerDestroyed && !this.counterHitFired) {
+      this.counterHitFired = true;
+      p.onCounterHit?.(p.attackerPos);
     }
 
     // ── 2. Defender takes hit — white → red tile flash ────────────────────────
@@ -188,6 +217,18 @@ export class CombatAnimator {
             (1 - st) * 0.45
           );
         }
+      }
+    }
+
+    // Fire onDestroy at the visual "death" moment (flicker → dark fade transition)
+    if (f >= DESTROY_VFX_FRAME) {
+      if (p.defenderDestroyed && !this.defDestroyFired) {
+        this.defDestroyFired = true;
+        p.onDestroy?.(p.defenderPos);
+      }
+      if (p.attackerDestroyed && !this.atkDestroyFired) {
+        this.atkDestroyFired = true;
+        p.onDestroy?.(p.attackerPos);
       }
     }
 

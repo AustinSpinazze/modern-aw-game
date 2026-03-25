@@ -154,11 +154,9 @@ export function findPath(state: GameState, unit: UnitState, destX: number, destY
       const newG = current.g + moveCost;
       if (newG > movePoints) continue;
 
+      // Enemy units always block movement regardless of domain (AW rule)
       const blockingUnit = getUnitAt(state, n.x, n.y);
-      if (blockingUnit && blockingUnit.owner_id !== unit.owner_id) {
-        const blockData = getUnitData(blockingUnit.unit_type);
-        if (moveType !== "air" && blockData?.domain !== "air") continue;
-      }
+      if (blockingUnit && blockingUnit.owner_id !== unit.owner_id) continue;
 
       const prevG = gScore.get(nKey);
       if (prevG !== undefined && prevG <= newG) continue;
@@ -230,11 +228,9 @@ export function getReachableTiles(
       const newCost = cost + moveCost;
       if (newCost > movePoints) continue;
 
+      // Enemy units always block movement regardless of domain (AW rule)
       const blockingUnit = getUnitAt(state, nx, ny);
-      if (blockingUnit && blockingUnit.owner_id !== unit.owner_id) {
-        const blockData = getUnitData(blockingUnit.unit_type);
-        if (moveType !== "air" && blockData?.domain !== "air") continue;
-      }
+      if (blockingUnit && blockingUnit.owner_id !== unit.owner_id) continue;
 
       // Fog: skip tiles not visible to the moving unit's player
       if (visibility && !visibility[ny][nx]) continue;

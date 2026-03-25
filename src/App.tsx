@@ -116,6 +116,7 @@ function AppContent() {
   const [buyMenuTile, setBuyMenuTile] = useState<{ x: number; y: number } | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1.0);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [showResignConfirm, setShowResignConfirm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -624,7 +625,7 @@ function AppContent() {
       <header
         className={`h-14 shrink-0 flex items-center justify-between px-5 z-20 transition-colors ${TEAM_HEADER_BG[currentPlayer?.team ?? 0] ?? "bg-gray-700"}`}
       >
-        {/* Left side — player number + name + day */}
+        {/* Left side — player number + name + day + AI indicator */}
         <div className="flex items-center gap-4">
           {currentPlayer && (
             <div className="leading-tight">
@@ -634,6 +635,14 @@ function AppContent() {
               <div className="text-white/60 text-xs mt-0.5 uppercase tracking-widest">
                 Day {gameState?.turn_number ?? 1}
               </div>
+            </div>
+          )}
+          {isAiProcessing && (
+            <div className="flex items-center gap-1.5 bg-white/20 rounded-full px-3 py-1">
+              <span className="inline-block w-3 h-3 border-2 border-white/80 border-t-transparent rounded-full animate-spin" />
+              <span className="text-white/90 text-xs font-medium uppercase tracking-wider">
+                AI Turn
+              </span>
             </div>
           )}
         </div>
@@ -714,7 +723,7 @@ function AppContent() {
                 <div className="border-t border-gray-100 my-0.5" />
                 {isHumanTurn && gameState?.phase === "action" && (
                   <button
-                    onClick={handleResign}
+                    onClick={() => { setShowResignConfirm(true); setMenuOpen(false); }}
                     className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-gray-50 transition-colors"
                   >
                     Resign
@@ -751,9 +760,9 @@ function AppContent() {
           {/* AI thinking overlay */}
           {isAiProcessing && (
             <div className="absolute inset-0 pointer-events-none flex items-end justify-center pb-6 z-10">
-              <div className="bg-white/90 border border-gray-200 rounded-full px-4 py-2 text-sm text-gray-600 flex items-center gap-2 backdrop-blur-sm shadow-sm">
-                <span className="inline-block w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
-                AI thinking…
+              <div className="bg-white/95 border border-gray-200 rounded-full px-5 py-2.5 text-sm text-gray-700 font-medium flex items-center gap-2.5 backdrop-blur-sm shadow-md">
+                <span className="inline-block w-4 h-4 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                AI is thinking&hellip;
               </div>
             </div>
           )}
@@ -882,6 +891,31 @@ function AppContent() {
                 className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 rounded-lg transition-colors"
               >
                 Keep Playing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showResignConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-white border border-gray-200 rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4">
+            <h2 className="text-gray-900 font-bold text-lg mb-1">Resign?</h2>
+            <p className="text-gray-500 text-sm mb-5">
+              This will forfeit the match. Your opponent will be declared the winner.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowResignConfirm(false); handleResign(); }}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded-lg transition-colors"
+              >
+                Resign
+              </button>
+              <button
+                onClick={() => setShowResignConfirm(false)}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 rounded-lg transition-colors"
+              >
+                Cancel
               </button>
             </div>
           </div>

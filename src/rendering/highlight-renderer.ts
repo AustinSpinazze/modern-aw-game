@@ -36,6 +36,10 @@ export class HighlightRenderer {
     this.drawOverlay(tiles, 0xff4444, 0.45); // red
   }
 
+  drawUnloadable(tiles: Vec2[]): void {
+    this.drawOverlay(tiles, 0x44ddaa, 0.55); // teal-green
+  }
+
   // Preview overlays (right-click range inspect) — visually distinct from selection
   drawPreviewReachable(tiles: Vec2[]): void {
     this.drawOverlay(tiles, 0x44aaff, 0.35); // lighter blue

@@ -9,7 +9,12 @@ import {
   resetPanZoom,
   panToP1Start,
   updateCameraFollow,
+  updateCameraPan,
+  animatePanTo,
+  updateShake,
+  startShake,
 } from "../rendering/pixi-app";
+import { ParticleSystem } from "../rendering/particle-system";
 import { TerrainRenderer } from "../rendering/terrain-renderer";
 import { UnitRenderer } from "../rendering/unit-renderer";
 import { HighlightRenderer } from "../rendering/highlight-renderer";
@@ -32,12 +37,14 @@ interface GameCanvasProps {
 
 /** Runs the combat animation sequence and applies the final post-combat state.
  *  movedState: state after MOVE has been pre-applied (attacker is at attack position).
- *  attackCmd: the ATTACK command to execute. */
+ *  attackCmd: the ATTACK command to execute.
+ *  particles: optional ParticleSystem to emit VFX at impact. */
 function runCombatAnimation(
   combatAnim: CombatAnimator,
   movedState: GameState,
   attackCmd: CmdAttack,
-  onCombatComplete: (postState: GameState) => void
+  onCombatComplete: (postState: GameState) => void,
+  particles?: ParticleSystem | null
 ): boolean {
   const attacker = getUnit(movedState, attackCmd.attacker_id);
   const defender = getUnit(movedState, attackCmd.target_id);
@@ -47,12 +54,38 @@ function runCombatAnimation(
   const attackerDestroyed = !getUnit(postState, attackCmd.attacker_id);
   const defenderDestroyed = !getUnit(postState, attackCmd.target_id);
 
+  // Pan camera to midpoint between combatants
+  const midX = (attacker.x + defender.x) / 2;
+  const midY = (attacker.y + defender.y) / 2;
+  animatePanTo(midX, midY);
+
   combatAnim.animate({
     attackerPos: { x: attacker.x, y: attacker.y },
     defenderPos: { x: defender.x, y: defender.y },
     attackerDestroyed,
     defenderDestroyed,
     onComplete: () => onCombatComplete(postState),
+    onHit: (pos, destroyed) => {
+      // Screen shake: stronger for kills
+      startShake(destroyed ? 1.0 : 0.5);
+      // Particles at defender tile
+      if (particles) {
+        if (destroyed) {
+          particles.emitDestroy(pos.x, pos.y);
+        } else {
+          particles.emitHit(pos.x, pos.y);
+        }
+      }
+    },
+    onCounterHit: (pos) => {
+      startShake(1.0);
+      particles?.emitDestroy(pos.x, pos.y);
+    },
+    onDestroy: (pos) => {
+      // Big explosion burst at the visual "death" moment (after flicker, before dark fade)
+      startShake(0.7);
+      particles?.emitDestroy(pos.x, pos.y);
+    },
   });
   return true;
 }
@@ -66,6 +99,7 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
   const cursorOverlayRef = useRef<HighlightRenderer | null>(null); // For targeting cursor (always on top)
   const movementAnimatorRef = useRef<MovementAnimator | null>(null); // For unit movement
   const combatAnimatorRef = useRef<CombatAnimator | null>(null); // For combat flash/destruction
+  const particleSystemRef = useRef<ParticleSystem | null>(null); // Combat VFX particles
   const fogRendererRef = useRef<FogRenderer | null>(null); // Fog-of-war tile overlay
   const inputHandlerRef = useRef<InputHandler | null>(null);
   const onFacilityClickRef = useRef(onFacilityClick);
@@ -87,6 +121,8 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     pendingPath,
     animationPath,
     isAnimating,
+    previewAnimating,
+    unloadTiles,
     previewUnit,
     previewReachableTiles,
     previewAttackableTiles,
@@ -97,6 +133,7 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     submitCommand,
     resetSelection,
     onAnimationComplete,
+    onPreviewAnimationComplete,
     // Command queue for AI/external
     commandQueue,
     processingQueue,
@@ -124,6 +161,7 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
         const cursorOverlay = new HighlightRenderer(); // For targeting cursor
         const movementAnimator = new MovementAnimator();
         const combatAnimator = new CombatAnimator();
+        const particleSystem = new ParticleSystem();
         const fogRenderer = new FogRenderer();
 
         // Render order:
@@ -138,6 +176,7 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
         app.stage.addChild(terrain.getCaptureOverlay()); // Capture indicators above fog
         app.stage.addChild(movementAnimator.getContainer()); // Moving unit on top
         app.stage.addChild(combatAnimator.getContainer()); // Combat flash/destruction effects
+        app.stage.addChild(particleSystem.getContainer()); // Combat VFX particles
         app.stage.addChild(pathOverlay.getContainer());
         app.stage.addChild(cursorOverlay.getContainer()); // Cursor always on very top
 
@@ -148,12 +187,16 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
         cursorOverlayRef.current = cursorOverlay;
         movementAnimatorRef.current = movementAnimator;
         combatAnimatorRef.current = combatAnimator;
+        particleSystemRef.current = particleSystem;
         fogRendererRef.current = fogRenderer;
 
         // Wire input
         const handleTileClick = (pos: Vec2) => {
           const state = useGameStore.getState().gameState;
           if (!state) return;
+
+          // Block clicks while preview animation is playing
+          if (useGameStore.getState().previewAnimating) return;
 
           const {
             selectedUnit: selUnit,
@@ -208,13 +251,31 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
                   useGameStore.getState().applyPostMoveState(movedState);
                   const ok = runCombatAnimation(cAnim, movedState, attackCmd, (postState) => {
                     useGameStore.getState().setGameState(postState);
-                  });
+                  }, particleSystemRef.current);
                   if (ok) return;
                 }
                 // Fallback: no combat animator available
                 confirmMoveAndAction(attackCmd);
                 return;
               }
+              // Check if clicking an unload tile
+              const {
+                unloadTiles: uTiles,
+                unloadingCargoIndex: uIdx,
+              } = useGameStore.getState();
+              if (uIdx !== null && uTiles.some((t) => t.x === pos.x && t.y === pos.y)) {
+                const startMoveAnim = useGameStore.getState().startMoveAnimation;
+                startMoveAnim({
+                  type: "UNLOAD",
+                  player_id: currentPlayer.id,
+                  transport_id: selUnit.id,
+                  unit_index: uIdx,
+                  dest_x: pos.x,
+                  dest_y: pos.y,
+                });
+                return;
+              }
+
               // Clicking elsewhere cancels pending move and deselects
               cancelPendingMove();
               resetSelection();
@@ -389,6 +450,15 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
       }
       const cAnimator = combatAnimatorRef.current;
       if (cAnimator?.isAnimating()) cAnimator.update();
+
+      // Particle VFX update
+      particleSystemRef.current?.update();
+
+      // Smooth camera pan (eased transitions for combat focus, turn start, etc.)
+      updateCameraPan();
+
+      // Screen shake (decaying offset applied to stage)
+      updateShake();
     };
 
     ticker.add(onTick);
@@ -449,7 +519,7 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
         store.applyPostMoveState(movedState);
         const ok = runCombatAnimation(cAnim, movedState, pendingAct, (postState) => {
           useGameStore.getState().setGameState(postState);
-        });
+        }, particleSystemRef.current);
         if (!ok) onAnimationComplete();
       } else {
         // Non-attack action (Capture, Wait, etc.) — standard apply path.
@@ -457,6 +527,26 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
       }
     });
   }, [isAnimating, selectedUnit, animationPath, onAnimationComplete]);
+
+  // Preview-move animation: animate unit along path when clicking a destination (before action menu)
+  useEffect(() => {
+    if (!previewAnimating || !selectedUnit || !pendingPath || pendingPath.length < 2) return;
+
+    const animator = movementAnimatorRef.current;
+    if (!animator) {
+      onPreviewAnimationComplete();
+      return;
+    }
+
+    animator.animate(selectedUnit.unit_type, selectedUnit.owner_id, pendingPath, () => {
+      onPreviewAnimationComplete();
+    });
+
+    return () => {
+      // If effect re-runs or unmounts while animating, cancel
+      animator.cancel();
+    };
+  }, [previewAnimating, selectedUnit, pendingPath, onPreviewAnimationComplete]);
 
   // Track queue processing state locally to ensure re-renders
   const [queueTrigger, setQueueTrigger] = useState(0);
@@ -517,6 +607,12 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
           const defenderDestroyed = !getUnit(postState, command.target_id);
 
           if (attackVisible) {
+            // Pan camera to combat midpoint
+            const midX = (attacker.x + defender.x) / 2;
+            const midY = (attacker.y + defender.y) / 2;
+            animatePanTo(midX, midY);
+
+            const pSys = particleSystemRef.current;
             cAnim.animate({
               attackerPos: { x: attacker.x, y: attacker.y },
               defenderPos: { x: defender.x, y: defender.y },
@@ -526,6 +622,21 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
                 submitCommand(command);
                 onQueuedAnimationComplete();
                 setQueueTrigger((t) => t + 1);
+              },
+              onHit: (pos, destroyed) => {
+                startShake(destroyed ? 1.0 : 0.5);
+                if (pSys) {
+                  if (destroyed) pSys.emitDestroy(pos.x, pos.y);
+                  else pSys.emitHit(pos.x, pos.y);
+                }
+              },
+              onCounterHit: (pos) => {
+                startShake(1.0);
+                pSys?.emitDestroy(pos.x, pos.y);
+              },
+              onDestroy: (pos) => {
+                startShake(0.7);
+                pSys?.emitDestroy(pos.x, pos.y);
               },
             });
             return;
@@ -578,11 +689,18 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
       initialPanFiredRef.current = true;
       panToP1Start(gameState);
     }
-    // Pass the animating unit ID so we can hide it during movement animation
-    // Could be player's unit (selectedUnit) or AI's unit (queueAnimatingUnitId)
+    // Pass the animating unit ID so we can hide it during movement animation.
+    // Hide during both action animation AND preview animation (movement animator draws it).
+    const unitBeingAnimated = isAnimating || previewAnimating;
     const animatingUnitId =
-      queueAnimatingUnitId ?? (isAnimating && selectedUnit ? selectedUnit.id : undefined);
-    unitRendererRef.current?.render(gameState, animatingUnitId, visibilityMap);
+      queueAnimatingUnitId ?? (unitBeingAnimated && selectedUnit ? selectedUnit.id : undefined);
+    // Preview position: when pendingMove is set and preview animation is done,
+    // show selected unit at the destination (static preview).
+    const previewPos =
+      pendingMove && selectedUnit && !unitBeingAnimated
+        ? { unitId: selectedUnit.id, x: pendingMove.x, y: pendingMove.y }
+        : undefined;
+    unitRendererRef.current?.render(gameState, animatingUnitId, visibilityMap, previewPos);
 
     // Fog of war overlay — drawn above units so fogged units are hidden
     fogRendererRef.current?.render(gameState.map_width, gameState.map_height, visibilityMap);
@@ -596,22 +714,29 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     pathOverlay.clear();
     cursorOverlay.clear();
 
-    if (selectedUnit) {
-      highlights.drawSelected([{ x: selectedUnit.x, y: selectedUnit.y }]);
-      if (reachableTiles.length > 0) highlights.drawReachable(reachableTiles);
-      if (attackableTiles.length > 0) highlights.drawAttackable(attackableTiles);
-    } else if (previewUnit) {
-      // Range preview (right-click) — show when no unit is actively selected
+    if (previewUnit) {
+      // Range preview (right-click) — always draws on top, even while a unit is selected.
+      // In AW you can inspect enemy range while planning your own move.
       highlights.drawSelected([{ x: previewUnit.x, y: previewUnit.y }]);
       if (previewReachableTiles.length > 0) highlights.drawPreviewReachable(previewReachableTiles);
       if (previewAttackableTiles.length > 0)
         highlights.drawPreviewAttackable(previewAttackableTiles);
+    } else if (selectedUnit && !isAnimating && !previewAnimating) {
+      // Show highlight at pending destination (where unit is previewed) or unit's current position
+      const highlightPos = pendingMove ?? { x: selectedUnit.x, y: selectedUnit.y };
+      highlights.drawSelected([highlightPos]);
+      if (reachableTiles.length > 0) highlights.drawReachable(reachableTiles);
+      if (attackableTiles.length > 0) highlights.drawAttackable(attackableTiles);
+      if (unloadTiles.length > 0) highlights.drawUnloadable(unloadTiles);
     }
 
-    // Draw path arrow - use pendingPath if clicked, otherwise use hoverPath
-    const pathToShow = pendingPath.length > 1 ? pendingPath : hoverPath;
-    if (pathToShow.length > 1) {
-      pathOverlay.drawPath(pathToShow);
+    // Draw path arrow — only during hover/path-drawing phase (no pendingMove yet).
+    // In AW, the arrow disappears when movement begins and stays gone while the
+    // action menu is open. Only the hover preview arrow shows.
+    if (!pendingMove && !previewAnimating) {
+      if (hoverPath.length > 1) {
+        pathOverlay.drawPath(hoverPath);
+      }
     }
 
     // Always draw targeting cursor at hovered tile
@@ -630,7 +755,9 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     pendingMove,
     pendingPath,
     isAnimating,
+    previewAnimating,
     queueAnimatingUnitId,
+    unloadTiles,
     previewUnit,
     previewReachableTiles,
     previewAttackableTiles,
