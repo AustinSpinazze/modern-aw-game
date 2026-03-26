@@ -256,6 +256,13 @@ function validateUnload(cmd: CmdUnload, state: GameState): ValidationResult {
   const cargoData = getUnitData(cargoUnit.unit_type);
   const moveType = cargoData?.move_type ?? "foot";
 
+  const transportTile = getTile(state, transport.x, transport.y);
+  if (!transportTile) return fail("Invalid transport position");
+  const transportTerrain = transportTile.has_fob ? "temporary_fob" : transportTile.terrain_type;
+  if (!isPassable(transportTerrain, moveType)) {
+    return fail("Transport must be on suitable terrain to unload");
+  }
+
   const destTile = getTile(state, cmd.dest_x, cmd.dest_y);
   if (!destTile) return fail("Invalid destination tile");
   const terrainType = destTile.has_fob ? "temporary_fob" : destTile.terrain_type;

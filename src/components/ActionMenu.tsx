@@ -136,11 +136,17 @@ export default function ActionMenu() {
 
   // Compute valid unload tiles for a given cargo slot
   const computeUnloadTiles = (cargoIndex: number): Vec2[] => {
-    const tiles: Vec2[] = [];
     const cargoId = selectedUnit.cargo[cargoIndex];
     const cargoUnit = getUnit(gameState, cargoId);
     const cargoData = cargoUnit ? getUnitData(cargoUnit.unit_type) : null;
     const moveType = cargoData?.move_type ?? "foot";
+
+    const transportTile = getTile(gameState, pendingMove.x, pendingMove.y);
+    if (!transportTile) return [];
+    const transportTerrain = transportTile.has_fob ? "temporary_fob" : transportTile.terrain_type;
+    if (!isPassable(transportTerrain, moveType)) return [];
+
+    const tiles: Vec2[] = [];
     for (const [dx, dy] of [
       [-1, 0],
       [1, 0],

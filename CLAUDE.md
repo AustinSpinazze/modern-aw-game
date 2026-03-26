@@ -127,7 +127,7 @@ Turn-based tactics game (Advance Wars-inspired) built with Next.js 16 App Router
 ## Data Files
 
 - `public/data/terrain.json` — 21 terrain types (AWBW-canonical + FOB) with 8 move types: foot, mech, tires, tread, air, ship, trans, pipe.
-- `public/data/units.json` — 26 AWBW-canonical units with verified damage tables. Ground: infantry, mech, recon, apc, tank, md_tank, neo_tank, mega_tank, artillery, rocket, anti_air, missile, piperunner. Air: t_copter, b_copter, fighter, bomber, stealth, black_bomb. Sea: lander, cruiser, submarine, battleship, carrier.
+- `public/data/units.json` — 20 units with verified damage tables. Ground: infantry, mech, recon, apc, tank, md_tank, artillery, rocket, anti_air, missile. Air: t_copter, b_copter, fighter, bomber, stealth. Sea: lander, cruiser, submarine, battleship, carrier.
 - `public/sprites/aw_sprite_terrain.png` — 128×128 terrain tile atlas. Loaded as Pixi texture key `"terrain"`. Regions in `public/data/tile_mapping.json`.
 - `public/sprites/aw_sprite_buildings.png` — 90×90 building atlas. Loaded as Pixi texture key `"buildings"`. Regions in `public/data/building_mapping.json`.
 - `public/sprites/unit_00.png` — Unit sprite sheet. Loaded as Pixi texture key `"unit_00"`. Unit positions not yet mapped; renderer falls back to team-colored circles.

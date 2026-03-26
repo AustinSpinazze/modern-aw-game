@@ -111,7 +111,7 @@ export const UNIT_ANIMATIONS: Record<string, string> = {
   recon: "recon",
   apc: "apc",
   tank: "tank",
-  md_tank: "mediumTank", // WarsWorld uses "mediumTank"
+  md_tank: "mediumTank",
   artillery: "artillery",
   rocket: "rocket",
   anti_air: "antiAir",
@@ -123,7 +123,8 @@ export const UNIT_ANIMATIONS: Record<string, string> = {
   stealth: "stealth",
   lander: "lander",
   cruiser: "cruiser",
-  submarine: "sub", // WarsWorld uses "sub"
+  submarine: "sub",
+  battleship: "battleship",
   carrier: "carrier",
 };
 
