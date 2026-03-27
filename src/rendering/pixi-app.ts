@@ -359,7 +359,7 @@ async function loadSpritesheets(): Promise<void> {
   const basePath = import.meta.env.BASE_URL || "/";
 
   const sheets = [
-    { key: "awbw-terrain", base: `${basePath}sprites/awbw-terrain` },
+    { key: "terrain", base: `${basePath}sprites/terrain` },
     { key: "neutral", base: `${basePath}sprites/warsworld/neutral` },
     { key: "orange-star", base: `${basePath}sprites/warsworld/orange-star` },
     { key: "blue-moon", base: `${basePath}sprites/warsworld/blue-moon` },
