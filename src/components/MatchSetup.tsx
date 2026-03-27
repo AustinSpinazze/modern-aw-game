@@ -1,6 +1,6 @@
 // Pre-game lobby: configure players, map, and match rules.
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import type { ControllerType, GameState } from "../game/types";
 import {
   createGameState,
@@ -15,9 +15,13 @@ import { loadGameData } from "../game/data-loader";
 import { parseAwbwMapText, importAwbwMap } from "../game/awbw-import";
 import { applyIncome } from "../game/economy";
 import { useGameStore } from "../store/game-store";
+import { useEditorStore } from "../store/editor-store";
 import { computeStatsFromAwbwTiles, computeStatsFromGameState } from "../game/map-stats";
 import type { MapStats } from "../game/map-stats";
 import { generateMap, getMapGenProvider } from "../ai/map-generator";
+
+// Lazy import for MapEditor (Pixi.js is client-only)
+const MapEditor = lazy(() => import("./MapEditor"));
 
 interface PlayerConfig {
   controllerType: ControllerType;
@@ -355,8 +359,9 @@ function StepIndicator({ current }: { current: number }) {
 export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: MatchSetupProps) {
   // Wizard state
   const [step, setStep] = useState(0);
-  const [mapMode, setMapMode] = useState<"default" | "awbw" | "saved" | "generate">("default");
+  const [mapMode, setMapMode] = useState<"default" | "awbw" | "saved" | "generate" | "editor">("default");
   const [selectedSavedMapId, setSelectedSavedMapId] = useState<string | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
 
   // Existing state
   const [playerCount, setPlayerCount] = useState(2);
@@ -571,6 +576,49 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
     </header>
   );
 
+  // ── Map Editor (full-screen overlay) ──────────────────────────────────────────
+  if (editorOpen) {
+    const handleEditorPlay = async (editorState: GameState) => {
+      setEditorOpen(false);
+      await loadGameData();
+      // Configure players on the editor state
+      const editorPlayers = editorState.players.length > 0
+        ? editorState.players.map((p, i) => ({
+            ...p,
+            controller_type: players[i]?.controllerType ?? (i === 0 ? "human" as const : "heuristic" as const),
+            funds: config.startingFunds,
+          }))
+        : [
+            createPlayer({ id: 0, team: 0, funds: config.startingFunds, controller_type: "human" }),
+            createPlayer({ id: 1, team: 1, funds: config.startingFunds, controller_type: "heuristic" }),
+          ];
+      let state = {
+        ...editorState,
+        match_id: `match_${Date.now()}`,
+        match_seed: generateMatchSeed(),
+        players: editorPlayers,
+      };
+      state = applyConfigToState(state);
+      if (state.players.length > 0) {
+        state = applyIncome(state, state.players[0].id);
+      }
+      setGameState(state);
+      onMatchStart();
+    };
+
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">Loading editor...</div>}>
+        <MapEditor
+          onClose={() => {
+            setEditorOpen(false);
+            useEditorStore.getState().clearEditor();
+          }}
+          onPlay={handleEditorPlay}
+        />
+      </Suspense>
+    );
+  }
+
   // ── Step 0: Players ──────────────────────────────────────────────────────────
   if (step === 0) {
     return (
@@ -683,6 +731,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
                   { key: "awbw", label: "AWBW" },
                   { key: "saved", label: "Saved" },
                   { key: "generate", label: "Generate" },
+                  { key: "editor", label: "Editor" },
                 ] as const
               ).map((tab) => (
                 <button
@@ -948,6 +997,20 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
               </div>
             )}
 
+            {mapMode === "editor" && (
+              <div className="space-y-3 py-2">
+                <div className="text-gray-500 text-base">
+                  Open the map editor to create or modify a map from scratch.
+                </div>
+                <button
+                  onClick={() => setEditorOpen(true)}
+                  className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-white font-black rounded-xl transition-colors"
+                >
+                  Open Map Editor
+                </button>
+              </div>
+            )}
+
             {/* Back + Continue */}
             <div className="flex justify-between items-center pt-2">
               <button
@@ -961,7 +1024,8 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
                 disabled={
                   (mapMode === "awbw" && !parsedPreview) ||
                   (mapMode === "saved" && !selectedSavedMapId) ||
-                  (mapMode === "generate" && !parsedPreview)
+                  (mapMode === "generate" && !parsedPreview) ||
+                  (mapMode === "editor")
                 }
                 className="px-8 py-3 bg-amber-500 hover:bg-amber-400 disabled:bg-gray-200 disabled:text-gray-400 text-white font-black rounded-xl transition-colors text-lg"
               >
