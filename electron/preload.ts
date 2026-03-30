@@ -55,7 +55,7 @@ declare global {
         provider: string,
         messages: Array<{ role: string; content: string }>,
         options?: { model?: string; maxTokens?: number }
-      ) => Promise<{ text: string } | { error: string }>;
+      ) => Promise<{ text: string; usage?: { inputTokens: number; outputTokens: number }; model?: string } | { error: string }>;
     };
   }
 }

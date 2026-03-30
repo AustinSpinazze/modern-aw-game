@@ -33,6 +33,8 @@ export interface EditorState {
   draft: GameState | null;
   mapName: string;
   mapDescription: string;
+  currentMapId: string | null; // ID of the saved map being edited (for update-in-place)
+  dirty: boolean; // true if unsaved changes exist
 
   // Brush
   brush: BrushState;
@@ -48,8 +50,10 @@ export interface EditorState {
 
   // Actions
   newMap: (width: number, height: number) => void;
-  loadDraft: (state: GameState, name?: string, description?: string) => void;
+  loadDraft: (state: GameState, name?: string, description?: string, mapId?: string) => void;
   setBrush: (patch: Partial<BrushState>) => void;
+  markDirty: () => void;
+  markClean: () => void;
 
   // Tile mutations
   paintTile: (x: number, y: number) => void;
@@ -80,7 +84,7 @@ export interface EditorState {
 
 const DEFAULT_BRUSH: BrushState = {
   category: "terrain",
-  terrainType: "plains",
+  terrainType: "forest", // Default to forest so first paint on a blank plains map is visible
   buildingType: "city",
   unitType: "infantry",
   playerId: 0,
@@ -118,6 +122,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   draft: null,
   mapName: "",
   mapDescription: "",
+  currentMapId: null,
+  dirty: false,
   brush: { ...DEFAULT_BRUSH },
   undoStack: [],
   redoStack: [],
@@ -135,6 +141,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     state = ensurePlayers(state, 1);
     set({
       draft: state,
+      currentMapId: null,
+      dirty: false,
       undoStack: [],
       redoStack: [],
       isGesturing: false,
@@ -142,11 +150,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     });
   },
 
-  loadDraft: (state, name, description) => {
+  loadDraft: (state, name, description, mapId) => {
     set({
       draft: duplicateState(state),
       mapName: name ?? "",
       mapDescription: description ?? "",
+      currentMapId: mapId ?? null,
+      dirty: false,
       undoStack: [],
       redoStack: [],
       isGesturing: false,
@@ -215,7 +225,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       );
     }
 
-    set({ draft: state });
+    set({ draft: state, dirty: true });
   },
 
   eraseTile: (x, y) => {
@@ -229,7 +239,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       state = removeUnit(state, unitOnTile.id);
     }
     state = setTile(state, x, y, createTile({ terrain_type: "plains" }));
-    set({ draft: state });
+    set({ draft: state, dirty: true });
   },
 
   fillMap: () => {
@@ -264,7 +274,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       }
     }
 
-    set({ draft: state, redoStack: [] });
+    set({ draft: state, dirty: true, redoStack: [] });
   },
 
   beginGesture: () => {
@@ -412,9 +422,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         tiles: newTiles,
         units: newUnits,
       },
+      dirty: true,
       redoStack: [],
     });
   },
+
+  markDirty: () => set({ dirty: true }),
+  markClean: () => set({ dirty: false }),
 
   setMapName: (name) => set({ mapName: name }),
   setMapDescription: (desc) => set({ mapDescription: desc }),
@@ -424,6 +438,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       draft: null,
       mapName: "",
       mapDescription: "",
+      currentMapId: null,
+      dirty: false,
       brush: { ...DEFAULT_BRUSH },
       undoStack: [],
       redoStack: [],

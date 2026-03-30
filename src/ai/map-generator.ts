@@ -1,7 +1,7 @@
-// LLM-powered map generation.
+// LLM-powered map generation with conversational refinement.
 
 import type { ChatMessage } from "./llm-providers";
-import { callAnthropicViaIPC, callOpenAIViaIPC, callOllama } from "./llm-providers";
+import { callAnthropicViaIPC, callGeminiViaIPC, callOpenAIViaIPC, callOllama } from "./llm-providers";
 import { parseAwbwMapText } from "../game/awbw-import";
 import { useConfigStore } from "../store/config-store";
 
@@ -17,7 +17,7 @@ export interface MapGenResult {
   error?: string;
 }
 
-const MAP_GEN_SYSTEM_PROMPT = `You are a map generator for a turn-based tactics game (Advance Wars style).
+export const MAP_GEN_SYSTEM_PROMPT = `You are a map generator for a turn-based tactics game (Advance Wars style).
 Generate maps as CSV grids of AWBW tile IDs. Output ONLY the CSV — no markdown, no code fences, no explanation.
 
 VALID TILE IDs:
@@ -41,7 +41,8 @@ RULES:
 - Place seas/shoals only if the map has a water theme or the user requests it.
 - Neutral cities and factories should be placed in contested middle areas.
 - Default to 2 players unless the user specifies more.
-- Output plain CSV only. No headers, no row numbers, no blank lines.`;
+- Output plain CSV only. No headers, no row numbers, no blank lines.
+- When the user asks for changes to an existing map, output the COMPLETE updated CSV (all rows).`;
 
 function cleanLlmCsvOutput(raw: string): string {
   // Strip code fences
@@ -69,7 +70,6 @@ function validateGeneratedMap(preview: ParsedPreview): { valid: boolean; error?:
   for (let y = 0; y < preview.height; y++) {
     for (let x = 0; x < preview.width; x++) {
       const id = preview.tiles[y]?.[x] ?? 1;
-      // HQ tile IDs: 42 (P1), 47 (P2), 52 (P3), 57 (P4)
       if (id === 42) playerHqs[1] = (playerHqs[1] ?? 0) + 1;
       else if (id === 47) playerHqs[2] = (playerHqs[2] ?? 0) + 1;
       else if (id === 52) playerHqs[3] = (playerHqs[3] ?? 0) + 1;
@@ -94,30 +94,8 @@ function validateGeneratedMap(preview: ParsedPreview): { valid: boolean; error?:
   return { valid: true };
 }
 
-export async function generateMap(
-  description: string,
-  provider: string,
-  model: string
-): Promise<MapGenResult> {
-  const messages: ChatMessage[] = [
-    { role: "system", content: MAP_GEN_SYSTEM_PROMPT },
-    {
-      role: "user",
-      content: description || "Generate a balanced 2-player map with varied terrain.",
-    },
-  ];
-
-  const callOptions = { maxTokens: 4096 };
-  let raw: string;
-
-  if (provider === "anthropic") {
-    raw = await callAnthropicViaIPC(messages, model, callOptions);
-  } else if (provider === "openai") {
-    raw = await callOpenAIViaIPC(messages, model, callOptions);
-  } else {
-    raw = await callOllama(messages, model, callOptions);
-  }
-
+// Parse raw LLM response into a MapGenResult
+export function parseMapResponse(raw: string): MapGenResult {
   const csv = cleanLlmCsvOutput(raw);
   if (!csv.trim()) {
     return {
@@ -150,15 +128,55 @@ export async function generateMap(
   return { preview, csv };
 }
 
+// Send a message in the map generation conversation and get a response
+export async function sendMapGenMessage(
+  messages: ChatMessage[],
+  provider: string,
+  model: string
+): Promise<string> {
+  const callOptions = { maxTokens: 4096, usageContext: "map_gen" };
+
+  if (provider === "anthropic") {
+    return await callAnthropicViaIPC(messages, model, callOptions);
+  } else if (provider === "openai") {
+    return await callOpenAIViaIPC(messages, model, callOptions);
+  } else if (provider === "gemini") {
+    return await callGeminiViaIPC(messages, model, callOptions);
+  } else {
+    return await callOllama(messages, model, callOptions);
+  }
+}
+
+// Legacy one-shot API (kept for compatibility)
+export async function generateMap(
+  description: string,
+  provider: string,
+  model: string
+): Promise<MapGenResult> {
+  const messages: ChatMessage[] = [
+    { role: "system", content: MAP_GEN_SYSTEM_PROMPT },
+    {
+      role: "user",
+      content: description || "Generate a balanced 2-player map with varied terrain.",
+    },
+  ];
+
+  const raw = await sendMapGenMessage(messages, provider, model);
+  return parseMapResponse(raw);
+}
+
 export function getMapGenProvider(): { provider: string; model: string } | null {
   const config = useConfigStore.getState();
   if (config.anthropicApiKey) {
     return { provider: "anthropic", model: config.anthropicModel || "claude-sonnet-4-6" };
   }
   if (config.openaiApiKey) {
-    return { provider: "openai", model: config.openaiModel || "gpt-4o" };
+    return { provider: "openai", model: config.openaiModel || "gpt-4o-mini" };
   }
-  if (config.localHttpUrl) {
+  if (config.geminiApiKey) {
+    return { provider: "gemini", model: config.geminiModel || "gemini-2.5-flash" };
+  }
+  if (config.localHttpEnabled && config.localHttpUrl) {
     return { provider: "local_http", model: config.ollamaModel || "llama3.2" };
   }
   return null;

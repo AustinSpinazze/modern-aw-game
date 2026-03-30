@@ -2,7 +2,6 @@
 // All mutations go through these helpers to keep state immutable-friendly.
 
 import type { GameState, PlayerState, UnitState, TileState } from "./types";
-import { hashCombine } from "./rng";
 
 // ---- Factories ----
 
@@ -187,35 +186,6 @@ export function duplicateState(state: GameState): GameState {
   return JSON.parse(JSON.stringify(state)) as GameState;
 }
 
-// State hash for desync detection
-export function computeHash(state: GameState): number {
-  const values: number[] = [
-    state.match_seed,
-    state.turn_number,
-    state.attack_counter,
-    state.current_player_index,
-    state.next_unit_id,
-  ];
-
-  for (const p of state.players) {
-    values.push(p.id, p.funds, p.is_defeated ? 1 : 0);
-  }
-
-  const unitIds = Object.keys(state.units).map(Number).sort();
-  for (const uid of unitIds) {
-    const u = state.units[uid];
-    values.push(u.id, u.x, u.y, u.hp, u.owner_id, u.has_moved ? 1 : 0, u.has_acted ? 1 : 0);
-  }
-
-  for (let y = 0; y < state.map_height; y++) {
-    for (let x = 0; x < state.map_width; x++) {
-      const t = state.tiles[y][x];
-      values.push(t.owner_id, t.capture_points, t.has_trench ? 1 : 0, t.has_fob ? 1 : 0, t.fob_hp);
-    }
-  }
-
-  return hashCombine(values);
-}
 
 // Serialize / deserialize
 export function stateToDict(state: GameState): object {

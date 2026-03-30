@@ -1,6 +1,8 @@
-import { useState, useCallback, useEffect, useRef, Component, type ReactNode } from "react";
+import { useState, useCallback, useEffect, useRef, lazy, Suspense, Component, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import MatchSetup from "./components/MatchSetup";
+
+const MapEditor = lazy(() => import("./components/MapEditor"));
 import GameCanvas from "./components/GameCanvas";
 import InfoPanel from "./components/InfoPanel";
 import TileInfoPanel from "./components/TileInfoPanel";
@@ -69,7 +71,7 @@ class ErrorBoundary extends Component<
   }
 }
 
-type AppView = "menu" | "setup" | "game";
+type AppView = "menu" | "setup" | "game" | "editor";
 
 // Team color config shared across banner and sidebar
 const TEAM_TEXT: Record<number, string> = {
@@ -362,6 +364,7 @@ function AppContent() {
       } else if (
         (currentPlayer.controller_type === "anthropic" ||
           currentPlayer.controller_type === "openai" ||
+          currentPlayer.controller_type === "gemini" ||
           currentPlayer.controller_type === "local_http") &&
         !llmTurnInProgressRef.current
       ) {
@@ -574,6 +577,7 @@ function AppContent() {
         <MainMenu
           onNewGame={() => setView("setup")}
           onContinue={handleLoadGame}
+          onMapEditor={() => setView("editor")}
           onSettings={() => setShowSettings(true)}
           onDeleteSave={handleDeleteSave}
           saves={gameSaves}
@@ -594,6 +598,17 @@ function AppContent() {
         />
         {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       </>
+    );
+  }
+
+  // ── Editor view ───────────────────────────────────────────────────────
+  if (view === "editor") {
+    return (
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center" style={{ background: "#f0ece0" }}><div className="text-gray-500 text-lg">Loading editor...</div></div>}>
+        <MapEditor
+          onClose={() => setView("menu")}
+        />
+      </Suspense>
     );
   }
 

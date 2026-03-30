@@ -4,6 +4,7 @@ import type { SavedGameMeta } from "../types";
 interface MainMenuProps {
   onNewGame: () => void;
   onContinue: (saveName: string) => void;
+  onMapEditor: () => void;
   onSettings: () => void;
   onDeleteSave: (name: string) => void;
   saves: SavedGameMeta[];
@@ -14,6 +15,7 @@ const VERSION = "v1.0.0";
 export default function MainMenu({
   onNewGame,
   onContinue,
+  onMapEditor,
   onSettings,
   onDeleteSave,
   saves,
@@ -131,12 +133,23 @@ export default function MainMenu({
             </div>
           )}
 
-          {/* 03 SETTINGS */}
+          {/* 03 MAP EDITOR */}
+          <button
+            onClick={onMapEditor}
+            className="flex items-center gap-4 w-full px-6 py-5 bg-white hover:bg-gray-50 border-b border-gray-100 transition-colors group"
+          >
+            <span className="text-gray-400 font-mono text-base w-6 shrink-0">03</span>
+            <span className="text-gray-900 font-black tracking-widest text-lg flex-1 text-left">
+              Map Editor
+            </span>
+          </button>
+
+          {/* 04 SETTINGS */}
           <button
             onClick={onSettings}
             className="flex items-center gap-4 w-full px-6 py-5 bg-white hover:bg-gray-50 transition-colors group"
           >
-            <span className="text-gray-400 font-mono text-base w-6 shrink-0">03</span>
+            <span className="text-gray-400 font-mono text-base w-6 shrink-0">04</span>
             <span className="text-gray-900 font-black tracking-widest text-lg flex-1 text-left">
               Settings
             </span>

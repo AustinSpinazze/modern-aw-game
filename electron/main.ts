@@ -265,7 +265,7 @@ ipcMain.handle(
     provider: string,
     messages: Array<{ role: string; content: string }>,
     options?: { model?: string; maxTokens?: number }
-  ): Promise<{ text: string } | { error: string }> => {
+  ): Promise<{ text: string; usage?: { inputTokens: number; outputTokens: number }; model?: string } | { error: string }> => {
     try {
       // Load the API key from encrypted storage
       const config = loadConfig();
@@ -313,11 +313,13 @@ ipcMain.handle(
 
         const data = (await response.json()) as {
           content: Array<{ type: string; text: string }>;
+          usage?: { input_tokens: number; output_tokens: number };
         };
         const text = data?.content?.find((c) => c.type === "text")?.text ?? "";
-        return { text };
+        const usage = data?.usage ? { inputTokens: data.usage.input_tokens, outputTokens: data.usage.output_tokens } : undefined;
+        return { text, usage, model };
       } else if (provider === "openai") {
-        const model = options?.model ?? "gpt-4o";
+        const model = options?.model ?? "gpt-4o-mini";
         const response = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -334,9 +336,53 @@ ipcMain.handle(
 
         const data = (await response.json()) as {
           choices: Array<{ message: { content: string } }>;
+          usage?: { prompt_tokens: number; completion_tokens: number };
         };
         const text = data?.choices?.[0]?.message?.content ?? "";
-        return { text };
+        const usage = data?.usage ? { inputTokens: data.usage.prompt_tokens, outputTokens: data.usage.completion_tokens } : undefined;
+        return { text, usage, model };
+      } else if (provider === "gemini") {
+        const model = options?.model ?? "gemini-2.5-flash";
+
+        // Convert chat messages to Gemini format
+        const systemMsg = messages.find((m) => m.role === "system");
+        const nonSystemMsgs = messages.filter((m) => m.role !== "system");
+        const contents = nonSystemMsgs.map((m) => ({
+          role: m.role === "assistant" ? "model" : "user",
+          parts: [{ text: m.content }],
+        }));
+
+        const body: Record<string, unknown> = {
+          contents,
+          generationConfig: {
+            maxOutputTokens: options?.maxTokens ?? 1024,
+          },
+        };
+        if (systemMsg) {
+          body.systemInstruction = { parts: [{ text: systemMsg.content }] };
+        }
+
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(body),
+          }
+        );
+
+        if (!response.ok) {
+          const errText = await response.text();
+          return { error: `Gemini API error ${response.status}: ${errText}` };
+        }
+
+        const data = (await response.json()) as {
+          candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+          usageMetadata?: { promptTokenCount: number; candidatesTokenCount: number };
+        };
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+        const usage = data?.usageMetadata ? { inputTokens: data.usageMetadata.promptTokenCount, outputTokens: data.usageMetadata.candidatesTokenCount } : undefined;
+        return { text, usage, model };
       } else {
         return { error: `Unknown AI provider: ${provider}` };
       }

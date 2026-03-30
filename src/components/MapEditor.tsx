@@ -16,43 +16,30 @@ import {
 import { TerrainRenderer } from "../rendering/terrain-renderer";
 import { UnitRenderer } from "../rendering/unit-renderer";
 import { useEditorStore } from "../store/editor-store";
-import { useGameStore } from "../store/game-store";
 import { loadGameData } from "../game/data-loader";
 import { duplicateState } from "../game/game-state";
 import { computeStatsFromGameState } from "../game/map-stats";
 import type { MapStats } from "../game/map-stats";
 import { parseAwbwMapText, importAwbwMap } from "../game/awbw-import";
 import { exportToAwbwCsv } from "../game/awbw-export";
+import { loadSavedMaps, upsertSavedMap, deleteSavedMap, type SavedMap } from "../game/saved-maps";
+import { getMapGenProvider, sendMapGenMessage, parseMapResponse, MAP_GEN_SYSTEM_PROMPT } from "../ai/map-generator";
+import type { ChatMessage } from "../ai/llm-providers";
 import MapEditorPalette from "./MapEditorPalette";
 import { Graphics } from "pixi.js";
 
 const DISPLAY = TILE_SIZE * TILE_SCALE; // 48px
 
-// ── Saved maps helpers (reuse MatchSetup format) ────────────────────────────
+// ── Display names for building/terrain stats ────────────────────────────────
 
-interface SavedMap {
-  id: string;
-  name: string;
-  description?: string;
-  csv: string;
-  width: number;
-  height: number;
-  savedAt: number;
-}
+const DISPLAY_NAMES: Record<string, string> = {
+  hq: "HQ", md_tank: "Md Tank", anti_air: "Anti-Air", t_copter: "T Copter",
+  b_copter: "B Copter",
+};
 
-const SAVED_MAPS_KEY = "modern-aw-saved-maps";
-
-function loadSavedMaps(): SavedMap[] {
-  try {
-    const raw = localStorage.getItem(SAVED_MAPS_KEY);
-    return raw ? (JSON.parse(raw) as SavedMap[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function persistSavedMaps(maps: SavedMap[]) {
-  localStorage.setItem(SAVED_MAPS_KEY, JSON.stringify(maps));
+function displayName(id: string): string {
+  if (DISPLAY_NAMES[id]) return DISPLAY_NAMES[id];
+  return id.charAt(0).toUpperCase() + id.slice(1);
 }
 
 // ── Bresenham line interpolation ────────────────────────────────────────────
@@ -77,6 +64,27 @@ function bresenhamLine(x0: number, y0: number, x1: number, y1: number): [number,
   return points;
 }
 
+// ── Reusable modal backdrop ─────────────────────────────────────────────────
+
+function ModalBackdrop({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.preventDefault(); onClose(); }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      {children}
+    </div>
+  );
+}
+
 // ── Stats panel ─────────────────────────────────────────────────────────────
 
 const PLAYER_HEX = ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f"];
@@ -85,16 +93,16 @@ function EditorStatsPanel({ stats }: { stats: MapStats }) {
   const buildingTypes = Object.keys(stats.buildings);
   return (
     <div className="text-xs space-y-1">
-      <div className="flex gap-3 text-gray-500">
-        <span>{stats.width}x{stats.height}</span>
-        <span>{stats.playerCount}P</span>
+      <div className="flex gap-3 text-gray-500 font-medium">
+        <span>{stats.width} &times; {stats.height}</span>
+        <span>{stats.playerCount} players</span>
       </div>
       {buildingTypes.length > 0 && (
         <table className="w-full text-xs">
           <thead>
-            <tr className="text-gray-500 text-left">
-              <th className="font-medium pr-1 py-0.5">Bldg</th>
-              <th className="font-medium px-1 py-0.5">N</th>
+            <tr className="text-gray-400 text-left">
+              <th className="font-medium pr-1 py-0.5">Building</th>
+              <th className="font-medium px-1 py-0.5">Neutral</th>
               {Array.from({ length: stats.playerCount }).map((_, i) => (
                 <th key={i} className="font-medium px-1 py-0.5" style={{ color: PLAYER_HEX[i] }}>
                   P{i + 1}
@@ -106,8 +114,8 @@ function EditorStatsPanel({ stats }: { stats: MapStats }) {
             {buildingTypes.map((type) => {
               const b = stats.buildings[type];
               return (
-                <tr key={type} className="text-gray-600">
-                  <td className="pr-1 py-0.5 capitalize">{type}</td>
+                <tr key={type} className="text-gray-500">
+                  <td className="pr-1 py-0.5">{displayName(type)}</td>
                   <td className="px-1 py-0.5 font-mono">{b.neutral || "—"}</td>
                   {Array.from({ length: stats.playerCount }).map((_, i) => (
                     <td key={i} className="px-1 py-0.5 font-mono">{b.players[i] || "—"}</td>
@@ -119,13 +127,13 @@ function EditorStatsPanel({ stats }: { stats: MapStats }) {
         </table>
       )}
       {Object.keys(stats.terrain).length > 0 && (
-        <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-gray-500">
+        <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-gray-400">
           {Object.entries(stats.terrain)
             .sort(([, a], [, b]) => b - a)
             .slice(0, 6)
             .map(([type, count]) => (
-              <span key={type} className="capitalize">
-                {type}: <span className="font-mono text-gray-400">{count}</span>
+              <span key={type}>
+                {displayName(type)}: <span className="font-mono text-gray-600">{count}</span>
               </span>
             ))}
         </div>
@@ -155,11 +163,13 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
   const brush = useEditorStore((s) => s.brush);
   const undoStack = useEditorStore((s) => s.undoStack);
   const redoStack = useEditorStore((s) => s.redoStack);
+  const dirty = useEditorStore((s) => s.dirty);
+  const currentMapId = useEditorStore((s) => s.currentMapId);
 
   const {
     newMap, loadDraft, paintTile, eraseTile, fillMap,
     beginGesture, endGesture, undo, redo,
-    resizeMap, setMapName, setMapDescription, setBrush, clearEditor,
+    resizeMap, setMapName, setMapDescription, setBrush, clearEditor, markClean,
   } = useEditorStore.getState();
 
   const [dataLoaded, setDataLoaded] = useState(false);
@@ -167,13 +177,28 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showLoadDialog, setShowLoadDialog] = useState(false);
+  const [showFillConfirm, setShowFillConfirm] = useState(false);
+  const [fillTerrain, setFillTerrain] = useState("plains");
   const [newWidth, setNewWidth] = useState(20);
   const [newHeight, setNewHeight] = useState(15);
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState("");
   const [exportText, setExportText] = useState("");
+  const [copyFeedback, setCopyFeedback] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [saveFeedback, setSaveFeedback] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [hoveredTile, setHoveredTile] = useState<{ x: number; y: number } | null>(null);
+  const [savedMapsList, setSavedMapsList] = useState<SavedMap[]>([]);
+  const [showGenerateDialog, setShowGenerateDialog] = useState(false);
+  const [genInput, setGenInput] = useState("");
+  const [genLoading, setGenLoading] = useState(false);
+  const [genError, setGenError] = useState("");
+  // Chat history for conversational map generation
+  interface GenMessage { role: "user" | "assistant"; text: string; csv?: string; mapSize?: string }
+  const [genMessages, setGenMessages] = useState<GenMessage[]>([]);
+  const [genConversation, setGenConversation] = useState<ChatMessage[]>([]);
+  const genScrollRef = useRef<HTMLDivElement>(null);
 
   // Track painting state for drag
   const paintingRef = useRef(false);
@@ -260,7 +285,6 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
       const mouseX = clientX - rect.left;
       const mouseY = clientY - rect.top;
 
-      // Account for stage transform (pan/zoom)
       const stageX = pixiApp.stage.x;
       const stageY = pixiApp.stage.y;
       const stageScale = pixiApp.stage.scale.x;
@@ -294,7 +318,6 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
-      // Only paint with left button (not when ctrl/meta held — that's pan)
       if (e.button === 2) {
         rightButtonRef.current = true;
         e.preventDefault();
@@ -324,7 +347,6 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
     (e: React.MouseEvent) => {
       const tile = canvasToTile(e.clientX, e.clientY);
 
-      // Update hover highlight
       if (tile) {
         setHoveredTile(tile);
         const hl = highlightRef.current;
@@ -342,7 +364,6 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
 
       if (!paintingRef.current || !tile) return;
 
-      // Bresenham interpolation for fast drags
       const last = lastPaintRef.current;
       if (last && (last.x !== tile.x || last.y !== tile.y)) {
         const points = bresenhamLine(last.x, last.y, tile.x, tile.y);
@@ -376,7 +397,6 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      // Don't fire shortcuts when typing in inputs
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
 
@@ -395,7 +415,7 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
         setBrush({ category: "building" });
       } else if (e.key === "u" || e.key === "U") {
         setBrush({ category: "unit" });
-      } else if (e.key === "d" || e.key === "D") {
+      } else if (e.key === "e" || e.key === "E") {
         const current = useEditorStore.getState().brush;
         setBrush({ category: current.category === "eraser" ? "terrain" : "eraser" });
       } else if (e.key >= "1" && e.key <= "4") {
@@ -413,7 +433,6 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
     const canvas = canvasRef.current;
     if (!canvas || !dataLoaded) return;
 
-    // Import dynamically to avoid circular issues
     import("../rendering/pixi-app").then(({ enablePanZoom, disablePanZoom }) => {
       enablePanZoom(canvas);
       return () => disablePanZoom();
@@ -422,38 +441,46 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
 
   // ── Actions ─────────────────────────────────────────────────────────────
 
-  const handleNew = () => {
+  const handleNewConfirm = () => {
+    const { dirty: isDirty } = useEditorStore.getState();
+    if (isDirty && !window.confirm("You have unsaved changes. Create a new map anyway?")) return;
     newMap(newWidth, newHeight);
     setShowNewDialog(false);
-    // Reset pan after creating new map
     setTimeout(() => resetPanZoom(), 50);
   };
 
-  const handleSave = () => {
-    const currentDraft = useEditorStore.getState().draft;
-    const currentName = useEditorStore.getState().mapName;
+  const handleSave = useCallback(() => {
+    const { draft: currentDraft, mapName: currentName, mapDescription: desc, currentMapId: mapId } =
+      useEditorStore.getState();
     if (!currentDraft) return;
     if (!currentName.trim()) {
-      setSaveError("Enter a map name first.");
+      setSaveError("Enter a map name to save.");
       return;
     }
     setSaveError("");
 
     const csv = exportToAwbwCsv(currentDraft);
+    const id = mapId ?? `map_${Date.now()}`;
     const saved: SavedMap = {
-      id: `map_${Date.now()}`,
+      id,
       name: currentName.trim(),
-      description: useEditorStore.getState().mapDescription.trim() || undefined,
+      description: desc.trim() || undefined,
       csv,
       width: currentDraft.map_width,
       height: currentDraft.map_height,
       savedAt: Date.now(),
     };
 
-    const existing = loadSavedMaps();
-    persistSavedMaps([saved, ...existing]);
-    setSaveError("");
-  };
+    upsertSavedMap(saved);
+
+    if (!mapId) {
+      useEditorStore.setState({ currentMapId: id });
+    }
+    markClean();
+
+    setSaveFeedback(true);
+    setTimeout(() => setSaveFeedback(false), 1500);
+  }, [markClean]);
 
   const handleImport = () => {
     setImportError("");
@@ -481,7 +508,30 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
     const currentDraft = useEditorStore.getState().draft;
     if (!currentDraft) return;
     setExportText(exportToAwbwCsv(currentDraft));
+    setCopyFeedback(false);
     setShowExportDialog(true);
+  };
+
+  const handleCopyExport = async () => {
+    try {
+      await navigator.clipboard.writeText(exportText);
+      setCopyFeedback(true);
+      setTimeout(() => setCopyFeedback(false), 1500);
+    } catch {
+      setCopyFeedback(false);
+    }
+  };
+
+  const handleFill = () => {
+    setFillTerrain(brush.category === "terrain" ? brush.terrainType : "plains");
+    setShowFillConfirm(true);
+  };
+
+  const handleFillConfirm = () => {
+    // Set the brush to the selected fill terrain, then fill
+    setBrush({ category: "terrain", terrainType: fillTerrain });
+    // Need a microtask so the store updates before fillMap reads it
+    setTimeout(() => { fillMap(); setShowFillConfirm(false); }, 0);
   };
 
   const handlePlay = () => {
@@ -491,112 +541,203 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
   };
 
   const handleLoad = (map: SavedMap) => {
+    setLoadError("");
     try {
       const mapData = parseAwbwMapText(map.csv);
       const state = importAwbwMap(mapData);
-      loadDraft(state, map.name, map.description);
+      loadDraft(state, map.name, map.description, map.id);
       setShowLoadDialog(false);
       setTimeout(() => resetPanZoom(), 50);
-    } catch {
-      // Silently fail for corrupted saved maps
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Failed to load map.");
     }
   };
+
+  const handleDeleteSavedMap = (id: string) => {
+    const updated = deleteSavedMap(id);
+    setSavedMapsList(updated);
+  };
+
+  const handleGenSend = async () => {
+    const providerInfo = getMapGenProvider();
+    if (!providerInfo) {
+      setGenError("No AI provider configured. Set up an API key in Settings.");
+      return;
+    }
+    const userText = genInput.trim();
+    if (!userText) return;
+
+    // Add user message to UI
+    setGenMessages((prev) => [...prev, { role: "user", text: userText }]);
+    setGenInput("");
+    setGenLoading(true);
+    setGenError("");
+
+    // Build conversation for the API
+    const isFirstMessage = genConversation.length === 0;
+    const newConvo: ChatMessage[] = [
+      ...genConversation,
+      { role: "user" as const, content: userText },
+    ];
+
+    // Prepend system prompt
+    const apiMessages: ChatMessage[] = [
+      { role: "system", content: MAP_GEN_SYSTEM_PROMPT },
+      ...(isFirstMessage ? [] : genConversation),
+      { role: "user", content: userText },
+    ];
+
+    try {
+      const raw = await sendMapGenMessage(apiMessages, providerInfo.provider, providerInfo.model);
+      const result = parseMapResponse(raw);
+
+      // Update conversation history
+      const updatedConvo: ChatMessage[] = [...newConvo, { role: "assistant" as const, content: raw }];
+      setGenConversation(updatedConvo);
+
+      if (result.error && result.preview.width === 0) {
+        // Complete failure
+        setGenMessages((prev) => [...prev, { role: "assistant", text: result.error! }]);
+      } else {
+        // Got a map (possibly with warnings)
+        const sizeLabel = `${result.preview.width}×${result.preview.height}`;
+        const msg = result.error
+          ? `Generated ${sizeLabel} map (with warning: ${result.error}). Loaded into editor.`
+          : `Generated ${sizeLabel} map. Loaded into editor.`;
+        setGenMessages((prev) => [...prev, { role: "assistant", text: msg, csv: result.csv, mapSize: sizeLabel }]);
+
+        // Load into editor
+        const mapData = parseAwbwMapText(result.csv);
+        const state = importAwbwMap(mapData);
+        loadDraft(state);
+        setTimeout(() => resetPanZoom(), 50);
+      }
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : "Generation failed.";
+      setGenMessages((prev) => [...prev, { role: "assistant", text: `Error: ${errMsg}` }]);
+      setGenError(errMsg);
+    } finally {
+      setGenLoading(false);
+      setTimeout(() => genScrollRef.current?.scrollTo({ top: genScrollRef.current.scrollHeight, behavior: "smooth" }), 50);
+    }
+  };
+
+  const handleBack = () => {
+    if (dirty && !window.confirm("You have unsaved changes. Leave the editor?")) return;
+    onClose();
+  };
+
+  // Cursor style based on active tool
+  const cursorClass =
+    brush.category === "eraser"
+      ? "cursor-crosshair"
+      : "cursor-cell";
 
   // ── Render ──────────────────────────────────────────────────────────────
 
   if (!dataLoaded) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-gray-400 text-lg">Loading game data...</div>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "#f0ece0" }}>
+        <div className="text-gray-500 text-lg">Loading game data...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col">
-      {/* Toolbar */}
-      <div className="bg-gray-900 border-b border-gray-700 px-4 py-2 flex items-center gap-2 shrink-0">
+    <div className="min-h-screen flex flex-col" style={{ background: "#f0ece0" }}>
+      {/* Toolbar — matches app header style */}
+      <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center gap-2 shrink-0">
         <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-white text-sm font-semibold transition-colors"
+          onClick={handleBack}
+          className="px-3 py-1.5 text-sm font-semibold text-gray-500 hover:text-gray-900 transition-colors"
         >
           ← Back
         </button>
-        <div className="w-px h-5 bg-gray-700 mx-1" />
+        <div className="w-px h-5 bg-gray-200 mx-1" />
 
         <button
           onClick={() => setShowNewDialog(true)}
-          className="px-3 py-1.5 text-xs font-bold bg-gray-800 hover:bg-gray-700 text-gray-300 rounded transition-colors"
+          className="px-3 py-1.5 text-sm font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg border border-gray-200 transition-colors"
         >
           New
         </button>
         <button
           onClick={handleSave}
-          className="px-3 py-1.5 text-xs font-bold bg-gray-800 hover:bg-gray-700 text-gray-300 rounded transition-colors"
+          className={`px-3 py-1.5 text-sm font-bold rounded-lg border transition-colors ${
+            saveFeedback
+              ? "bg-green-50 border-green-300 text-green-600"
+              : "bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-200"
+          }`}
         >
-          Save
+          {saveFeedback ? "Saved!" : "Save"}
         </button>
         <button
-          onClick={() => setShowLoadDialog(true)}
-          className="px-3 py-1.5 text-xs font-bold bg-gray-800 hover:bg-gray-700 text-gray-300 rounded transition-colors"
+          onClick={() => { setSavedMapsList(loadSavedMaps()); setLoadError(""); setShowLoadDialog(true); }}
+          className="px-3 py-1.5 text-sm font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg border border-gray-200 transition-colors"
         >
           Load
         </button>
         <button
           onClick={() => setShowImportDialog(true)}
-          className="px-3 py-1.5 text-xs font-bold bg-gray-800 hover:bg-gray-700 text-gray-300 rounded transition-colors"
+          className="px-3 py-1.5 text-sm font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg border border-gray-200 transition-colors"
         >
           Import
         </button>
         <button
           onClick={handleExport}
-          className="px-3 py-1.5 text-xs font-bold bg-gray-800 hover:bg-gray-700 text-gray-300 rounded transition-colors"
+          className="px-3 py-1.5 text-sm font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg border border-gray-200 transition-colors"
         >
           Export
         </button>
+        <button
+          onClick={() => { setGenError(""); setShowGenerateDialog(!showGenerateDialog); }}
+          className={`px-3 py-1.5 text-sm font-bold rounded-lg border transition-colors ${
+            showGenerateDialog
+              ? "bg-amber-500 text-white border-amber-500"
+              : "bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200"
+          }`}
+        >
+          AI Generate
+        </button>
 
-        <div className="w-px h-5 bg-gray-700 mx-1" />
+        <div className="w-px h-5 bg-gray-200 mx-1" />
 
         <button
-          onClick={fillMap}
-          className="px-3 py-1.5 text-xs font-bold bg-gray-800 hover:bg-gray-700 text-gray-300 rounded transition-colors"
+          onClick={handleFill}
+          className="px-3 py-1.5 text-sm font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg border border-gray-200 transition-colors"
         >
           Fill
         </button>
         <button
           onClick={undo}
           disabled={undoStack.length === 0}
-          className="px-3 py-1.5 text-xs font-bold bg-gray-800 hover:bg-gray-700 disabled:opacity-30 text-gray-300 rounded transition-colors"
+          className="px-3 py-1.5 text-sm font-bold bg-gray-100 hover:bg-gray-200 disabled:opacity-30 text-gray-700 rounded-lg border border-gray-200 transition-colors"
+          title={undoStack.length > 0 ? `Undo (${undoStack.length})` : "Nothing to undo"}
         >
-          Undo
+          Undo{undoStack.length > 0 && ` (${undoStack.length})`}
         </button>
         <button
           onClick={redo}
           disabled={redoStack.length === 0}
-          className="px-3 py-1.5 text-xs font-bold bg-gray-800 hover:bg-gray-700 disabled:opacity-30 text-gray-300 rounded transition-colors"
+          className="px-3 py-1.5 text-sm font-bold bg-gray-100 hover:bg-gray-200 disabled:opacity-30 text-gray-700 rounded-lg border border-gray-200 transition-colors"
+          title={redoStack.length > 0 ? `Redo (${redoStack.length})` : "Nothing to redo"}
         >
-          Redo
+          Redo{redoStack.length > 0 && ` (${redoStack.length})`}
         </button>
 
         <div className="flex-1" />
 
-        {/* Map name */}
-        <input
-          type="text"
-          value={mapName}
-          onChange={(e) => setMapName(e.target.value)}
-          placeholder="Map name"
-          className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm text-gray-200 w-40 focus:outline-none focus:border-amber-500"
-        />
+        {/* Dirty indicator */}
+        {dirty && <span className="text-amber-500 text-sm font-semibold">Unsaved</span>}
 
-        {saveError && <span className="text-red-400 text-xs">{saveError}</span>}
+        {saveError && <span className="text-red-500 text-sm">{saveError}</span>}
 
-        <div className="w-px h-5 bg-gray-700 mx-1" />
+        <div className="w-px h-5 bg-gray-200 mx-1" />
 
         {onPlay && (
           <button
             onClick={handlePlay}
-            className="px-4 py-1.5 text-xs font-black bg-red-600 hover:bg-red-500 text-white rounded transition-colors uppercase tracking-wide"
+            className="px-5 py-1.5 text-sm font-black bg-red-500 hover:bg-red-400 text-white rounded-xl transition-colors uppercase tracking-wide"
           >
             Play
           </button>
@@ -606,7 +747,7 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
       {/* Main area: sidebar + canvas + right panel */}
       <div className="flex-1 flex min-h-0">
         {/* Left sidebar: palette */}
-        <div className="w-48 bg-gray-900 border-r border-gray-700 flex flex-col shrink-0">
+        <div className="w-72 bg-white border-r border-gray-200 flex flex-col shrink-0">
           <MapEditorPalette />
         </div>
 
@@ -614,7 +755,7 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
         <div ref={containerRef} className="flex-1 relative min-w-0">
           <canvas
             ref={canvasRef}
-            className="absolute inset-0 w-full h-full"
+            className={`absolute inset-0 w-full h-full ${cursorClass}`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
@@ -622,84 +763,216 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
             onContextMenu={handleContextMenu}
           />
 
-          {/* Hovered tile coords */}
+          {/* Hovered tile coords (1-based) */}
           {hoveredTile && draft && hoveredTile.x >= 0 && hoveredTile.x < draft.map_width &&
             hoveredTile.y >= 0 && hoveredTile.y < draft.map_height && (
-            <div className="absolute bottom-2 left-2 bg-black/60 text-gray-300 text-xs px-2 py-1 rounded font-mono">
-              ({hoveredTile.x}, {hoveredTile.y})
+            <div className="absolute bottom-2 left-2 bg-white/80 text-gray-700 text-sm px-2 py-1 rounded-lg font-mono shadow-sm border border-gray-200">
+              Col {hoveredTile.x + 1}, Row {hoveredTile.y + 1}
             </div>
           )}
         </div>
 
-        {/* Right panel: map properties + stats */}
-        <div className="w-56 bg-gray-900 border-l border-gray-700 flex flex-col shrink-0 overflow-y-auto">
-          {draft && (
-            <div className="p-3 space-y-3">
-              {/* Map dimensions */}
-              <div>
-                <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Size</div>
-                <div className="text-sm text-gray-300 font-mono mb-2">
-                  {draft.map_width} x {draft.map_height}
+        {/* Right panel: AI chat OR map properties */}
+        <div className="w-80 bg-white border-l border-gray-200 flex flex-col shrink-0">
+          {showGenerateDialog ? (
+            /* ── AI Chat Panel ──────────────────────────────────────── */
+            <div className="flex flex-col h-full">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200 shrink-0">
+                <span className="text-sm font-bold text-gray-900">AI Map Generator</span>
+                <div className="flex items-center gap-2">
+                  {genMessages.length > 0 && (
+                    <button
+                      onClick={() => { setGenMessages([]); setGenConversation([]); setGenInput(""); setGenError(""); }}
+                      className="text-xs text-gray-400 hover:text-gray-600 font-medium transition-colors"
+                    >
+                      New chat
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowGenerateDialog(false)}
+                    className="text-gray-400 hover:text-gray-700 text-sm leading-none transition-colors"
+                  >
+                    ✕
+                  </button>
                 </div>
+              </div>
 
-                {/* Resize buttons */}
-                <div className="grid grid-cols-2 gap-1">
-                  {(["top", "bottom", "left", "right"] as const).map((edge) => (
-                    <div key={edge} className="flex items-center gap-0.5">
-                      <span className="text-[9px] text-gray-500 capitalize w-10">{edge}</span>
+              {!getMapGenProvider() ? (
+                <div className="p-4">
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+                    <p className="font-semibold mb-1">No AI provider configured</p>
+                    <p className="text-amber-600 text-xs">
+                      Add an API key for Anthropic, OpenAI, or Gemini in Settings, or enable a local AI server.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Chat messages */}
+                  <div ref={genScrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5 min-h-0">
+                    {genMessages.length === 0 && (
+                      <div className="text-center text-gray-400 text-xs py-6">
+                        <p className="mb-1.5 font-medium text-gray-500 text-sm">Describe the map you want</p>
+                        <p className="leading-relaxed max-w-[200px] mx-auto">
+                          e.g. &quot;A 20x15 island map with 2 players&quot; then refine with follow-ups
+                        </p>
+                      </div>
+                    )}
+                    {genMessages.map((msg, i) => (
+                      <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                        <div
+                          className={`max-w-[85%] px-3 py-2 rounded-xl text-sm leading-relaxed ${
+                            msg.role === "user"
+                              ? "bg-amber-500 text-white rounded-br-sm"
+                              : "bg-gray-100 text-gray-800 rounded-bl-sm"
+                          }`}
+                        >
+                          {msg.text}
+                          {msg.mapSize && (
+                            <span className="block text-xs mt-1 opacity-70">{msg.mapSize} tiles</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {genLoading && (
+                      <div className="flex justify-start">
+                        <div className="bg-gray-100 text-gray-500 px-3 py-2 rounded-xl rounded-bl-sm text-sm">
+                          Generating...
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Input area */}
+                  <div className="px-4 py-2.5 border-t border-gray-200 shrink-0">
+                    {genError && <p className="text-red-500 text-xs mb-1.5">{genError}</p>}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={genInput}
+                        onChange={(e) => setGenInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !genLoading) { e.preventDefault(); handleGenSend(); } }}
+                        placeholder={genMessages.length === 0 ? "Describe your map..." : "Give feedback..."}
+                        className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:border-amber-500"
+                        disabled={genLoading}
+                        autoFocus
+                      />
                       <button
-                        onClick={() => resizeMap(edge, 1)}
-                        className="px-1.5 py-0.5 text-[10px] bg-gray-800 hover:bg-gray-700 text-gray-400 rounded transition-colors"
+                        onClick={handleGenSend}
+                        disabled={genLoading || !genInput.trim()}
+                        className="px-3 py-1.5 text-sm font-bold bg-amber-500 hover:bg-amber-400 disabled:bg-gray-200 disabled:text-gray-400 text-white rounded-lg transition-colors shrink-0"
                       >
-                        +
-                      </button>
-                      <button
-                        onClick={() => resizeMap(edge, -1)}
-                        className="px-1.5 py-0.5 text-[10px] bg-gray-800 hover:bg-gray-700 text-gray-400 rounded transition-colors"
-                      >
-                        −
+                        {genLoading ? "..." : "Send"}
                       </button>
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            /* ── Map Properties Panel ──────────────────────────────── */
+            <div className="overflow-y-auto">
+              {draft && (
+                <div className="p-4 space-y-3">
+                  {/* Map name */}
+                  <div>
+                    <div className="text-xs text-gray-400 uppercase tracking-wide mb-1 font-semibold">
+                      Map Name <span className="text-red-400">*</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={mapName}
+                      onChange={(e) => { setMapName(e.target.value); setSaveError(""); }}
+                      placeholder="My Map"
+                      className={`w-full bg-white border rounded-lg px-3 py-2 text-base text-gray-900 focus:outline-none focus:border-amber-500 ${
+                        saveError ? "border-red-400" : "border-gray-300"
+                      }`}
+                    />
+                  </div>
 
-              {/* Map description */}
-              <div>
-                <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Description</div>
-                <textarea
-                  value={mapDescription}
-                  onChange={(e) => setMapDescription(e.target.value)}
-                  placeholder="Optional..."
-                  className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-300 h-12 resize-none focus:outline-none focus:border-amber-500"
-                />
-              </div>
+                  {/* Map description */}
+                  <div>
+                    <div className="text-xs text-gray-400 uppercase tracking-wide mb-1 font-semibold">Description</div>
+                    <input
+                      type="text"
+                      value={mapDescription}
+                      onChange={(e) => setMapDescription(e.target.value)}
+                      placeholder="Optional..."
+                      className="w-full bg-white border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm text-gray-700 focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
 
-              {/* Stats */}
-              {stats && (
-                <div>
-                  <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Stats</div>
-                  <EditorStatsPanel stats={stats} />
+                  <div className="border-t border-gray-100" />
+
+                  {/* Map dimensions + resize */}
+                  <div>
+                    <div className="flex items-baseline gap-2 mb-1.5">
+                      <span className="text-xs text-gray-400 uppercase tracking-wide font-semibold">Size</span>
+                      <span className="text-base text-gray-800 font-mono font-bold">{draft.map_width} &times; {draft.map_height}</span>
+                    </div>
+
+                    <div className="flex flex-col items-center gap-0.5">
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-gray-400 w-6 text-right">Top</span>
+                        <button onClick={() => resizeMap("top", 1)} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-200 transition-colors">+</button>
+                        <button onClick={() => resizeMap("top", -1)} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-200 transition-colors">&minus;</button>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs text-gray-400 w-6 text-right">Left</span>
+                          <button onClick={() => resizeMap("left", 1)} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-200 transition-colors">+</button>
+                          <button onClick={() => resizeMap("left", -1)} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-200 transition-colors">&minus;</button>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => resizeMap("right", 1)} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-200 transition-colors">+</button>
+                          <button onClick={() => resizeMap("right", -1)} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-200 transition-colors">&minus;</button>
+                          <span className="text-xs text-gray-400 w-6">Right</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-gray-400 w-6 text-right">Btm</span>
+                        <button onClick={() => resizeMap("bottom", 1)} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-200 transition-colors">+</button>
+                        <button onClick={() => resizeMap("bottom", -1)} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-200 transition-colors">&minus;</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-gray-100" />
+
+                  {/* Stats */}
+                  {stats && (
+                    <div>
+                      <div className="text-xs text-gray-400 uppercase tracking-wide mb-1.5 font-semibold">Stats</div>
+                      <div className="bg-gray-50 rounded-lg p-2.5">
+                        <EditorStatsPanel stats={stats} />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="border-t border-gray-100" />
+
+                  {/* Keyboard shortcuts — collapsed by default */}
+                  <details className="group">
+                    <summary className="text-xs text-gray-400 uppercase tracking-wide font-semibold cursor-pointer select-none flex items-center gap-1">
+                      Shortcuts
+                      <span className="text-gray-300 group-open:rotate-90 transition-transform text-[10px]">&#9654;</span>
+                    </summary>
+                    <div className="mt-1.5 text-sm text-gray-400 space-y-0.5">
+                      <div><kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">T</kbd> Terrain</div>
+                      <div><kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">B</kbd> Buildings</div>
+                      <div><kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">U</kbd> Units</div>
+                      <div><kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">E</kbd> Eraser</div>
+                      <div><kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">1-4</kbd> Player</div>
+                      <div><kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">Ctrl+Z</kbd> Undo</div>
+                      <div><kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">Ctrl+Y</kbd> Redo</div>
+                      <div><kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">Ctrl+S</kbd> Save</div>
+                      <div><kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">Right-click</kbd> Erase</div>
+                      <div><kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">Ctrl+Drag</kbd> Pan</div>
+                      <div><kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">Scroll</kbd> Zoom</div>
+                    </div>
+                  </details>
                 </div>
               )}
-
-              {/* Keyboard shortcuts reference */}
-              <div>
-                <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Shortcuts</div>
-                <div className="text-[10px] text-gray-600 space-y-0.5">
-                  <div><kbd className="text-gray-400">T</kbd> Terrain</div>
-                  <div><kbd className="text-gray-400">B</kbd> Buildings</div>
-                  <div><kbd className="text-gray-400">U</kbd> Units</div>
-                  <div><kbd className="text-gray-400">D</kbd> Eraser</div>
-                  <div><kbd className="text-gray-400">1-4</kbd> Player</div>
-                  <div><kbd className="text-gray-400">Ctrl+Z</kbd> Undo</div>
-                  <div><kbd className="text-gray-400">Ctrl+Y</kbd> Redo</div>
-                  <div><kbd className="text-gray-400">Ctrl+S</kbd> Save</div>
-                  <div><kbd className="text-gray-400">Right-click</kbd> Erase</div>
-                  <div><kbd className="text-gray-400">Ctrl+Drag</kbd> Pan</div>
-                  <div><kbd className="text-gray-400">Scroll</kbd> Zoom</div>
-                </div>
-              </div>
             </div>
           )}
         </div>
@@ -709,143 +982,208 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
 
       {/* New Map Dialog */}
       {showNewDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-gray-900 rounded-xl border border-gray-700 p-6 w-80 space-y-4">
-            <div className="text-white font-bold">New Map</div>
+        <ModalBackdrop onClose={() => setShowNewDialog(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-80 space-y-4">
+            <div className="text-gray-900 font-bold text-lg">New Map</div>
             <div className="flex gap-3">
               <div className="flex-1">
-                <label className="text-xs text-gray-500 block mb-1">Width</label>
+                <label className="text-sm text-gray-500 block mb-1">Width (5–50)</label>
                 <input
                   type="number"
                   min={5}
                   max={50}
                   value={newWidth}
                   onChange={(e) => setNewWidth(Math.max(5, Math.min(50, parseInt(e.target.value) || 5)))}
-                  className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm text-gray-200 focus:outline-none focus:border-amber-500"
+                  className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-base text-gray-900 focus:outline-none focus:border-amber-500"
                 />
               </div>
               <div className="flex-1">
-                <label className="text-xs text-gray-500 block mb-1">Height</label>
+                <label className="text-sm text-gray-500 block mb-1">Height (5–50)</label>
                 <input
                   type="number"
                   min={5}
                   max={50}
                   value={newHeight}
                   onChange={(e) => setNewHeight(Math.max(5, Math.min(50, parseInt(e.target.value) || 5)))}
-                  className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm text-gray-200 focus:outline-none focus:border-amber-500"
+                  className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-base text-gray-900 focus:outline-none focus:border-amber-500"
                 />
               </div>
             </div>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowNewDialog(false)}
-                className="px-4 py-1.5 text-sm text-gray-400 hover:text-white transition-colors"
+                className="px-4 py-2 text-sm text-gray-500 hover:text-gray-900 font-semibold transition-colors"
               >
                 Cancel
               </button>
               <button
-                onClick={handleNew}
-                className="px-4 py-1.5 text-sm font-bold bg-amber-500 hover:bg-amber-400 text-white rounded transition-colors"
+                onClick={handleNewConfirm}
+                className="px-5 py-2 text-sm font-bold bg-amber-500 hover:bg-amber-400 text-white rounded-xl transition-colors"
               >
                 Create
               </button>
             </div>
           </div>
-        </div>
+        </ModalBackdrop>
+      )}
+
+      {/* Fill Confirmation */}
+      {showFillConfirm && (
+        <ModalBackdrop onClose={() => setShowFillConfirm(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-96 space-y-4">
+            <div className="text-gray-900 font-bold text-lg">Fill Entire Map</div>
+            <p className="text-gray-500 text-sm">
+              Choose a terrain type to fill the entire map. All existing tiles and units will be replaced. This can be undone.
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: "plains", label: "Plains" },
+                { id: "forest", label: "Forest" },
+                { id: "mountain", label: "Mountain" },
+                { id: "road", label: "Road" },
+                { id: "river", label: "River" },
+                { id: "sea", label: "Sea" },
+                { id: "shoal", label: "Shoal" },
+                { id: "reef", label: "Reef" },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setFillTerrain(t.id)}
+                  className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    fillTerrain === t.id
+                      ? "bg-amber-50 ring-2 ring-amber-500 text-amber-700"
+                      : "bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-100"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowFillConfirm(false)}
+                className="px-4 py-2 text-sm text-gray-500 hover:text-gray-900 font-semibold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleFillConfirm}
+                className="px-5 py-2 text-sm font-bold bg-red-500 hover:bg-red-400 text-white rounded-xl transition-colors"
+              >
+                Fill with {fillTerrain.charAt(0).toUpperCase() + fillTerrain.slice(1)}
+              </button>
+            </div>
+          </div>
+        </ModalBackdrop>
       )}
 
       {/* Import Dialog */}
       {showImportDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-gray-900 rounded-xl border border-gray-700 p-6 w-96 space-y-4">
-            <div className="text-white font-bold">Import AWBW Map</div>
+        <ModalBackdrop onClose={() => { setShowImportDialog(false); setImportText(""); setImportError(""); }}>
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-96 space-y-4">
+            <div className="text-gray-900 font-bold text-lg">Import AWBW Map</div>
             <textarea
               value={importText}
               onChange={(e) => { setImportText(e.target.value); setImportError(""); }}
               placeholder="Paste AWBW CSV (comma-separated tile IDs, one row per line)"
-              className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-gray-200 font-mono h-32 resize-y focus:outline-none focus:border-amber-500"
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 font-mono h-32 resize-y focus:outline-none focus:border-amber-500"
             />
-            {importError && <p className="text-red-400 text-xs">{importError}</p>}
+            {importError && <p className="text-red-500 text-sm">{importError}</p>}
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => { setShowImportDialog(false); setImportText(""); setImportError(""); }}
-                className="px-4 py-1.5 text-sm text-gray-400 hover:text-white transition-colors"
+                className="px-4 py-2 text-sm text-gray-500 hover:text-gray-900 font-semibold transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleImport}
-                className="px-4 py-1.5 text-sm font-bold bg-amber-500 hover:bg-amber-400 text-white rounded transition-colors"
+                className="px-5 py-2 text-sm font-bold bg-amber-500 hover:bg-amber-400 text-white rounded-xl transition-colors"
               >
                 Import
               </button>
             </div>
           </div>
-        </div>
+        </ModalBackdrop>
       )}
 
       {/* Export Dialog */}
       {showExportDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-gray-900 rounded-xl border border-gray-700 p-6 w-96 space-y-4">
-            <div className="text-white font-bold">Export AWBW CSV</div>
+        <ModalBackdrop onClose={() => setShowExportDialog(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-96 space-y-4">
+            <div className="text-gray-900 font-bold text-lg">Export AWBW CSV</div>
             <textarea
               readOnly
               value={exportText}
-              className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-gray-200 font-mono h-32 resize-y focus:outline-none"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 font-mono h-32 resize-y focus:outline-none"
             />
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowExportDialog(false)}
-                className="px-4 py-1.5 text-sm text-gray-400 hover:text-white transition-colors"
+                className="px-4 py-2 text-sm text-gray-500 hover:text-gray-900 font-semibold transition-colors"
               >
                 Close
               </button>
               <button
-                onClick={() => { navigator.clipboard.writeText(exportText); }}
-                className="px-4 py-1.5 text-sm font-bold bg-amber-500 hover:bg-amber-400 text-white rounded transition-colors"
+                onClick={handleCopyExport}
+                className={`px-5 py-2 text-sm font-bold rounded-xl transition-colors ${
+                  copyFeedback
+                    ? "bg-green-50 border border-green-300 text-green-600"
+                    : "bg-amber-500 hover:bg-amber-400 text-white"
+                }`}
               >
-                Copy
+                {copyFeedback ? "Copied!" : "Copy"}
               </button>
             </div>
           </div>
-        </div>
+        </ModalBackdrop>
       )}
 
       {/* Load Dialog */}
       {showLoadDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-gray-900 rounded-xl border border-gray-700 p-6 w-96 space-y-4 max-h-[80vh] flex flex-col">
-            <div className="text-white font-bold">Load Saved Map</div>
-            <div className="flex-1 overflow-y-auto space-y-1">
-              {loadSavedMaps().length === 0 ? (
-                <div className="text-gray-500 text-sm text-center py-4">No saved maps.</div>
+        <ModalBackdrop onClose={() => setShowLoadDialog(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-96 space-y-4 max-h-[80vh] flex flex-col">
+            <div className="text-gray-900 font-bold text-lg">Load Saved Map</div>
+            {loadError && <p className="text-red-500 text-sm">{loadError}</p>}
+            <div className="flex-1 overflow-y-auto space-y-1.5">
+              {savedMapsList.length === 0 ? (
+                <div className="text-gray-400 text-sm text-center py-4">No saved maps.</div>
               ) : (
-                loadSavedMaps().map((map) => (
-                  <button
-                    key={map.id}
-                    onClick={() => handleLoad(map)}
-                    className="w-full text-left px-3 py-2 rounded bg-gray-800 hover:bg-gray-700 transition-colors"
-                  >
-                    <div className="text-sm text-gray-200 font-medium">{map.name}</div>
-                    <div className="text-xs text-gray-500">
-                      {map.width}x{map.height} · {new Date(map.savedAt).toLocaleDateString()}
-                    </div>
-                  </button>
+                savedMapsList.map((map) => (
+                  <div key={map.id} className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleLoad(map)}
+                      className="flex-1 text-left px-3 py-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-100 transition-colors min-w-0"
+                    >
+                      <div className="text-sm text-gray-900 font-medium truncate">{map.name}</div>
+                      <div className="text-xs text-gray-500">
+                        {map.width}x{map.height} · {new Date(map.savedAt).toLocaleDateString()}
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteSavedMap(map.id)}
+                      className="shrink-0 px-2 py-1 text-gray-300 hover:text-red-500 text-sm rounded transition-colors"
+                      title="Delete saved map"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 ))
               )}
             </div>
             <div className="flex justify-end">
               <button
                 onClick={() => setShowLoadDialog(false)}
-                className="px-4 py-1.5 text-sm text-gray-400 hover:text-white transition-colors"
+                className="px-4 py-2 text-sm text-gray-500 hover:text-gray-900 font-semibold transition-colors"
               >
                 Cancel
               </button>
             </div>
           </div>
-        </div>
+        </ModalBackdrop>
       )}
+
+      {/* Generate Dialog removed — AI chat is now in the right sidebar */}
     </div>
   );
 }

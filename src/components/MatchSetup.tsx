@@ -1,6 +1,6 @@
 // Pre-game lobby: configure players, map, and match rules.
 
-import { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { ControllerType, GameState } from "../game/types";
 import {
   createGameState,
@@ -9,19 +9,17 @@ import {
   initializeMap,
   addUnit,
   updateTile,
+  getNextUnitId,
 } from "../game/game-state";
 import { generateMatchSeed } from "../game/rng";
 import { loadGameData } from "../game/data-loader";
 import { parseAwbwMapText, importAwbwMap } from "../game/awbw-import";
 import { applyIncome } from "../game/economy";
 import { useGameStore } from "../store/game-store";
-import { useEditorStore } from "../store/editor-store";
+import { useConfigStore } from "../store/config-store";
 import { computeStatsFromAwbwTiles, computeStatsFromGameState } from "../game/map-stats";
 import type { MapStats } from "../game/map-stats";
-import { generateMap, getMapGenProvider } from "../ai/map-generator";
-
-// Lazy import for MapEditor (Pixi.js is client-only)
-const MapEditor = lazy(() => import("./MapEditor"));
+import { loadSavedMaps, persistSavedMaps, type SavedMap } from "../game/saved-maps";
 
 interface PlayerConfig {
   controllerType: ControllerType;
@@ -35,16 +33,6 @@ interface MatchConfig {
   maxTurns: number;
   fogOfWar: boolean;
   turnTimeLimit: number;
-}
-
-interface SavedMap {
-  id: string;
-  name: string;
-  description?: string;
-  csv: string;
-  width: number;
-  height: number;
-  savedAt: number;
 }
 
 interface ParsedPreview {
@@ -77,8 +65,6 @@ const LUCK_SETTINGS: Record<MatchConfig["luck"], { min: number; max: number }> =
   high: { min: 0, max: 0.2 },
 };
 
-const SAVED_MAPS_KEY = "modern-aw-saved-maps";
-
 const CONTROLLER_OPTIONS: {
   value: ControllerType;
   label: string;
@@ -90,9 +76,11 @@ const CONTROLLER_OPTIONS: {
     value: "heuristic",
     label: "Heuristic AI",
     desc: "Built-in rule-based AI. No internet required.",
+    req: "Built-in, no setup",
   },
   { value: "anthropic", label: "Claude", desc: "Anthropic API.", req: "Requires API key" },
   { value: "openai", label: "GPT", desc: "OpenAI API.", req: "Requires API key" },
+  { value: "gemini", label: "Gemini", desc: "Google AI API.", req: "Requires API key" },
   {
     value: "local_http",
     label: "Local AI",
@@ -110,19 +98,6 @@ const PLAYER_BORDER = [
 
 const STEPS = ["Players", "Map", "Options", "Review"];
 const STEP_LABELS = ["Players", "Map", "Options", "Review"];
-
-function loadSavedMaps(): SavedMap[] {
-  try {
-    const raw = localStorage.getItem(SAVED_MAPS_KEY);
-    return raw ? (JSON.parse(raw) as SavedMap[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function persistSavedMaps(maps: SavedMap[]) {
-  localStorage.setItem(SAVED_MAPS_KEY, JSON.stringify(maps));
-}
 
 // ── Tile-ID → minimap color ──────────────────────────────────────────────────
 const FACTION_COLORS = [
@@ -359,9 +334,8 @@ function StepIndicator({ current }: { current: number }) {
 export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: MatchSetupProps) {
   // Wizard state
   const [step, setStep] = useState(0);
-  const [mapMode, setMapMode] = useState<"default" | "awbw" | "saved" | "generate" | "editor">("default");
+  const [mapMode, setMapMode] = useState<"default" | "awbw" | "saved">("default");
   const [selectedSavedMapId, setSelectedSavedMapId] = useState<string | null>(null);
-  const [editorOpen, setEditorOpen] = useState(false);
 
   // Existing state
   const [playerCount, setPlayerCount] = useState(2);
@@ -372,6 +346,27 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
   const [config, setConfig] = useState<MatchConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(false);
   const [awbwText, setAwbwText] = useState("");
+
+  // Check which AI providers have keys configured
+  const anthropicKey = useConfigStore((s) => s.anthropicApiKey);
+  const openaiKey = useConfigStore((s) => s.openaiApiKey);
+  const geminiKey = useConfigStore((s) => s.geminiApiKey);
+  const localHttpEnabled = useConfigStore((s) => s.localHttpEnabled);
+
+  // Sync keys from Electron secure storage on mount
+  useEffect(() => {
+    useConfigStore.getState().syncFromElectron();
+  }, []);
+
+  function getControllerStatus(value: ControllerType): { text: string; ok: boolean } {
+    if (value === "human") return { text: "Ready", ok: true };
+    if (value === "heuristic") return { text: "Built-in, no setup", ok: true };
+    if (value === "anthropic") return anthropicKey ? { text: "API key configured", ok: true } : { text: "Needs API key in Settings", ok: false };
+    if (value === "openai") return openaiKey ? { text: "API key configured", ok: true } : { text: "Needs API key in Settings", ok: false };
+    if (value === "gemini") return geminiKey ? { text: "API key configured", ok: true } : { text: "Needs API key in Settings", ok: false };
+    if (value === "local_http") return localHttpEnabled ? { text: "Server enabled", ok: true } : { text: "Enable in Settings", ok: false };
+    return { text: "", ok: true };
+  }
   const [awbwError, setAwbwError] = useState("");
   const [parsedPreview, setParsedPreview] = useState<ParsedPreview | null>(null);
   // Saved maps
@@ -382,11 +377,6 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
   // Default map stats
   const [defaultMapState, setDefaultMapState] = useState<GameState | null>(null);
   const [defaultMapStats, setDefaultMapStats] = useState<MapStats | null>(null);
-  // Generate tab
-  const [genDescription, setGenDescription] = useState("");
-  const [genLoading, setGenLoading] = useState(false);
-  const [genError, setGenError] = useState("");
-  const [genCooldown, setGenCooldown] = useState(false);
 
   const setGameState = useGameStore((s) => s.setGameState);
 
@@ -508,39 +498,10 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
   };
 
   const handleLaunch = async () => {
-    if ((mapMode === "awbw" || mapMode === "saved" || mapMode === "generate") && parsedPreview) {
+    if ((mapMode === "awbw" || mapMode === "saved") && parsedPreview) {
       await handleAwbwImport();
     } else {
       await handleStart();
-    }
-  };
-
-  const handleGenerate = async () => {
-    const providerInfo = getMapGenProvider();
-    if (!providerInfo) {
-      setGenError("No AI provider configured. Set up an API key in Settings.");
-      return;
-    }
-    setGenLoading(true);
-    setGenError("");
-    try {
-      const result = await generateMap(genDescription, providerInfo.provider, providerInfo.model);
-      if (result.error) {
-        setGenError(result.error);
-        if (result.preview.width > 0) {
-          setParsedPreview(result.preview);
-          setAwbwText(result.csv);
-        }
-      } else {
-        setParsedPreview(result.preview);
-        setAwbwText(result.csv);
-      }
-    } catch (e) {
-      setGenError(e instanceof Error ? e.message : "Generation failed.");
-    } finally {
-      setGenLoading(false);
-      setGenCooldown(true);
-      setTimeout(() => setGenCooldown(false), 5000);
     }
   };
 
@@ -576,114 +537,79 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
     </header>
   );
 
-  // ── Map Editor (full-screen overlay) ──────────────────────────────────────────
-  if (editorOpen) {
-    const handleEditorPlay = async (editorState: GameState) => {
-      setEditorOpen(false);
-      await loadGameData();
-      // Configure players on the editor state
-      const editorPlayers = editorState.players.length > 0
-        ? editorState.players.map((p, i) => ({
-            ...p,
-            controller_type: players[i]?.controllerType ?? (i === 0 ? "human" as const : "heuristic" as const),
-            funds: config.startingFunds,
-          }))
-        : [
-            createPlayer({ id: 0, team: 0, funds: config.startingFunds, controller_type: "human" }),
-            createPlayer({ id: 1, team: 1, funds: config.startingFunds, controller_type: "heuristic" }),
-          ];
-      let state = {
-        ...editorState,
-        match_id: `match_${Date.now()}`,
-        match_seed: generateMatchSeed(),
-        players: editorPlayers,
-      };
-      state = applyConfigToState(state);
-      if (state.players.length > 0) {
-        state = applyIncome(state, state.players[0].id);
-      }
-      setGameState(state);
-      onMatchStart();
-    };
-
-    return (
-      <Suspense fallback={<div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">Loading editor...</div>}>
-        <MapEditor
-          onClose={() => {
-            setEditorOpen(false);
-            useEditorStore.getState().clearEditor();
-          }}
-          onPlay={handleEditorPlay}
-        />
-      </Suspense>
-    );
-  }
-
   // ── Step 0: Players ──────────────────────────────────────────────────────────
   if (step === 0) {
     return (
       <div className="min-h-screen flex flex-col" style={{ background: "#f0ece0" }}>
         {header}
-        <div className="flex-1 flex flex-col items-center justify-center px-6 py-10">
-          <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-gray-100 p-8 space-y-6">
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-6">
+          <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 space-y-4">
             {/* Player count */}
             <div>
-              <div className="text-gray-900 font-bold text-xl mb-1">Players</div>
-              <p className="text-gray-500 text-lg mb-4">
-                Choose how many players and who controls each army.
-              </p>
-              <div className="inline-flex bg-gray-100 rounded-lg p-1 border border-gray-200 mb-6">
-                {[2, 3, 4].map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => {
-                      setPlayerCount(n);
-                      if (players.length < n) {
-                        setPlayers((prev) => [
-                          ...prev,
-                          ...Array.from({ length: n - prev.length }, () => ({
-                            controllerType: "heuristic" as ControllerType,
-                            modelId: "",
-                          })),
-                        ]);
-                      }
-                    }}
-                    className={`px-5 py-2 rounded-md text-sm font-bold transition-colors ${
-                      playerCount === n
-                        ? "bg-amber-500 text-white"
-                        : "text-gray-500 hover:text-gray-900"
-                    }`}
-                  >
-                    {n}P
-                  </button>
-                ))}
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <div className="text-gray-900 font-bold text-xl">Players</div>
+                  <p className="text-gray-500 text-base">Choose who controls each army.</p>
+                </div>
+                <div className="inline-flex bg-gray-100 rounded-lg p-0.5 border border-gray-200">
+                  {[2, 3, 4].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => {
+                        setPlayerCount(n);
+                        if (players.length < n) {
+                          setPlayers((prev) => [
+                            ...prev,
+                            ...Array.from({ length: n - prev.length }, () => ({
+                              controllerType: "heuristic" as ControllerType,
+                              modelId: "",
+                            })),
+                          ]);
+                        }
+                      }}
+                      className={`px-4 py-1.5 rounded-md text-base font-bold transition-colors ${
+                        playerCount === n
+                          ? "bg-amber-500 text-white"
+                          : "text-gray-500 hover:text-gray-900"
+                      }`}
+                    >
+                      {n}P
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Player controller cards */}
               {Array.from({ length: playerCount }).map((_, i) => (
-                <div key={i} className="mb-4">
-                  <div className="flex items-center gap-2 mb-2">
+                <div key={i} className="mb-3">
+                  <div className="flex items-center gap-1.5 mb-1.5">
                     <span
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black bg-white border-2 ${PLAYER_BORDER[i]}`}
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black bg-white border-2 ${PLAYER_BORDER[i]}`}
                     >
                       {i + 1}
                     </span>
                     <span className={`text-base font-bold ${playerColors[i]}`}>Player {i + 1}</span>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 gap-1.5">
                     {CONTROLLER_OPTIONS.map((opt) => (
                       <button
                         key={opt.value}
                         onClick={() => updatePlayerConfig(i, { controllerType: opt.value })}
-                        className={`text-left p-4 rounded-xl border transition-colors ${
+                        className={`text-left px-2.5 py-2 rounded-lg border transition-colors ${
                           players[i]?.controllerType === opt.value
                             ? "bg-amber-50 border-amber-500 text-gray-900"
-                            : "bg-white border-gray-200 text-gray-700 hover:border-gray-400 shadow-sm"
+                            : "bg-white border-gray-200 text-gray-700 hover:border-gray-400"
                         }`}
                       >
-                        <div className="font-bold text-base">{opt.label}</div>
-                        <div className="text-lg text-gray-500 mt-0.5 leading-tight">{opt.desc}</div>
-                        {opt.req && <div className="text-base text-red-500 mt-1">{opt.req}</div>}
+                        <div className="font-bold text-base leading-tight">{opt.label}</div>
+                        {(() => {
+                          const status = getControllerStatus(opt.value);
+                          return (
+                            <div className={`text-xs leading-tight mt-0.5 ${
+                              status.ok ? "text-green-600" : "text-amber-600"
+                            }`}>{status.text}</div>
+                          );
+                        })()}
                       </button>
                     ))}
                   </div>
@@ -692,10 +618,10 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
             </div>
 
             {/* Continue button */}
-            <div className="flex justify-end">
+            <div className="flex justify-end pt-1">
               <button
                 onClick={() => setStep(1)}
-                className="px-8 py-3 bg-amber-500 hover:bg-amber-400 text-white font-black rounded-xl transition-colors"
+                className="px-8 py-2.5 bg-amber-500 hover:bg-amber-400 text-white font-black text-base rounded-xl transition-colors"
               >
                 Continue →
               </button>
@@ -730,8 +656,6 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
                   { key: "default", label: "Default" },
                   { key: "awbw", label: "AWBW" },
                   { key: "saved", label: "Saved" },
-                  { key: "generate", label: "Generate" },
-                  { key: "editor", label: "Editor" },
                 ] as const
               ).map((tab) => (
                 <button
@@ -929,88 +853,6 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
               </div>
             )}
 
-            {mapMode === "generate" && (
-              <div className="space-y-3">
-                <textarea
-                  value={genDescription}
-                  onChange={(e) => setGenDescription(e.target.value)}
-                  placeholder="Describe the map you want (e.g., 'A 20x15 island map with 2 players, lots of forests and mountains in the center')"
-                  className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-base text-gray-900 h-20 resize-y focus:border-amber-500 focus:outline-none"
-                />
-                <button
-                  onClick={handleGenerate}
-                  disabled={genLoading || genCooldown}
-                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold rounded-lg transition-colors"
-                >
-                  {genLoading ? "Generating…" : genCooldown ? "Wait…" : "Generate Map"}
-                </button>
-                {genError && <p className="text-red-500 text-base">{genError}</p>}
-                {!getMapGenProvider() && (
-                  <p className="text-gray-400 text-sm">
-                    No AI provider configured. Set up an API key in Settings to use map generation.
-                  </p>
-                )}
-                {parsedPreview && mapMode === "generate" && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between text-base">
-                      <span className="text-green-600">
-                        {parsedPreview.width}×{parsedPreview.height} generated
-                      </span>
-                      <span className="text-gray-500">minimap preview</span>
-                    </div>
-                    <MapMinimap preview={parsedPreview} />
-                    <MapStatsPanel
-                      stats={computeStatsFromAwbwTiles(
-                        parsedPreview.tiles,
-                        parsedPreview.width,
-                        parsedPreview.height
-                      )}
-                    />
-                    <div className="space-y-2">
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={mapName}
-                          onChange={(e) => {
-                            setMapName(e.target.value);
-                            setMapNameError("");
-                          }}
-                          placeholder="Map name (required to save)"
-                          className={`flex-1 bg-white border rounded-lg px-3 py-1.5 text-base text-gray-900 focus:outline-none ${
-                            mapNameError
-                              ? "border-red-400 focus:border-red-500"
-                              : "border-gray-300 focus:border-amber-500"
-                          }`}
-                          onKeyDown={(e) => e.key === "Enter" && handleSaveMap()}
-                        />
-                        <button
-                          onClick={handleSaveMap}
-                          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-base rounded-lg transition-colors shrink-0"
-                        >
-                          Save
-                        </button>
-                      </div>
-                      {mapNameError && <p className="text-red-500 text-sm">{mapNameError}</p>}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {mapMode === "editor" && (
-              <div className="space-y-3 py-2">
-                <div className="text-gray-500 text-base">
-                  Open the map editor to create or modify a map from scratch.
-                </div>
-                <button
-                  onClick={() => setEditorOpen(true)}
-                  className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-white font-black rounded-xl transition-colors"
-                >
-                  Open Map Editor
-                </button>
-              </div>
-            )}
-
             {/* Back + Continue */}
             <div className="flex justify-between items-center pt-2">
               <button
@@ -1023,9 +865,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
                 onClick={() => setStep(2)}
                 disabled={
                   (mapMode === "awbw" && !parsedPreview) ||
-                  (mapMode === "saved" && !selectedSavedMapId) ||
-                  (mapMode === "generate" && !parsedPreview) ||
-                  (mapMode === "editor")
+                  (mapMode === "saved" && !selectedSavedMapId)
                 }
                 className="px-8 py-3 bg-amber-500 hover:bg-amber-400 disabled:bg-gray-200 disabled:text-gray-400 text-white font-black rounded-xl transition-colors text-lg"
               >
@@ -1048,24 +888,24 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
     return (
       <div className="min-h-screen flex flex-col" style={{ background: "#f0ece0" }}>
         {header}
-        <div className="flex-1 flex flex-col items-center justify-center px-6 py-10">
-          <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-gray-100 p-8 space-y-5">
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-6">
+          <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 space-y-3">
             <div>
-              <div className="text-gray-900 font-bold text-xl mb-1">Options</div>
-              <p className="text-gray-500 text-lg mb-4">Configure match rules.</p>
+              <div className="text-gray-900 font-bold text-xl">Options</div>
+              <p className="text-gray-500 text-base mb-2">Configure match rules.</p>
             </div>
 
             {/* Starting funds */}
             <div>
-              <label className="text-lg font-semibold text-gray-500 uppercase tracking-wide block mb-2">
+              <label className="text-base font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
                 Starting Funds
               </label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {[0, 1000, 2000, 3000, 5000, 10000, 20000].map((v) => (
                   <button
                     key={v}
                     onClick={() => updateConfig({ startingFunds: v })}
-                    className={`px-4 py-2 rounded-lg text-lg font-mono transition-colors ${
+                    className={`px-3 py-1.5 rounded-lg text-base font-mono transition-colors ${
                       config.startingFunds === v
                         ? "bg-amber-500 text-white font-bold"
                         : "bg-white text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-400"
@@ -1077,178 +917,135 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
               </div>
             </div>
 
-            {/* Income per turn */}
-            <div>
-              <label className="text-lg font-semibold text-gray-500 uppercase tracking-wide block mb-1">
-                Income Per Property
-              </label>
-              <p className="text-lg text-slate-500 mb-2">
-                Multiplier on base property income (default: ¥1,000/property)
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { label: "×½  (¥500)", value: 0.5 },
-                  { label: "×1  (¥1k)", value: 1 },
-                  { label: "×1.5 (¥1.5k)", value: 1.5 },
-                  { label: "×2  (¥2k)", value: 2 },
-                ].map(({ label, value }) => (
-                  <button
-                    key={value}
-                    onClick={() => updateConfig({ incomeMultiplier: value })}
-                    className={`px-4 py-2 rounded-lg text-lg transition-colors ${
-                      config.incomeMultiplier === value
-                        ? "bg-amber-500 text-white font-bold"
-                        : "bg-white text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-400"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
+            {/* Income + Luck side by side */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-base font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+                  Income Multiplier
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { label: "×½", value: 0.5 },
+                    { label: "×1", value: 1 },
+                    { label: "×1.5", value: 1.5 },
+                    { label: "×2", value: 2 },
+                  ].map(({ label, value }) => (
+                    <button
+                      key={value}
+                      onClick={() => updateConfig({ incomeMultiplier: value })}
+                      className={`px-3 py-1.5 rounded-lg text-base transition-colors ${
+                        config.incomeMultiplier === value
+                          ? "bg-amber-500 text-white font-bold"
+                          : "bg-white text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-400"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-base font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+                  Luck
+                </label>
+                <div className="flex gap-1.5">
+                  {(["off", "normal", "high"] as const).map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => updateConfig({ luck: v })}
+                      className={`flex-1 py-1.5 rounded-lg text-base capitalize transition-colors ${
+                        config.luck === v
+                          ? "bg-amber-500 text-white font-bold"
+                          : "bg-white text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-400"
+                      }`}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Luck */}
-            <div>
-              <label className="text-lg font-semibold text-gray-500 uppercase tracking-wide block mb-1">
-                Luck
-              </label>
-              <p className="text-lg text-slate-500 mb-2">
-                Random variance added to each attack roll
-              </p>
-              <div className="flex gap-2">
-                {(["off", "normal", "high"] as const).map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => updateConfig({ luck: v })}
-                    className={`flex-1 py-1.5 rounded-lg text-base capitalize transition-colors ${
-                      config.luck === v
-                        ? "bg-amber-500 text-white font-bold"
-                        : "bg-white text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-400"
-                    }`}
-                  >
-                    {v}
-                    <span className="block text-base opacity-70">
-                      {v === "off" ? "0%" : v === "normal" ? "±10%" : "±20%"}
-                    </span>
-                  </button>
-                ))}
+            {/* Turn limit + Turn Timer side by side */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-base font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+                  Turn Limit
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { label: "∞", value: -1 },
+                    { label: "20", value: 20 },
+                    { label: "30", value: 30 },
+                    { label: "50", value: 50 },
+                  ].map(({ label, value }) => (
+                    <button
+                      key={value}
+                      onClick={() => updateConfig({ maxTurns: value })}
+                      className={`px-3 py-1.5 rounded-lg text-base transition-colors ${
+                        config.maxTurns === value
+                          ? "bg-amber-500 text-white font-bold"
+                          : "bg-white text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-400"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-
-            {/* Turn limit */}
-            <div>
-              <label className="text-lg font-semibold text-gray-500 uppercase tracking-wide block mb-2">
-                Turn Limit
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { label: "Unlimited", value: -1 },
-                  { label: "20 turns", value: 20 },
-                  { label: "30 turns", value: 30 },
-                  { label: "50 turns", value: 50 },
-                ].map(({ label, value }) => (
-                  <button
-                    key={value}
-                    onClick={() => updateConfig({ maxTurns: value })}
-                    className={`px-4 py-2 rounded-lg text-lg transition-colors ${
-                      config.maxTurns === value
-                        ? "bg-amber-500 text-white font-bold"
-                        : "bg-white text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-400"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
+              <div>
+                <label className="text-base font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+                  Turn Timer
+                </label>
+                <div className="flex gap-1.5 flex-wrap">
+                  {[0, 30, 60, 120, 300].map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setConfig((c) => ({ ...c, turnTimeLimit: s }))}
+                      className={`px-2.5 py-1.5 text-base rounded-lg border font-mono transition-colors ${
+                        config.turnTimeLimit === s
+                          ? "bg-amber-500/10 border-amber-500 text-amber-400"
+                          : "bg-white border-gray-200 text-gray-500 hover:border-gray-400"
+                      }`}
+                    >
+                      {s === 0 ? "Off" : s < 60 ? `${s}s` : `${s / 60}m`}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* Fog of War toggle */}
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-lg text-gray-900 font-medium">Fog of War</div>
-                <div className="text-lg text-gray-500">Hide enemy units outside vision range</div>
+                <div className="text-base text-gray-900 font-medium">Fog of War</div>
+                <div className="text-sm text-gray-500">Hide enemy units outside vision range</div>
               </div>
               <button
                 onClick={() => updateConfig({ fogOfWar: !config.fogOfWar })}
-                className={`relative w-12 h-6 rounded-full transition-colors ${
+                className={`relative w-11 h-6 rounded-full transition-colors ${
                   config.fogOfWar ? "bg-amber-500" : "bg-gray-300"
                 }`}
               >
                 <span
-                  className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                    config.fogOfWar ? "translate-x-6" : "translate-x-0"
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                    config.fogOfWar ? "translate-x-5" : "translate-x-0"
                   }`}
                 />
               </button>
             </div>
 
-            {/* Turn Timer */}
-            <div>
-              <label className="text-gray-900 font-semibold text-lg block mb-2">Turn Timer</label>
-              <p className="text-gray-500 text-lg mb-2">
-                Auto-end turn when time expires (0 = no limit)
-              </p>
-              <div className="flex gap-2 flex-wrap">
-                {[0, 30, 60, 120, 300].map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setConfig((c) => ({ ...c, turnTimeLimit: s }))}
-                    className={`px-3 py-1.5 text-base rounded-lg border font-mono transition-colors ${
-                      config.turnTimeLimit === s
-                        ? "bg-amber-500/10 border-amber-500 text-amber-400"
-                        : "bg-white border-gray-200 text-gray-500 hover:border-gray-400"
-                    }`}
-                  >
-                    {s === 0 ? "Off" : s < 60 ? `${s}s` : `${s / 60}m`}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Config summary strip */}
-            <div className="bg-white rounded-lg p-3 border border-gray-200 text-sm text-gray-500 flex flex-wrap gap-x-4 gap-y-1 shadow-sm">
-              <span>
-                Funds:{" "}
-                <span className="text-amber-400 font-mono">
-                  ¥{config.startingFunds.toLocaleString()}
-                </span>
-              </span>
-              <span>
-                Income: <span className="text-gray-700">×{config.incomeMultiplier}</span>
-              </span>
-              <span>
-                Luck: <span className="text-gray-700 capitalize">{config.luck}</span>
-              </span>
-              <span>
-                Turns:{" "}
-                <span className="text-gray-700">{config.maxTurns < 0 ? "∞" : config.maxTurns}</span>
-              </span>
-              <span>
-                Fog: <span className="text-gray-700">{config.fogOfWar ? "On" : "Off"}</span>
-              </span>
-              <span>
-                Timer:{" "}
-                <span className="text-gray-700">
-                  {config.turnTimeLimit === 0
-                    ? "Off"
-                    : config.turnTimeLimit < 60
-                      ? `${config.turnTimeLimit}s`
-                      : `${config.turnTimeLimit / 60}m`}
-                </span>
-              </span>
-            </div>
-
             {/* Back + Continue (Review) */}
-            <div className="flex justify-between items-center pt-2">
+            <div className="flex justify-between items-center pt-1">
               <button
                 onClick={() => setStep(1)}
-                className="text-gray-500 hover:text-gray-900 text-lg font-semibold transition-colors"
+                className="text-gray-500 hover:text-gray-900 text-base font-semibold transition-colors"
               >
                 ← Back
               </button>
               <button
                 onClick={() => setStep(3)}
-                className="px-8 py-3 bg-amber-500 hover:bg-amber-400 text-white font-black rounded-xl transition-colors"
+                className="px-8 py-2.5 bg-amber-500 hover:bg-amber-400 text-white font-black text-base rounded-xl transition-colors"
               >
                 Review →
               </button>
@@ -1266,13 +1063,11 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
 
   // ── Step 3: Review ───────────────────────────────────────────────────────────
   const mapLabel =
-    mapMode === "generate" && parsedPreview
-      ? `Generated Map (${parsedPreview.width}×${parsedPreview.height})`
-      : mapMode === "awbw" && parsedPreview
-        ? `Custom AWBW Map (${parsedPreview.width}×${parsedPreview.height})`
-        : mapMode === "saved" && selectedSavedMapId
-          ? (savedMaps.find((m) => m.id === selectedSavedMapId)?.name ?? "Saved Map")
-          : `Default Skirmish (${DEFAULT_MAP_WIDTH}×${DEFAULT_MAP_HEIGHT})`;
+    mapMode === "awbw" && parsedPreview
+      ? `Custom AWBW Map (${parsedPreview.width}×${parsedPreview.height})`
+      : mapMode === "saved" && selectedSavedMapId
+        ? (savedMaps.find((m) => m.id === selectedSavedMapId)?.name ?? "Saved Map")
+        : `Default Skirmish (${DEFAULT_MAP_WIDTH}×${DEFAULT_MAP_HEIGHT})`;
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "#f0ece0" }}>
@@ -1333,8 +1128,7 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
           </div>
 
           {/* Map preview in review */}
-          {(mapMode === "awbw" || mapMode === "saved" || mapMode === "generate") &&
-            parsedPreview && (
+          {(mapMode === "awbw" || mapMode === "saved") && parsedPreview && (
               <div className="space-y-3">
                 <MapMinimap preview={parsedPreview} />
                 <MapStatsPanel
@@ -1525,9 +1319,4 @@ function buildDefaultGameState(playerConfigs: PlayerConfig[], startingFunds: num
   }
 
   return state;
-}
-
-function getNextUnitId(state: GameState): [number, GameState] {
-  const id = state.next_unit_id;
-  return [id, { ...state, next_unit_id: id + 1 }];
 }

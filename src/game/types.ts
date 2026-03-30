@@ -1,6 +1,6 @@
 // All TypeScript interfaces for the game state
 
-export type ControllerType = "human" | "heuristic" | "openai" | "anthropic" | "local_http";
+export type ControllerType = "human" | "heuristic" | "openai" | "anthropic" | "gemini" | "local_http";
 
 export interface PlayerState {
   id: number;
