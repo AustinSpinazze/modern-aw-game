@@ -265,7 +265,10 @@ ipcMain.handle(
     provider: string,
     messages: Array<{ role: string; content: string }>,
     options?: { model?: string; maxTokens?: number }
-  ): Promise<{ text: string; usage?: { inputTokens: number; outputTokens: number }; model?: string } | { error: string }> => {
+  ): Promise<
+    | { text: string; usage?: { inputTokens: number; outputTokens: number }; model?: string }
+    | { error: string }
+  > => {
     try {
       // Load the API key from encrypted storage
       const config = loadConfig();
@@ -316,7 +319,9 @@ ipcMain.handle(
           usage?: { input_tokens: number; output_tokens: number };
         };
         const text = data?.content?.find((c) => c.type === "text")?.text ?? "";
-        const usage = data?.usage ? { inputTokens: data.usage.input_tokens, outputTokens: data.usage.output_tokens } : undefined;
+        const usage = data?.usage
+          ? { inputTokens: data.usage.input_tokens, outputTokens: data.usage.output_tokens }
+          : undefined;
         return { text, usage, model };
       } else if (provider === "openai") {
         const model = options?.model ?? "gpt-4o-mini";
@@ -339,7 +344,9 @@ ipcMain.handle(
           usage?: { prompt_tokens: number; completion_tokens: number };
         };
         const text = data?.choices?.[0]?.message?.content ?? "";
-        const usage = data?.usage ? { inputTokens: data.usage.prompt_tokens, outputTokens: data.usage.completion_tokens } : undefined;
+        const usage = data?.usage
+          ? { inputTokens: data.usage.prompt_tokens, outputTokens: data.usage.completion_tokens }
+          : undefined;
         return { text, usage, model };
       } else if (provider === "gemini") {
         const model = options?.model ?? "gemini-2.5-flash";
@@ -381,7 +388,12 @@ ipcMain.handle(
           usageMetadata?: { promptTokenCount: number; candidatesTokenCount: number };
         };
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-        const usage = data?.usageMetadata ? { inputTokens: data.usageMetadata.promptTokenCount, outputTokens: data.usageMetadata.candidatesTokenCount } : undefined;
+        const usage = data?.usageMetadata
+          ? {
+              inputTokens: data.usageMetadata.promptTokenCount,
+              outputTokens: data.usageMetadata.candidatesTokenCount,
+            }
+          : undefined;
         return { text, usage, model };
       } else {
         return { error: `Unknown AI provider: ${provider}` };

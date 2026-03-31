@@ -186,7 +186,6 @@ export function duplicateState(state: GameState): GameState {
   return JSON.parse(JSON.stringify(state)) as GameState;
 }
 
-
 // Serialize / deserialize
 export function stateToDict(state: GameState): object {
   return JSON.parse(JSON.stringify(state));

@@ -361,10 +361,22 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
   function getControllerStatus(value: ControllerType): { text: string; ok: boolean } {
     if (value === "human") return { text: "Ready", ok: true };
     if (value === "heuristic") return { text: "Built-in, no setup", ok: true };
-    if (value === "anthropic") return anthropicKey ? { text: "API key configured", ok: true } : { text: "Needs API key in Settings", ok: false };
-    if (value === "openai") return openaiKey ? { text: "API key configured", ok: true } : { text: "Needs API key in Settings", ok: false };
-    if (value === "gemini") return geminiKey ? { text: "API key configured", ok: true } : { text: "Needs API key in Settings", ok: false };
-    if (value === "local_http") return localHttpEnabled ? { text: "Server enabled", ok: true } : { text: "Enable in Settings", ok: false };
+    if (value === "anthropic")
+      return anthropicKey
+        ? { text: "API key configured", ok: true }
+        : { text: "Needs API key in Settings", ok: false };
+    if (value === "openai")
+      return openaiKey
+        ? { text: "API key configured", ok: true }
+        : { text: "Needs API key in Settings", ok: false };
+    if (value === "gemini")
+      return geminiKey
+        ? { text: "API key configured", ok: true }
+        : { text: "Needs API key in Settings", ok: false };
+    if (value === "local_http")
+      return localHttpEnabled
+        ? { text: "Server enabled", ok: true }
+        : { text: "Enable in Settings", ok: false };
     return { text: "", ok: true };
   }
   const [awbwError, setAwbwError] = useState("");
@@ -605,9 +617,13 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
                         {(() => {
                           const status = getControllerStatus(opt.value);
                           return (
-                            <div className={`text-xs leading-tight mt-0.5 ${
-                              status.ok ? "text-green-600" : "text-amber-600"
-                            }`}>{status.text}</div>
+                            <div
+                              className={`text-xs leading-tight mt-0.5 ${
+                                status.ok ? "text-green-600" : "text-amber-600"
+                              }`}
+                            >
+                              {status.text}
+                            </div>
                           );
                         })()}
                       </button>
@@ -1129,17 +1145,17 @@ export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: Mat
 
           {/* Map preview in review */}
           {(mapMode === "awbw" || mapMode === "saved") && parsedPreview && (
-              <div className="space-y-3">
-                <MapMinimap preview={parsedPreview} />
-                <MapStatsPanel
-                  stats={computeStatsFromAwbwTiles(
-                    parsedPreview.tiles,
-                    parsedPreview.width,
-                    parsedPreview.height
-                  )}
-                />
-              </div>
-            )}
+            <div className="space-y-3">
+              <MapMinimap preview={parsedPreview} />
+              <MapStatsPanel
+                stats={computeStatsFromAwbwTiles(
+                  parsedPreview.tiles,
+                  parsedPreview.width,
+                  parsedPreview.height
+                )}
+              />
+            </div>
+          )}
           {mapMode === "default" && defaultMapState && (
             <div className="space-y-3">
               <GameStateMinimap state={defaultMapState} />

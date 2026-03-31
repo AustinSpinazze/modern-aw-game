@@ -144,14 +144,14 @@ export default function MainMenu({
             </span>
           </button>
 
-          {/* 04 SETTINGS */}
+          {/* 04 AI CONFIG & ANALYTICS */}
           <button
             onClick={onSettings}
             className="flex items-center gap-4 w-full px-6 py-5 bg-white hover:bg-gray-50 transition-colors group"
           >
             <span className="text-gray-400 font-mono text-base w-6 shrink-0">04</span>
             <span className="text-gray-900 font-black tracking-widest text-lg flex-1 text-left">
-              Settings
+              AI Config &amp; Analytics
             </span>
           </button>
         </div>

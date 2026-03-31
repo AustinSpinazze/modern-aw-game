@@ -1,4 +1,13 @@
-import { useState, useCallback, useEffect, useRef, lazy, Suspense, Component, type ReactNode } from "react";
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  lazy,
+  Suspense,
+  Component,
+  type ReactNode,
+} from "react";
 import { flushSync } from "react-dom";
 import MatchSetup from "./components/MatchSetup";
 
@@ -10,12 +19,14 @@ import ActionMenu from "./components/ActionMenu";
 import BuyMenu from "./components/BuyMenu";
 import ActionLog from "./components/ActionLog";
 import SettingsModal from "./components/SettingsModal";
+import SettingsPage from "./components/SettingsPage";
 import MainMenu from "./components/MainMenu";
 import TurnTransitionOverlay from "./components/TurnTransitionOverlay";
 import type { SavedGameMeta } from "./types";
 import { useGameStore } from "./store/game-store";
 import { useGame } from "./hooks/useGame";
 import { useConfigStore } from "./store/config-store";
+import { useUsageStore } from "./store/usage-store";
 import { loadGameData, getTerrainData } from "./game/data-loader";
 import { getTile } from "./game/game-state";
 import type { GameState } from "./game/types";
@@ -71,7 +82,7 @@ class ErrorBoundary extends Component<
   }
 }
 
-type AppView = "menu" | "setup" | "game" | "editor";
+type AppView = "menu" | "setup" | "game" | "editor" | "settings";
 
 // Team color config shared across banner and sidebar
 const TEAM_TEXT: Record<number, string> = {
@@ -254,6 +265,14 @@ function AppContent() {
         const winner = gameState.winner_id >= 0 ? gameState.players[gameState.winner_id] : null;
         setBannerText(winner ? `Player ${winner.id + 1} Wins!` : "Draw!");
         setBannerTeam(winner?.team ?? 0);
+
+        // Record win/loss for AI models — from the AI's perspective
+        if (winner && gameState.match_id) {
+          const isAiWinner = winner.controller_type !== "human";
+          useUsageStore
+            .getState()
+            .recordGameResult(gameState.match_id, isAiWinner ? "win" : "loss");
+        }
       } else if (player) {
         setBannerText(`Player ${player.id + 1}`);
         setBannerTeam(player.team);
@@ -573,18 +592,20 @@ function AppContent() {
   // ── Menu view ──────────────────────────────────────────────────────────
   if (view === "menu") {
     return (
-      <>
-        <MainMenu
-          onNewGame={() => setView("setup")}
-          onContinue={handleLoadGame}
-          onMapEditor={() => setView("editor")}
-          onSettings={() => setShowSettings(true)}
-          onDeleteSave={handleDeleteSave}
-          saves={gameSaves}
-        />
-        {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
-      </>
+      <MainMenu
+        onNewGame={() => setView("setup")}
+        onContinue={handleLoadGame}
+        onMapEditor={() => setView("editor")}
+        onSettings={() => setView("settings")}
+        onDeleteSave={handleDeleteSave}
+        saves={gameSaves}
+      />
     );
+  }
+
+  // ── Settings view (full-page) ─────────────────────────────────────────
+  if (view === "settings") {
+    return <SettingsPage onBack={() => setView("menu")} />;
   }
 
   // ── Setup view ─────────────────────────────────────────────────────────
@@ -593,10 +614,9 @@ function AppContent() {
       <>
         <MatchSetup
           onMatchStart={handleMatchStart}
-          onOpenSettings={() => setShowSettings(true)}
+          onOpenSettings={() => setView("settings")}
           onExit={() => setView("menu")}
         />
-        {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       </>
     );
   }
@@ -604,10 +624,17 @@ function AppContent() {
   // ── Editor view ───────────────────────────────────────────────────────
   if (view === "editor") {
     return (
-      <Suspense fallback={<div className="min-h-screen flex items-center justify-center" style={{ background: "#f0ece0" }}><div className="text-gray-500 text-lg">Loading editor...</div></div>}>
-        <MapEditor
-          onClose={() => setView("menu")}
-        />
+      <Suspense
+        fallback={
+          <div
+            className="min-h-screen flex items-center justify-center"
+            style={{ background: "#f0ece0" }}
+          >
+            <div className="text-gray-500 text-lg">Loading editor...</div>
+          </div>
+        }
+      >
+        <MapEditor onClose={() => setView("menu")} />
       </Suspense>
     );
   }

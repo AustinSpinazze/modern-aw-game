@@ -13,6 +13,8 @@ export interface LLMCallOptions {
   maxTokens?: number;
   /** Context tag for usage tracking (e.g. "game_turn", "map_gen") */
   usageContext?: string;
+  /** Match ID for grouping usage entries into game sessions */
+  matchId?: string;
 }
 
 interface IPCResult {
@@ -21,16 +23,19 @@ interface IPCResult {
   model?: string;
 }
 
-function trackUsage(provider: string, model: string, result: IPCResult, context: string, inputMessages?: ChatMessage[]) {
+function trackUsage(
+  provider: string,
+  model: string,
+  result: IPCResult,
+  context: string,
+  inputMessages?: ChatMessage[],
+  matchId?: string
+) {
   const usageModel = result.model ?? model;
   if (result.usage && (result.usage.inputTokens > 0 || result.usage.outputTokens > 0)) {
-    useUsageStore.getState().record(
-      provider,
-      usageModel,
-      result.usage.inputTokens,
-      result.usage.outputTokens,
-      context,
-    );
+    useUsageStore
+      .getState()
+      .record(provider, usageModel, result.usage.inputTokens, result.usage.outputTokens, context, matchId);
   } else {
     // Estimate tokens (~4 chars per token) when API doesn't return usage
     const inputChars = inputMessages?.reduce((sum, m) => sum + m.content.length, 0) ?? 0;
@@ -38,7 +43,7 @@ function trackUsage(provider: string, model: string, result: IPCResult, context:
     const estInput = Math.ceil(inputChars / 4);
     const estOutput = Math.ceil(outputChars / 4);
     if (estInput > 0 || estOutput > 0) {
-      useUsageStore.getState().record(provider, usageModel, estInput, estOutput, context);
+      useUsageStore.getState().record(provider, usageModel, estInput, estOutput, context, matchId);
     }
   }
 }
@@ -107,7 +112,7 @@ export async function callAnthropicViaIPC(
     result = await callAnthropicDirect(messages, model, options);
   }
 
-  trackUsage("anthropic", model, result, options?.usageContext ?? "unknown", messages);
+  trackUsage("anthropic", model, result, options?.usageContext ?? "unknown", messages, options?.matchId);
   return result.text;
 }
 
@@ -155,7 +160,10 @@ async function callGeminiDirect(
   };
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
   const usage = data?.usageMetadata
-    ? { inputTokens: data.usageMetadata.promptTokenCount, outputTokens: data.usageMetadata.candidatesTokenCount }
+    ? {
+        inputTokens: data.usageMetadata.promptTokenCount,
+        outputTokens: data.usageMetadata.candidatesTokenCount,
+      }
     : undefined;
   return { text, usage, model };
 }
@@ -178,7 +186,7 @@ export async function callGeminiViaIPC(
     result = await callGeminiDirect(messages, model, options);
   }
 
-  trackUsage("gemini", model, result, options?.usageContext ?? "unknown", messages);
+  trackUsage("gemini", model, result, options?.usageContext ?? "unknown", messages, options?.matchId);
   return result.text;
 }
 
@@ -234,7 +242,7 @@ export async function callOpenAIViaIPC(
     result = await callOpenAIDirect(messages, model, options);
   }
 
-  trackUsage("openai", model, result, options?.usageContext ?? "unknown", messages);
+  trackUsage("openai", model, result, options?.usageContext ?? "unknown", messages, options?.matchId);
   return result.text;
 }
 
@@ -287,13 +295,16 @@ export async function callOllama(
 
   // Track usage for local models too (no cost, but useful for token counts)
   if (data.usage) {
-    useUsageStore.getState().record(
-      "local_http",
-      model,
-      data.usage.prompt_tokens,
-      data.usage.completion_tokens,
-      options?.usageContext ?? "unknown",
-    );
+    useUsageStore
+      .getState()
+      .record(
+        "local_http",
+        model,
+        data.usage.prompt_tokens,
+        data.usage.completion_tokens,
+        options?.usageContext ?? "unknown",
+        options?.matchId
+      );
   }
 
   return content;

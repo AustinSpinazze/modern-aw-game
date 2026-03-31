@@ -10,9 +10,9 @@ const TERRAIN_TO_AWBW: Record<string, number> = {
   plains: 1,
   mountain: 2,
   forest: 3,
-  road: 15,     // horizontal road (AWBW re-autotiles)
-  river: 4,     // horizontal river
-  bridge: 26,   // horizontal bridge
+  road: 15, // horizontal road (AWBW re-autotiles)
+  river: 4, // horizontal river
+  bridge: 26, // horizontal bridge
   sea: 28,
   shoal: 29,
   reef: 33,

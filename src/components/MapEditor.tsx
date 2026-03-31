@@ -23,7 +23,12 @@ import type { MapStats } from "../game/map-stats";
 import { parseAwbwMapText, importAwbwMap } from "../game/awbw-import";
 import { exportToAwbwCsv } from "../game/awbw-export";
 import { loadSavedMaps, upsertSavedMap, deleteSavedMap, type SavedMap } from "../game/saved-maps";
-import { getMapGenProvider, sendMapGenMessage, parseMapResponse, MAP_GEN_SYSTEM_PROMPT } from "../ai/map-generator";
+import {
+  getMapGenProvider,
+  sendMapGenMessage,
+  parseMapResponse,
+  MAP_GEN_SYSTEM_PROMPT,
+} from "../ai/map-generator";
 import type { ChatMessage } from "../ai/llm-providers";
 import MapEditorPalette from "./MapEditorPalette";
 import { Graphics } from "pixi.js";
@@ -33,7 +38,10 @@ const DISPLAY = TILE_SIZE * TILE_SCALE; // 48px
 // ── Display names for building/terrain stats ────────────────────────────────
 
 const DISPLAY_NAMES: Record<string, string> = {
-  hq: "HQ", md_tank: "Md Tank", anti_air: "Anti-Air", t_copter: "T Copter",
+  hq: "HQ",
+  md_tank: "Md Tank",
+  anti_air: "Anti-Air",
+  t_copter: "T Copter",
   b_copter: "B Copter",
 };
 
@@ -58,8 +66,14 @@ function bresenhamLine(x0: number, y0: number, x1: number, y1: number): [number,
     points.push([cx, cy]);
     if (cx === x1 && cy === y1) break;
     const e2 = 2 * err;
-    if (e2 > -dy) { err -= dy; cx += sx; }
-    if (e2 < dx) { err += dx; cy += sy; }
+    if (e2 > -dy) {
+      err -= dy;
+      cx += sx;
+    }
+    if (e2 < dx) {
+      err += dx;
+      cy += sy;
+    }
   }
   return points;
 }
@@ -69,7 +83,10 @@ function bresenhamLine(x0: number, y0: number, x1: number, y1: number): [number,
 function ModalBackdrop({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { e.preventDefault(); onClose(); }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
@@ -78,7 +95,9 @@ function ModalBackdrop({ onClose, children }: { onClose: () => void; children: R
   return (
     <div
       className="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       {children}
     </div>
@@ -94,7 +113,9 @@ function EditorStatsPanel({ stats }: { stats: MapStats }) {
   return (
     <div className="text-xs space-y-1">
       <div className="flex gap-3 text-gray-500 font-medium">
-        <span>{stats.width} &times; {stats.height}</span>
+        <span>
+          {stats.width} &times; {stats.height}
+        </span>
         <span>{stats.playerCount} players</span>
       </div>
       {buildingTypes.length > 0 && (
@@ -118,7 +139,9 @@ function EditorStatsPanel({ stats }: { stats: MapStats }) {
                   <td className="pr-1 py-0.5">{displayName(type)}</td>
                   <td className="px-1 py-0.5 font-mono">{b.neutral || "—"}</td>
                   {Array.from({ length: stats.playerCount }).map((_, i) => (
-                    <td key={i} className="px-1 py-0.5 font-mono">{b.players[i] || "—"}</td>
+                    <td key={i} className="px-1 py-0.5 font-mono">
+                      {b.players[i] || "—"}
+                    </td>
                   ))}
                 </tr>
               );
@@ -167,9 +190,21 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
   const currentMapId = useEditorStore((s) => s.currentMapId);
 
   const {
-    newMap, loadDraft, paintTile, eraseTile, fillMap,
-    beginGesture, endGesture, undo, redo,
-    resizeMap, setMapName, setMapDescription, setBrush, clearEditor, markClean,
+    newMap,
+    loadDraft,
+    paintTile,
+    eraseTile,
+    fillMap,
+    beginGesture,
+    endGesture,
+    undo,
+    redo,
+    resizeMap,
+    setMapName,
+    setMapDescription,
+    setBrush,
+    clearEditor,
+    markClean,
   } = useEditorStore.getState();
 
   const [dataLoaded, setDataLoaded] = useState(false);
@@ -195,7 +230,12 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
   const [genLoading, setGenLoading] = useState(false);
   const [genError, setGenError] = useState("");
   // Chat history for conversational map generation
-  interface GenMessage { role: "user" | "assistant"; text: string; csv?: string; mapSize?: string }
+  interface GenMessage {
+    role: "user" | "assistant";
+    text: string;
+    csv?: string;
+    mapSize?: string;
+  }
   const [genMessages, setGenMessages] = useState<GenMessage[]>([]);
   const [genConversation, setGenConversation] = useState<ChatMessage[]>([]);
   const genScrollRef = useRef<HTMLDivElement>(null);
@@ -353,8 +393,13 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
         if (hl) {
           hl.clear();
           const currentDraft = useEditorStore.getState().draft;
-          if (currentDraft && tile.x >= 0 && tile.x < currentDraft.map_width &&
-              tile.y >= 0 && tile.y < currentDraft.map_height) {
+          if (
+            currentDraft &&
+            tile.x >= 0 &&
+            tile.x < currentDraft.map_width &&
+            tile.y >= 0 &&
+            tile.y < currentDraft.map_height
+          ) {
             hl.rect(tile.x * DISPLAY, tile.y * DISPLAY, DISPLAY, DISPLAY);
             hl.fill({ color: 0xffffff, alpha: 0.2 });
             hl.stroke({ color: 0xffffff, width: 2, alpha: 0.5 });
@@ -450,8 +495,12 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
   };
 
   const handleSave = useCallback(() => {
-    const { draft: currentDraft, mapName: currentName, mapDescription: desc, currentMapId: mapId } =
-      useEditorStore.getState();
+    const {
+      draft: currentDraft,
+      mapName: currentName,
+      mapDescription: desc,
+      currentMapId: mapId,
+    } = useEditorStore.getState();
     if (!currentDraft) return;
     if (!currentName.trim()) {
       setSaveError("Enter a map name to save.");
@@ -531,7 +580,10 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
     // Set the brush to the selected fill terrain, then fill
     setBrush({ category: "terrain", terrainType: fillTerrain });
     // Need a microtask so the store updates before fillMap reads it
-    setTimeout(() => { fillMap(); setShowFillConfirm(false); }, 0);
+    setTimeout(() => {
+      fillMap();
+      setShowFillConfirm(false);
+    }, 0);
   };
 
   const handlePlay = () => {
@@ -592,7 +644,10 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
       const result = parseMapResponse(raw);
 
       // Update conversation history
-      const updatedConvo: ChatMessage[] = [...newConvo, { role: "assistant" as const, content: raw }];
+      const updatedConvo: ChatMessage[] = [
+        ...newConvo,
+        { role: "assistant" as const, content: raw },
+      ];
       setGenConversation(updatedConvo);
 
       if (result.error && result.preview.width === 0) {
@@ -604,7 +659,10 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
         const msg = result.error
           ? `Generated ${sizeLabel} map (with warning: ${result.error}). Loaded into editor.`
           : `Generated ${sizeLabel} map. Loaded into editor.`;
-        setGenMessages((prev) => [...prev, { role: "assistant", text: msg, csv: result.csv, mapSize: sizeLabel }]);
+        setGenMessages((prev) => [
+          ...prev,
+          { role: "assistant", text: msg, csv: result.csv, mapSize: sizeLabel },
+        ]);
 
         // Load into editor
         const mapData = parseAwbwMapText(result.csv);
@@ -618,7 +676,14 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
       setGenError(errMsg);
     } finally {
       setGenLoading(false);
-      setTimeout(() => genScrollRef.current?.scrollTo({ top: genScrollRef.current.scrollHeight, behavior: "smooth" }), 50);
+      setTimeout(
+        () =>
+          genScrollRef.current?.scrollTo({
+            top: genScrollRef.current.scrollHeight,
+            behavior: "smooth",
+          }),
+        50
+      );
     }
   };
 
@@ -628,16 +693,16 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
   };
 
   // Cursor style based on active tool
-  const cursorClass =
-    brush.category === "eraser"
-      ? "cursor-crosshair"
-      : "cursor-cell";
+  const cursorClass = brush.category === "eraser" ? "cursor-crosshair" : "cursor-cell";
 
   // ── Render ──────────────────────────────────────────────────────────────
 
   if (!dataLoaded) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: "#f0ece0" }}>
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: "#f0ece0" }}
+      >
         <div className="text-gray-500 text-lg">Loading game data...</div>
       </div>
     );
@@ -672,7 +737,11 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
           {saveFeedback ? "Saved!" : "Save"}
         </button>
         <button
-          onClick={() => { setSavedMapsList(loadSavedMaps()); setLoadError(""); setShowLoadDialog(true); }}
+          onClick={() => {
+            setSavedMapsList(loadSavedMaps());
+            setLoadError("");
+            setShowLoadDialog(true);
+          }}
           className="px-3 py-1.5 text-sm font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg border border-gray-200 transition-colors"
         >
           Load
@@ -690,7 +759,10 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
           Export
         </button>
         <button
-          onClick={() => { setGenError(""); setShowGenerateDialog(!showGenerateDialog); }}
+          onClick={() => {
+            setGenError("");
+            setShowGenerateDialog(!showGenerateDialog);
+          }}
           className={`px-3 py-1.5 text-sm font-bold rounded-lg border transition-colors ${
             showGenerateDialog
               ? "bg-amber-500 text-white border-amber-500"
@@ -764,12 +836,16 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
           />
 
           {/* Hovered tile coords (1-based) */}
-          {hoveredTile && draft && hoveredTile.x >= 0 && hoveredTile.x < draft.map_width &&
-            hoveredTile.y >= 0 && hoveredTile.y < draft.map_height && (
-            <div className="absolute bottom-2 left-2 bg-white/80 text-gray-700 text-sm px-2 py-1 rounded-lg font-mono shadow-sm border border-gray-200">
-              Col {hoveredTile.x + 1}, Row {hoveredTile.y + 1}
-            </div>
-          )}
+          {hoveredTile &&
+            draft &&
+            hoveredTile.x >= 0 &&
+            hoveredTile.x < draft.map_width &&
+            hoveredTile.y >= 0 &&
+            hoveredTile.y < draft.map_height && (
+              <div className="absolute bottom-2 left-2 bg-white/80 text-gray-700 text-sm px-2 py-1 rounded-lg font-mono shadow-sm border border-gray-200">
+                Col {hoveredTile.x + 1}, Row {hoveredTile.y + 1}
+              </div>
+            )}
         </div>
 
         {/* Right panel: AI chat OR map properties */}
@@ -782,7 +858,12 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
                 <div className="flex items-center gap-2">
                   {genMessages.length > 0 && (
                     <button
-                      onClick={() => { setGenMessages([]); setGenConversation([]); setGenInput(""); setGenError(""); }}
+                      onClick={() => {
+                        setGenMessages([]);
+                        setGenConversation([]);
+                        setGenInput("");
+                        setGenError("");
+                      }}
                       className="text-xs text-gray-400 hover:text-gray-600 font-medium transition-colors"
                     >
                       New chat
@@ -802,24 +883,34 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
                     <p className="font-semibold mb-1">No AI provider configured</p>
                     <p className="text-amber-600 text-xs">
-                      Add an API key for Anthropic, OpenAI, or Gemini in Settings, or enable a local AI server.
+                      Add an API key for Anthropic, OpenAI, or Gemini in Settings, or enable a local
+                      AI server.
                     </p>
                   </div>
                 </div>
               ) : (
                 <>
                   {/* Chat messages */}
-                  <div ref={genScrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5 min-h-0">
+                  <div
+                    ref={genScrollRef}
+                    className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5 min-h-0"
+                  >
                     {genMessages.length === 0 && (
                       <div className="text-center text-gray-400 text-xs py-6">
-                        <p className="mb-1.5 font-medium text-gray-500 text-sm">Describe the map you want</p>
+                        <p className="mb-1.5 font-medium text-gray-500 text-sm">
+                          Describe the map you want
+                        </p>
                         <p className="leading-relaxed max-w-[200px] mx-auto">
-                          e.g. &quot;A 20x15 island map with 2 players&quot; then refine with follow-ups
+                          e.g. &quot;A 20x15 island map with 2 players&quot; then refine with
+                          follow-ups
                         </p>
                       </div>
                     )}
                     {genMessages.map((msg, i) => (
-                      <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                      <div
+                        key={i}
+                        className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                      >
                         <div
                           className={`max-w-[85%] px-3 py-2 rounded-xl text-sm leading-relaxed ${
                             msg.role === "user"
@@ -829,7 +920,9 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
                         >
                           {msg.text}
                           {msg.mapSize && (
-                            <span className="block text-xs mt-1 opacity-70">{msg.mapSize} tiles</span>
+                            <span className="block text-xs mt-1 opacity-70">
+                              {msg.mapSize} tiles
+                            </span>
                           )}
                         </div>
                       </div>
@@ -851,8 +944,15 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
                         type="text"
                         value={genInput}
                         onChange={(e) => setGenInput(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !genLoading) { e.preventDefault(); handleGenSend(); } }}
-                        placeholder={genMessages.length === 0 ? "Describe your map..." : "Give feedback..."}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey && !genLoading) {
+                            e.preventDefault();
+                            handleGenSend();
+                          }
+                        }}
+                        placeholder={
+                          genMessages.length === 0 ? "Describe your map..." : "Give feedback..."
+                        }
                         className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:border-amber-500"
                         disabled={genLoading}
                         autoFocus
@@ -882,7 +982,10 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
                     <input
                       type="text"
                       value={mapName}
-                      onChange={(e) => { setMapName(e.target.value); setSaveError(""); }}
+                      onChange={(e) => {
+                        setMapName(e.target.value);
+                        setSaveError("");
+                      }}
                       placeholder="My Map"
                       className={`w-full bg-white border rounded-lg px-3 py-2 text-base text-gray-900 focus:outline-none focus:border-amber-500 ${
                         saveError ? "border-red-400" : "border-gray-300"
@@ -892,7 +995,9 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
 
                   {/* Map description */}
                   <div>
-                    <div className="text-xs text-gray-400 uppercase tracking-wide mb-1 font-semibold">Description</div>
+                    <div className="text-xs text-gray-400 uppercase tracking-wide mb-1 font-semibold">
+                      Description
+                    </div>
                     <input
                       type="text"
                       value={mapDescription}
@@ -907,32 +1012,76 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
                   {/* Map dimensions + resize */}
                   <div>
                     <div className="flex items-baseline gap-2 mb-1.5">
-                      <span className="text-xs text-gray-400 uppercase tracking-wide font-semibold">Size</span>
-                      <span className="text-base text-gray-800 font-mono font-bold">{draft.map_width} &times; {draft.map_height}</span>
+                      <span className="text-xs text-gray-400 uppercase tracking-wide font-semibold">
+                        Size
+                      </span>
+                      <span className="text-base text-gray-800 font-mono font-bold">
+                        {draft.map_width} &times; {draft.map_height}
+                      </span>
                     </div>
 
                     <div className="flex flex-col items-center gap-0.5">
                       <div className="flex items-center gap-1">
                         <span className="text-xs text-gray-400 w-6 text-right">Top</span>
-                        <button onClick={() => resizeMap("top", 1)} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-200 transition-colors">+</button>
-                        <button onClick={() => resizeMap("top", -1)} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-200 transition-colors">&minus;</button>
+                        <button
+                          onClick={() => resizeMap("top", 1)}
+                          className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-200 transition-colors"
+                        >
+                          +
+                        </button>
+                        <button
+                          onClick={() => resizeMap("top", -1)}
+                          className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-200 transition-colors"
+                        >
+                          &minus;
+                        </button>
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="flex items-center gap-1">
                           <span className="text-xs text-gray-400 w-6 text-right">Left</span>
-                          <button onClick={() => resizeMap("left", 1)} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-200 transition-colors">+</button>
-                          <button onClick={() => resizeMap("left", -1)} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-200 transition-colors">&minus;</button>
+                          <button
+                            onClick={() => resizeMap("left", 1)}
+                            className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-200 transition-colors"
+                          >
+                            +
+                          </button>
+                          <button
+                            onClick={() => resizeMap("left", -1)}
+                            className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-200 transition-colors"
+                          >
+                            &minus;
+                          </button>
                         </div>
                         <div className="flex items-center gap-1">
-                          <button onClick={() => resizeMap("right", 1)} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-200 transition-colors">+</button>
-                          <button onClick={() => resizeMap("right", -1)} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-200 transition-colors">&minus;</button>
+                          <button
+                            onClick={() => resizeMap("right", 1)}
+                            className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-200 transition-colors"
+                          >
+                            +
+                          </button>
+                          <button
+                            onClick={() => resizeMap("right", -1)}
+                            className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-200 transition-colors"
+                          >
+                            &minus;
+                          </button>
                           <span className="text-xs text-gray-400 w-6">Right</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
                         <span className="text-xs text-gray-400 w-6 text-right">Btm</span>
-                        <button onClick={() => resizeMap("bottom", 1)} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-200 transition-colors">+</button>
-                        <button onClick={() => resizeMap("bottom", -1)} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-200 transition-colors">&minus;</button>
+                        <button
+                          onClick={() => resizeMap("bottom", 1)}
+                          className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-200 transition-colors"
+                        >
+                          +
+                        </button>
+                        <button
+                          onClick={() => resizeMap("bottom", -1)}
+                          className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded border border-gray-200 transition-colors"
+                        >
+                          &minus;
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -942,7 +1091,9 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
                   {/* Stats */}
                   {stats && (
                     <div>
-                      <div className="text-xs text-gray-400 uppercase tracking-wide mb-1.5 font-semibold">Stats</div>
+                      <div className="text-xs text-gray-400 uppercase tracking-wide mb-1.5 font-semibold">
+                        Stats
+                      </div>
                       <div className="bg-gray-50 rounded-lg p-2.5">
                         <EditorStatsPanel stats={stats} />
                       </div>
@@ -955,20 +1106,77 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
                   <details className="group">
                     <summary className="text-xs text-gray-400 uppercase tracking-wide font-semibold cursor-pointer select-none flex items-center gap-1">
                       Shortcuts
-                      <span className="text-gray-300 group-open:rotate-90 transition-transform text-[10px]">&#9654;</span>
+                      <span className="text-gray-300 group-open:rotate-90 transition-transform text-[10px]">
+                        &#9654;
+                      </span>
                     </summary>
                     <div className="mt-1.5 text-sm text-gray-400 space-y-0.5">
-                      <div><kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">T</kbd> Terrain</div>
-                      <div><kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">B</kbd> Buildings</div>
-                      <div><kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">U</kbd> Units</div>
-                      <div><kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">E</kbd> Eraser</div>
-                      <div><kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">1-4</kbd> Player</div>
-                      <div><kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">Ctrl+Z</kbd> Undo</div>
-                      <div><kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">Ctrl+Y</kbd> Redo</div>
-                      <div><kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">Ctrl+S</kbd> Save</div>
-                      <div><kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">Right-click</kbd> Erase</div>
-                      <div><kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">Ctrl+Drag</kbd> Pan</div>
-                      <div><kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">Scroll</kbd> Zoom</div>
+                      <div>
+                        <kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">
+                          T
+                        </kbd>{" "}
+                        Terrain
+                      </div>
+                      <div>
+                        <kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">
+                          B
+                        </kbd>{" "}
+                        Buildings
+                      </div>
+                      <div>
+                        <kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">
+                          U
+                        </kbd>{" "}
+                        Units
+                      </div>
+                      <div>
+                        <kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">
+                          E
+                        </kbd>{" "}
+                        Eraser
+                      </div>
+                      <div>
+                        <kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">
+                          1-4
+                        </kbd>{" "}
+                        Player
+                      </div>
+                      <div>
+                        <kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">
+                          Ctrl+Z
+                        </kbd>{" "}
+                        Undo
+                      </div>
+                      <div>
+                        <kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">
+                          Ctrl+Y
+                        </kbd>{" "}
+                        Redo
+                      </div>
+                      <div>
+                        <kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">
+                          Ctrl+S
+                        </kbd>{" "}
+                        Save
+                      </div>
+                      <div>
+                        <kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">
+                          Right-click
+                        </kbd>{" "}
+                        Erase
+                      </div>
+                      <div>
+                        <kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">
+                          Ctrl+Drag
+                        </kbd>{" "}
+                        Pan
+                      </div>
+                      <div>
+                        <kbd className="bg-gray-100 text-gray-600 font-semibold px-1 py-0.5 rounded text-xs">
+                          Scroll
+                        </kbd>{" "}
+                        Zoom
+                      </div>
                     </div>
                   </details>
                 </div>
@@ -993,7 +1201,9 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
                   min={5}
                   max={50}
                   value={newWidth}
-                  onChange={(e) => setNewWidth(Math.max(5, Math.min(50, parseInt(e.target.value) || 5)))}
+                  onChange={(e) =>
+                    setNewWidth(Math.max(5, Math.min(50, parseInt(e.target.value) || 5)))
+                  }
                   className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-base text-gray-900 focus:outline-none focus:border-amber-500"
                 />
               </div>
@@ -1004,7 +1214,9 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
                   min={5}
                   max={50}
                   value={newHeight}
-                  onChange={(e) => setNewHeight(Math.max(5, Math.min(50, parseInt(e.target.value) || 5)))}
+                  onChange={(e) =>
+                    setNewHeight(Math.max(5, Math.min(50, parseInt(e.target.value) || 5)))
+                  }
                   className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-base text-gray-900 focus:outline-none focus:border-amber-500"
                 />
               </div>
@@ -1033,7 +1245,8 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
           <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-96 space-y-4">
             <div className="text-gray-900 font-bold text-lg">Fill Entire Map</div>
             <p className="text-gray-500 text-sm">
-              Choose a terrain type to fill the entire map. All existing tiles and units will be replaced. This can be undone.
+              Choose a terrain type to fill the entire map. All existing tiles and units will be
+              replaced. This can be undone.
             </p>
             <div className="grid grid-cols-3 gap-2">
               {[
@@ -1079,19 +1292,32 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
 
       {/* Import Dialog */}
       {showImportDialog && (
-        <ModalBackdrop onClose={() => { setShowImportDialog(false); setImportText(""); setImportError(""); }}>
+        <ModalBackdrop
+          onClose={() => {
+            setShowImportDialog(false);
+            setImportText("");
+            setImportError("");
+          }}
+        >
           <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 w-96 space-y-4">
             <div className="text-gray-900 font-bold text-lg">Import AWBW Map</div>
             <textarea
               value={importText}
-              onChange={(e) => { setImportText(e.target.value); setImportError(""); }}
+              onChange={(e) => {
+                setImportText(e.target.value);
+                setImportError("");
+              }}
               placeholder="Paste AWBW CSV (comma-separated tile IDs, one row per line)"
               className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 font-mono h-32 resize-y focus:outline-none focus:border-amber-500"
             />
             {importError && <p className="text-red-500 text-sm">{importError}</p>}
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => { setShowImportDialog(false); setImportText(""); setImportError(""); }}
+                onClick={() => {
+                  setShowImportDialog(false);
+                  setImportText("");
+                  setImportError("");
+                }}
                 className="px-4 py-2 text-sm text-gray-500 hover:text-gray-900 font-semibold transition-colors"
               >
                 Cancel

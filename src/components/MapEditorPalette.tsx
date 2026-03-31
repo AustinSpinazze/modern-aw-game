@@ -139,10 +139,26 @@ const PLAYER_ICON_BG: Record<number, string> = {
 };
 
 const UNIT_ICONS: Record<string, string> = {
-  infantry: "Inf", mech: "Mch", recon: "Rcn", apc: "APC", tank: "Tnk",
-  md_tank: "MdT", artillery: "Art", rocket: "Rkt", anti_air: "AA", missile: "Msl",
-  t_copter: "TCp", b_copter: "BCp", fighter: "Ftr", bomber: "Bmr", stealth: "Sth",
-  lander: "Lnd", cruiser: "Crs", submarine: "Sub", battleship: "BSh", carrier: "Car",
+  infantry: "Inf",
+  mech: "Mch",
+  recon: "Rcn",
+  apc: "APC",
+  tank: "Tnk",
+  md_tank: "MdT",
+  artillery: "Art",
+  rocket: "Rkt",
+  anti_air: "AA",
+  missile: "Msl",
+  t_copter: "TCp",
+  b_copter: "BCp",
+  fighter: "Ftr",
+  bomber: "Bmr",
+  stealth: "Sth",
+  lander: "Lnd",
+  cruiser: "Crs",
+  submarine: "Sub",
+  battleship: "BSh",
+  carrier: "Car",
 };
 
 // ── Sprite frame data cache ─────────────────────────────────────────────────
@@ -163,7 +179,7 @@ async function loadSheetFrames(sheet: string): Promise<SheetFrames> {
   if (sheetCache[sheet]) return sheetCache[sheet];
   try {
     const resp = await fetch(`/sprites/warsworld/${sheet}.json`);
-    const data = await resp.json() as { frames: Record<string, FrameInfo> };
+    const data = (await resp.json()) as { frames: Record<string, FrameInfo> };
     sheetCache[sheet] = data.frames;
     // Preload the image too
     if (!imageCache[sheet]) {
@@ -184,7 +200,7 @@ async function loadSheetFrames(sheet: string): Promise<SheetFrames> {
 function renderFrameToCanvas(
   img: HTMLImageElement,
   info: FrameInfo,
-  displaySize: number,
+  displaySize: number
 ): HTMLCanvasElement {
   const { frame, rotated, sourceSize, spriteSourceSize } = info;
   const logW = sourceSize.w;
@@ -205,17 +221,19 @@ function renderFrameToCanvas(
     ctx.save();
     ctx.translate(spriteSourceSize.x, spriteSourceSize.y + spriteSourceSize.h);
     ctx.rotate(-Math.PI / 2);
-    ctx.drawImage(
-      img,
-      frame.x, frame.y, atlasW, atlasH,
-      0, 0, atlasW, atlasH,
-    );
+    ctx.drawImage(img, frame.x, frame.y, atlasW, atlasH, 0, 0, atlasW, atlasH);
     ctx.restore();
   } else {
     ctx.drawImage(
       img,
-      frame.x, frame.y, frame.w, frame.h,
-      spriteSourceSize.x, spriteSourceSize.y, frame.w, frame.h,
+      frame.x,
+      frame.y,
+      frame.w,
+      frame.h,
+      spriteSourceSize.x,
+      spriteSourceSize.y,
+      frame.w,
+      frame.h
     );
   }
 
@@ -359,9 +377,10 @@ export default function MapEditorPalette() {
   };
 
   // Get the army sheet for current player selection
-  const armySheet = brush.playerId >= 0
-    ? PLAYER_OPTIONS.find((p) => p.id === brush.playerId)?.sheet ?? "orange-star"
-    : "neutral";
+  const armySheet =
+    brush.playerId >= 0
+      ? (PLAYER_OPTIONS.find((p) => p.id === brush.playerId)?.sheet ?? "orange-star")
+      : "neutral";
 
   // Owner selector shared between buildings and units
   const ownerOptions = visibleTab === "unit" ? UNIT_PLAYER_OPTIONS : PLAYER_OPTIONS;
@@ -391,9 +410,7 @@ export default function MapEditorPalette() {
       {/* Eraser toggle */}
       <div className="px-4 pt-2 shrink-0">
         <button
-          onClick={() =>
-            setBrush({ category: brush.category === "eraser" ? "terrain" : "eraser" })
-          }
+          onClick={() => setBrush({ category: brush.category === "eraser" ? "terrain" : "eraser" })}
           className={`w-full py-1.5 text-xs font-bold rounded-lg transition-colors ${
             isEraser
               ? "bg-red-500 text-white"
@@ -407,7 +424,9 @@ export default function MapEditorPalette() {
       {/* Owner selector (buildings & units only) */}
       {(visibleTab === "building" || visibleTab === "unit") && (
         <div className="px-4 pt-3 pb-1 shrink-0">
-          <div className="text-xs text-gray-400 uppercase tracking-wide mb-2 font-semibold">Owner</div>
+          <div className="text-xs text-gray-400 uppercase tracking-wide mb-2 font-semibold">
+            Owner
+          </div>
           <div className="flex gap-1.5">
             {ownerOptions.map((p) => (
               <button
@@ -448,7 +467,9 @@ export default function MapEditorPalette() {
                     fallbackColor={TERRAIN_COLORS[t.id]}
                   />
                 ) : (
-                  <div className={`w-12 h-12 rounded-md ${TERRAIN_COLORS[t.id] ?? "bg-gray-300"}`} />
+                  <div
+                    className={`w-12 h-12 rounded-md ${TERRAIN_COLORS[t.id] ?? "bg-gray-300"}`}
+                  />
                 )}
                 <span className="text-sm text-gray-700 leading-tight font-medium">{t.label}</span>
               </button>
@@ -476,7 +497,9 @@ export default function MapEditorPalette() {
                     fallbackColor={BUILDING_COLORS[b.id]}
                   />
                 ) : (
-                  <div className={`w-12 h-12 rounded-md ${BUILDING_COLORS[b.id] ?? "bg-gray-300"}`} />
+                  <div
+                    className={`w-12 h-12 rounded-md ${BUILDING_COLORS[b.id] ?? "bg-gray-300"}`}
+                  />
                 )}
                 <span className="text-sm text-gray-700 leading-tight font-medium">{b.label}</span>
               </button>
@@ -513,7 +536,9 @@ export default function MapEditorPalette() {
                     {UNIT_ICONS[u.id] ?? u.id.slice(0, 3).toUpperCase()}
                   </div>
                 )}
-                <span className="text-sm text-gray-700 leading-tight text-center font-medium">{u.label}</span>
+                <span className="text-sm text-gray-700 leading-tight text-center font-medium">
+                  {u.label}
+                </span>
               </button>
             ))}
           </div>

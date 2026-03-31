@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useConfigStore } from "../store/config-store";
-import { useUsageStore, type UsageEntry } from "../store/usage-store";
+import { useUsageStore } from "../store/usage-store";
+import { LocalEndpointPingPanel } from "./LocalEndpointPingPanel";
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -22,7 +23,7 @@ const ANTHROPIC_MODELS = [
 const OPENAI_MODELS = [
   { id: "gpt-5.4", label: "GPT-5.4 (most capable)" },
   { id: "gpt-5.4-mini", label: "GPT-5.4 Mini (fast)" },
-  { id: "gpt-5.4-nano", label: "GPT-5.4 Nano (cheapest)" },
+  { id: "gpt-5.4-nano", label: "GPT-5.4 Nano (smallest)" },
   { id: "o3", label: "o3 (reasoning)" },
   { id: "o4-mini", label: "o4-mini (reasoning, fast)" },
   { id: "o3-mini", label: "o3-mini (reasoning, budget)" },
@@ -39,18 +40,10 @@ const GEMINI_MODELS = [
   { id: "gemini-3.1-flash-lite-preview", label: "Gemini 3.1 Flash Lite (budget)" },
   { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro (reasoning)" },
   { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash (recommended)" },
-  { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite (cheapest)" },
+  { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite (light)" },
 ];
 
 // ── Formatting helpers ───────────────────────────────────────────────────────
-
-function formatCost(usd: number): string {
-  if (usd === 0) return "$0.00";
-  if (usd < 0.001) return "< $0.001";
-  if (usd < 0.01) return `$${usd.toFixed(4)}`;
-  if (usd < 1) return `$${usd.toFixed(3)}`;
-  return `$${usd.toFixed(2)}`;
-}
 
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -83,54 +76,64 @@ function getProviderLabel(provider: string): string {
 function UsageDashboard() {
   const entries = useUsageStore((s) => s.entries);
   const clearHistory = useUsageStore((s) => s.clearHistory);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const stats = useMemo(() => {
-    const totalCost = entries.reduce((sum, e) => sum + e.costUsd, 0);
     const totalInput = entries.reduce((sum, e) => sum + e.inputTokens, 0);
     const totalOutput = entries.reduce((sum, e) => sum + e.outputTokens, 0);
     const totalCalls = entries.length;
 
-    // Per-model breakdown
-    const byModel: Record<string, { provider: string; calls: number; input: number; output: number; cost: number; gameTurns: number }> = {};
+    const byModel: Record<
+      string,
+      {
+        provider: string;
+        calls: number;
+        input: number;
+        output: number;
+        gameTurns: number;
+      }
+    > = {};
     for (const e of entries) {
-      if (!byModel[e.model]) byModel[e.model] = { provider: e.provider, calls: 0, input: 0, output: 0, cost: 0, gameTurns: 0 };
+      if (!byModel[e.model])
+        byModel[e.model] = {
+          provider: e.provider,
+          calls: 0,
+          input: 0,
+          output: 0,
+          gameTurns: 0,
+        };
       byModel[e.model].calls++;
       byModel[e.model].input += e.inputTokens;
       byModel[e.model].output += e.outputTokens;
-      byModel[e.model].cost += e.costUsd;
       if (e.context === "game_turn") byModel[e.model].gameTurns++;
     }
 
-    // Per-context breakdown
-    const byContext: Record<string, { calls: number; cost: number; tokens: number }> = {};
+    const byContext: Record<string, { calls: number; tokens: number }> = {};
     for (const e of entries) {
-      const ctx = e.context === "game_turn" ? "Game Turns" : e.context === "map_gen" ? "Map Gen" : "Other";
-      if (!byContext[ctx]) byContext[ctx] = { calls: 0, cost: 0, tokens: 0 };
+      const ctx =
+        e.context === "game_turn" ? "Game Turns" : e.context === "map_gen" ? "Map Gen" : "Other";
+      if (!byContext[ctx]) byContext[ctx] = { calls: 0, tokens: 0 };
       byContext[ctx].calls++;
-      byContext[ctx].cost += e.costUsd;
       byContext[ctx].tokens += e.inputTokens + e.outputTokens;
     }
 
-    // Monthly breakdown (last 6 months max)
-    const byMonth: Record<string, { cost: number; tokens: number; calls: number }> = {};
+    const byMonth: Record<string, { tokens: number; calls: number }> = {};
     for (const e of entries) {
       const key = getMonthLabel(e.timestamp);
-      if (!byMonth[key]) byMonth[key] = { cost: 0, tokens: 0, calls: 0 };
-      byMonth[key].cost += e.costUsd;
+      if (!byMonth[key]) byMonth[key] = { tokens: 0, calls: 0 };
       byMonth[key].tokens += e.inputTokens + e.outputTokens;
       byMonth[key].calls++;
     }
 
-    // Avg tokens per game turn call
     const gameTurnEntries = entries.filter((e) => e.context === "game_turn");
-    const avgTokensPerTurn = gameTurnEntries.length > 0
-      ? Math.round(gameTurnEntries.reduce((s, e) => s + e.inputTokens + e.outputTokens, 0) / gameTurnEntries.length)
-      : 0;
-    const avgCostPerTurn = gameTurnEntries.length > 0
-      ? gameTurnEntries.reduce((s, e) => s + e.costUsd, 0) / gameTurnEntries.length
-      : 0;
+    const avgTokensPerTurn =
+      gameTurnEntries.length > 0
+        ? Math.round(
+            gameTurnEntries.reduce((s, e) => s + e.inputTokens + e.outputTokens, 0) /
+              gameTurnEntries.length
+          )
+        : 0;
 
-    // Sessions (approximate: group game_turn entries with gaps > 10min into separate sessions)
     let sessions = 0;
     let lastTs = 0;
     for (const e of gameTurnEntries.sort((a, b) => a.timestamp - b.timestamp)) {
@@ -139,9 +142,13 @@ function UsageDashboard() {
     }
 
     return {
-      totalCost, totalInput, totalOutput, totalCalls,
-      byModel, byContext, byMonth,
-      avgTokensPerTurn, avgCostPerTurn,
+      totalInput,
+      totalOutput,
+      totalCalls,
+      byModel,
+      byContext,
+      byMonth,
+      avgTokensPerTurn,
       sessions,
       inputOutputRatio: totalInput > 0 ? totalOutput / totalInput : 0,
     };
@@ -152,25 +159,75 @@ function UsageDashboard() {
       <div className="flex flex-col items-center justify-center py-12 text-gray-400">
         <div className="text-4xl mb-3 opacity-50">~</div>
         <p className="text-sm font-medium">No usage data yet</p>
-        <p className="text-xs text-gray-500 mt-1">Play a game with an AI opponent to start tracking</p>
+        <p className="text-xs text-gray-500 mt-1">
+          Play a game with an AI opponent to start tracking
+        </p>
       </div>
     );
   }
 
   const monthEntries = Object.entries(stats.byMonth);
-  const maxMonthCost = Math.max(...monthEntries.map(([, d]) => d.cost), 0.001);
+  const maxMonthTokens = Math.max(...monthEntries.map(([, d]) => d.tokens), 1);
 
   return (
     <div className="space-y-5">
-      {/* ── Summary cards ── */}
-      <div className="grid grid-cols-4 gap-2">
-        <SummaryCard label="Total Cost" value={formatCost(stats.totalCost)} accent />
-        <SummaryCard label="Tokens" value={formatTokens(stats.totalInput + stats.totalOutput)} />
-        <SummaryCard label="API Calls" value={String(stats.totalCalls)} />
-        <SummaryCard label="Sessions" value={String(stats.sessions)} />
+      <div className="border border-amber-200 bg-amber-50/60 rounded-lg px-3.5 py-3">
+        <p className="text-xs font-bold text-amber-800 uppercase tracking-wide mb-1">
+          Why tokens, not dollars?
+        </p>
+        <p className="text-xs text-gray-600 leading-relaxed">
+          Prices vary by provider and change over time. To estimate cost, note your input &amp;
+          output tokens below, then enter them at{" "}
+          <a
+            href="https://pricepertoken.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-amber-800 hover:text-amber-950 font-semibold underline underline-offset-2"
+          >
+            Price Per Token
+          </a>{" "}
+          or check{" "}
+          <a
+            href="https://www.anthropic.com/pricing"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-amber-800 hover:text-amber-950 underline underline-offset-2"
+          >
+            Anthropic
+          </a>
+          ,{" "}
+          <a
+            href="https://openai.com/pricing"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-amber-800 hover:text-amber-950 underline underline-offset-2"
+          >
+            OpenAI
+          </a>
+          ,{" "}
+          <a
+            href="https://ai.google.dev/pricing"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-amber-800 hover:text-amber-950 underline underline-offset-2"
+          >
+            Google
+          </a>
+          .
+        </p>
       </div>
 
-      {/* ── Context breakdown ── */}
+      <div className="grid grid-cols-4 gap-2">
+        <SummaryCard
+          label="Tokens"
+          value={formatTokens(stats.totalInput + stats.totalOutput)}
+          detail={`${formatTokens(stats.totalInput)} in / ${formatTokens(stats.totalOutput)} out`}
+        />
+        <SummaryCard label="API Calls" value={String(stats.totalCalls)} />
+        <SummaryCard label="Sessions" value={String(stats.sessions)} />
+        <SummaryCard label="Avg tokens / turn" value={formatTokens(stats.avgTokensPerTurn)} />
+      </div>
+
       <div>
         <SectionHeader title="By Activity" />
         <div className="grid grid-cols-2 gap-2">
@@ -178,37 +235,38 @@ function UsageDashboard() {
             <div key={ctx} className="bg-white border border-gray-200 rounded-lg px-3 py-2.5">
               <div className="text-xs text-gray-500 mb-1">{ctx}</div>
               <div className="flex items-baseline justify-between">
-                <span className="text-sm font-semibold text-gray-900">{formatCost(data.cost)}</span>
+                <span className="text-sm font-semibold text-gray-900">
+                  {formatTokens(data.tokens)}
+                </span>
                 <span className="text-xs text-gray-400">{data.calls} calls</span>
               </div>
-              <div className="text-xs text-gray-400 mt-0.5">{formatTokens(data.tokens)} tokens</div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── Monthly trend ── */}
       {monthEntries.length > 0 && (
         <div>
-          <SectionHeader title="Monthly Spend" />
+          <SectionHeader title="Monthly Usage" />
           <div className="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
             {monthEntries.map(([month, data]) => (
               <div key={month} className="flex items-center gap-3">
                 <span className="text-xs text-gray-500 w-14 shrink-0">{month}</span>
                 <div className="flex-1 h-5 bg-gray-100 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-red-500 rounded-full transition-all"
-                    style={{ width: `${Math.max(4, (data.cost / maxMonthCost) * 100)}%` }}
+                    className="h-full bg-amber-500 rounded-full transition-all"
+                    style={{ width: `${Math.max(4, (data.tokens / maxMonthTokens) * 100)}%` }}
                   />
                 </div>
-                <span className="text-xs font-medium text-gray-700 w-16 text-right">{formatCost(data.cost)}</span>
+                <span className="text-xs font-medium text-gray-700 w-20 text-right font-mono">
+                  {formatTokens(data.tokens)}
+                </span>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* ── Model comparison table ── */}
       <div>
         <SectionHeader title="Model Comparison" />
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
@@ -219,24 +277,33 @@ function UsageDashboard() {
                 <th className="text-right font-medium text-gray-500 px-3 py-2">Calls</th>
                 <th className="text-right font-medium text-gray-500 px-3 py-2">Tokens</th>
                 <th className="text-right font-medium text-gray-500 px-3 py-2">Avg/Call</th>
-                <th className="text-right font-medium text-gray-500 px-3 py-2">Cost</th>
               </tr>
             </thead>
             <tbody>
               {Object.entries(stats.byModel)
-                .sort(([, a], [, b]) => b.cost - a.cost)
+                .sort(([, a], [, b]) => b.input + b.output - (a.input + a.output))
                 .map(([model, data]) => (
-                  <tr key={model} className="border-t border-gray-50 hover:bg-gray-50 transition-colors">
+                  <tr
+                    key={model}
+                    className="border-t border-gray-50 hover:bg-gray-50 transition-colors"
+                  >
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-1.5">
-                        <span className={`w-2 h-2 rounded-full shrink-0 ${getProviderColor(data.provider)}`} />
-                        <span className="text-gray-800 font-medium truncate max-w-[130px]">{model}</span>
+                        <span
+                          className={`w-2 h-2 rounded-full shrink-0 ${getProviderColor(data.provider)}`}
+                        />
+                        <span className="text-gray-800 font-medium truncate max-w-[130px]">
+                          {model}
+                        </span>
                       </div>
                     </td>
                     <td className="text-right text-gray-600 px-3 py-2">{data.calls}</td>
-                    <td className="text-right text-gray-600 px-3 py-2">{formatTokens(data.input + data.output)}</td>
-                    <td className="text-right text-gray-600 px-3 py-2">{formatTokens(Math.round((data.input + data.output) / data.calls))}</td>
-                    <td className="text-right font-medium text-gray-900 px-3 py-2">{formatCost(data.cost)}</td>
+                    <td className="text-right text-gray-600 px-3 py-2">
+                      {formatTokens(data.input + data.output)}
+                    </td>
+                    <td className="text-right text-gray-600 px-3 py-2">
+                      {formatTokens(Math.round((data.input + data.output) / data.calls))}
+                    </td>
                   </tr>
                 ))}
             </tbody>
@@ -244,14 +311,13 @@ function UsageDashboard() {
         </div>
       </div>
 
-      {/* ── Insights ── */}
       <div>
         <SectionHeader title="Insights" />
         <div className="grid grid-cols-2 gap-2">
           <InsightCard
             label="Avg tokens / turn"
             value={formatTokens(stats.avgTokensPerTurn)}
-            detail={`~${formatCost(stats.avgCostPerTurn)} per turn`}
+            detail="Across game-turn API calls"
           />
           <InsightCard
             label="Input / Output ratio"
@@ -262,23 +328,73 @@ function UsageDashboard() {
       </div>
 
       {/* ── Clear ── */}
-      <div className="pt-1">
+      <div className="pt-1 flex gap-3">
         <button
-          onClick={() => { if (window.confirm("Clear all usage history? This cannot be undone.")) clearHistory(); }}
-          className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+          onClick={() => {
+            const blob = new Blob([JSON.stringify(entries, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `modern-aw-usage-${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+          className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
         >
-          Clear usage history
+          Export JSON
         </button>
+        {showClearConfirm ? (
+          <span className="flex items-center gap-2">
+            <span className="text-xs text-red-500 font-medium">Delete all data?</span>
+            <button
+              onClick={() => {
+                clearHistory();
+                setShowClearConfirm(false);
+              }}
+              className="text-xs text-white bg-red-500 hover:bg-red-600 px-2 py-0.5 rounded transition-colors font-semibold"
+            >
+              Yes
+            </button>
+            <button
+              onClick={() => setShowClearConfirm(false)}
+              className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              No
+            </button>
+          </span>
+        ) : (
+          <button
+            onClick={() => setShowClearConfirm(true)}
+            className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+          >
+            Clear usage history
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
-function SummaryCard({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function SummaryCard({
+  label,
+  value,
+  accent,
+  detail,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+  detail?: string;
+}) {
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-2.5 text-center">
-      <div className={`font-bold text-base ${accent ? "text-red-600" : "text-gray-900"}`}>{value}</div>
+      <div className={`font-bold text-base ${accent ? "text-red-600" : "text-gray-900"}`}>
+        {value}
+      </div>
       <div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">{label}</div>
+      {detail && (
+        <div className="text-[9px] text-gray-400 mt-0.5">{detail}</div>
+      )}
     </div>
   );
 }
@@ -302,28 +418,55 @@ function InsightCard({ label, value, detail }: { label: string; value: string; d
 // ── Provider Settings ────────────────────────────────────────────────────────
 
 function ProviderSettings({
-  anthropicKey, setAnthropicKey, showAnthropicKey, setShowAnthropicKey,
-  openaiKey, setOpenaiKey, showOpenaiKey, setShowOpenaiKey,
-  geminiKey, setGeminiKey, showGeminiKey, setShowGeminiKey,
-  anthropicModel, setAnthropicModel,
-  openaiModel, setOpenaiModel,
-  geminiModel, setGeminiModel,
-  localHttpEnabled, setLocalHttpEnabled,
-  localHttpUrl, setLocalHttpUrl,
-  localModel, setLocalModel,
+  anthropicKey,
+  setAnthropicKey,
+  showAnthropicKey,
+  setShowAnthropicKey,
+  openaiKey,
+  setOpenaiKey,
+  showOpenaiKey,
+  setShowOpenaiKey,
+  geminiKey,
+  setGeminiKey,
+  showGeminiKey,
+  setShowGeminiKey,
+  anthropicModel,
+  setAnthropicModel,
+  openaiModel,
+  setOpenaiModel,
+  geminiModel,
+  setGeminiModel,
+  localHttpEnabled,
+  setLocalHttpEnabled,
+  localHttpUrl,
+  setLocalHttpUrl,
+  localModel,
+  setLocalModel,
 }: {
-  anthropicKey: string; setAnthropicKey: (v: string) => void;
-  showAnthropicKey: boolean; setShowAnthropicKey: (v: boolean) => void;
-  openaiKey: string; setOpenaiKey: (v: string) => void;
-  showOpenaiKey: boolean; setShowOpenaiKey: (v: boolean) => void;
-  geminiKey: string; setGeminiKey: (v: string) => void;
-  showGeminiKey: boolean; setShowGeminiKey: (v: boolean) => void;
-  anthropicModel: string; setAnthropicModel: (v: string) => void;
-  openaiModel: string; setOpenaiModel: (v: string) => void;
-  geminiModel: string; setGeminiModel: (v: string) => void;
-  localHttpEnabled: boolean; setLocalHttpEnabled: (v: boolean) => void;
-  localHttpUrl: string; setLocalHttpUrl: (v: string) => void;
-  localModel: string; setLocalModel: (v: string) => void;
+  anthropicKey: string;
+  setAnthropicKey: (v: string) => void;
+  showAnthropicKey: boolean;
+  setShowAnthropicKey: (v: boolean) => void;
+  openaiKey: string;
+  setOpenaiKey: (v: string) => void;
+  showOpenaiKey: boolean;
+  setShowOpenaiKey: (v: boolean) => void;
+  geminiKey: string;
+  setGeminiKey: (v: string) => void;
+  showGeminiKey: boolean;
+  setShowGeminiKey: (v: boolean) => void;
+  anthropicModel: string;
+  setAnthropicModel: (v: string) => void;
+  openaiModel: string;
+  setOpenaiModel: (v: string) => void;
+  geminiModel: string;
+  setGeminiModel: (v: string) => void;
+  localHttpEnabled: boolean;
+  setLocalHttpEnabled: (v: boolean) => void;
+  localHttpUrl: string;
+  setLocalHttpUrl: (v: string) => void;
+  localModel: string;
+  setLocalModel: (v: string) => void;
 }) {
   const isElectron = !!window.electronAPI;
 
@@ -411,6 +554,7 @@ function ProviderSettings({
                 className="w-full bg-white border border-gray-300 focus:border-red-500 focus:outline-none rounded-lg px-3 py-2 text-sm text-gray-900 font-mono"
               />
             </div>
+            <LocalEndpointPingPanel url={localHttpUrl} accent="red" />
           </div>
         ) : (
           <p className="text-xs text-gray-400 pl-4.5">
@@ -423,14 +567,26 @@ function ProviderSettings({
 }
 
 function ProviderSection({
-  title, apiKey, setApiKey, showKey, setShowKey, placeholder,
-  model, setModel, models, isElectron, dotColor,
+  title,
+  apiKey,
+  setApiKey,
+  showKey,
+  setShowKey,
+  placeholder,
+  model,
+  setModel,
+  models,
+  isElectron,
+  dotColor,
 }: {
   title: string;
-  apiKey: string; setApiKey: (v: string) => void;
-  showKey: boolean; setShowKey: (v: boolean) => void;
+  apiKey: string;
+  setApiKey: (v: string) => void;
+  showKey: boolean;
+  setShowKey: (v: boolean) => void;
   placeholder: string;
-  model: string; setModel: (v: string) => void;
+  model: string;
+  setModel: (v: string) => void;
   models: Array<{ id: string; label: string }>;
   isElectron: boolean;
   dotColor: string;
@@ -444,7 +600,7 @@ function ProviderSection({
         <h3 className="text-sm font-semibold text-gray-700">{title}</h3>
         {hasKey && (
           <span className="ml-auto text-[10px] font-medium text-green-600 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
-            Connected
+            API key set
           </span>
         )}
       </div>
@@ -479,7 +635,9 @@ function ProviderSection({
             className="w-full bg-white border border-gray-300 focus:border-red-500 focus:outline-none rounded-lg px-3 py-2 text-sm text-gray-900"
           >
             {models.map((m) => (
-              <option key={m.id} value={m.id}>{m.label}</option>
+              <option key={m.id} value={m.id}>
+                {m.label}
+              </option>
             ))}
           </select>
         </div>
@@ -539,8 +697,17 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
       onClose();
     }, 800);
   }, [
-    anthropicKey, openaiKey, geminiKey, localHttpUrl, localHttpEnabled,
-    localModel, anthropicModel, openaiModel, geminiModel, store, onClose,
+    anthropicKey,
+    openaiKey,
+    geminiKey,
+    localHttpUrl,
+    localHttpEnabled,
+    localModel,
+    anthropicModel,
+    openaiModel,
+    geminiModel,
+    store,
+    onClose,
   ]);
 
   const handleKeyDown = useCallback(
@@ -554,7 +721,9 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
       onKeyDown={handleKeyDown}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div className="bg-gray-50 border border-gray-200 rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
         {/* Header + Tabs */}
@@ -566,12 +735,27 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
               className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               aria-label="Close settings"
             >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path
+                  d="M1 1l12 12M13 1L1 13"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
             </button>
           </div>
           <div className="flex gap-0 px-5 mt-3">
-            <TabButton label="AI Providers" active={tab === "providers"} onClick={() => setTab("providers")} />
-            <TabButton label="Usage Dashboard" active={tab === "usage"} onClick={() => setTab("usage")} />
+            <TabButton
+              label="AI Providers"
+              active={tab === "providers"}
+              onClick={() => setTab("providers")}
+            />
+            <TabButton
+              label="Usage Dashboard"
+              active={tab === "usage"}
+              onClick={() => setTab("usage")}
+            />
           </div>
         </div>
 
@@ -579,18 +763,30 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
         <div className="p-5 max-h-[65vh] overflow-y-auto">
           {tab === "providers" ? (
             <ProviderSettings
-              anthropicKey={anthropicKey} setAnthropicKey={setAnthropicKey}
-              showAnthropicKey={showAnthropicKey} setShowAnthropicKey={setShowAnthropicKey}
-              openaiKey={openaiKey} setOpenaiKey={setOpenaiKey}
-              showOpenaiKey={showOpenaiKey} setShowOpenaiKey={setShowOpenaiKey}
-              geminiKey={geminiKey} setGeminiKey={setGeminiKey}
-              showGeminiKey={showGeminiKey} setShowGeminiKey={setShowGeminiKey}
-              anthropicModel={anthropicModel} setAnthropicModel={setAnthropicModel}
-              openaiModel={openaiModel} setOpenaiModel={setOpenaiModel}
-              geminiModel={geminiModel} setGeminiModel={setGeminiModel}
-              localHttpEnabled={localHttpEnabled} setLocalHttpEnabled={setLocalHttpEnabled}
-              localHttpUrl={localHttpUrl} setLocalHttpUrl={setLocalHttpUrl}
-              localModel={localModel} setLocalModel={setLocalModel}
+              anthropicKey={anthropicKey}
+              setAnthropicKey={setAnthropicKey}
+              showAnthropicKey={showAnthropicKey}
+              setShowAnthropicKey={setShowAnthropicKey}
+              openaiKey={openaiKey}
+              setOpenaiKey={setOpenaiKey}
+              showOpenaiKey={showOpenaiKey}
+              setShowOpenaiKey={setShowOpenaiKey}
+              geminiKey={geminiKey}
+              setGeminiKey={setGeminiKey}
+              showGeminiKey={showGeminiKey}
+              setShowGeminiKey={setShowGeminiKey}
+              anthropicModel={anthropicModel}
+              setAnthropicModel={setAnthropicModel}
+              openaiModel={openaiModel}
+              setOpenaiModel={setOpenaiModel}
+              geminiModel={geminiModel}
+              setGeminiModel={setGeminiModel}
+              localHttpEnabled={localHttpEnabled}
+              setLocalHttpEnabled={setLocalHttpEnabled}
+              localHttpUrl={localHttpUrl}
+              setLocalHttpUrl={setLocalHttpUrl}
+              localModel={localModel}
+              setLocalModel={setLocalModel}
             />
           ) : (
             <UsageDashboard />
@@ -603,9 +799,7 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
             <button
               onClick={handleSave}
               className={`flex-1 font-semibold py-2.5 rounded-lg transition-colors text-sm ${
-                saved
-                  ? "bg-green-500 text-white"
-                  : "bg-red-500 hover:bg-red-600 text-white"
+                saved ? "bg-green-500 text-white" : "bg-red-500 hover:bg-red-600 text-white"
               }`}
             >
               {saved ? "Saved!" : "Save Changes"}
@@ -623,14 +817,20 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
   );
 }
 
-function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+function TabButton({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
   return (
     <button
       onClick={onClick}
       className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
-        active
-          ? "text-red-600"
-          : "text-gray-500 hover:text-gray-700"
+        active ? "text-red-600" : "text-gray-500 hover:text-gray-700"
       }`}
     >
       {label}

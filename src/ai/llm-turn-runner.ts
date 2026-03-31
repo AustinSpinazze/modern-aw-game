@@ -10,7 +10,12 @@ import { useConfigStore } from "../store/config-store";
 import { serializeStateForLLM } from "./state-serializer";
 import { runHeuristicTurn } from "./heuristic";
 import type { ChatMessage } from "./llm-providers";
-import { callAnthropicViaIPC, callGeminiViaIPC, callOpenAIViaIPC, callOllama } from "./llm-providers";
+import {
+  callAnthropicViaIPC,
+  callGeminiViaIPC,
+  callOpenAIViaIPC,
+  callOllama,
+} from "./llm-providers";
 
 // Build the system prompt for the LLM
 function buildSystemPrompt(playerId: number): string {
@@ -90,8 +95,9 @@ async function callLLM(
   provider: "anthropic" | "openai" | "gemini" | "local_http",
   messages: ChatMessage[],
   model: string,
+  matchId?: string
 ): Promise<string> {
-  const callOpts = { usageContext: "game_turn", maxTokens: 4096 };
+  const callOpts = { usageContext: "game_turn", maxTokens: 4096, matchId };
   if (provider === "anthropic") {
     return await callAnthropicViaIPC(messages, model, callOpts);
   } else if (provider === "openai") {
@@ -108,7 +114,7 @@ async function callLLM(
 // (e.g. attacking a unit that was already killed by an earlier command).
 function validateSequentially(
   commands: unknown[],
-  playerId: number,
+  playerId: number
 ): { valid: GameCommand[]; skipped: number } {
   let simState = useGameStore.getState().gameState;
   if (!simState) return { valid: [], skipped: 0 };
@@ -213,6 +219,7 @@ export async function runLLMTurn(
         provider,
         [{ role: "system", content: systemPrompt }, ...conversation],
         model,
+        gameState.match_id
       );
     } catch (err) {
       console.error("[LLM AI] API call failed:", err);

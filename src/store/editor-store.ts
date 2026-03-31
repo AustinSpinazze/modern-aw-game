@@ -199,10 +199,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       if (ownerId >= 0) {
         state = ensurePlayers(state, ownerId);
       }
-      state = setTile(state, x, y, createTile({
-        terrain_type: brush.buildingType,
-        owner_id: ownerId,
-      }));
+      state = setTile(
+        state,
+        x,
+        y,
+        createTile({
+          terrain_type: brush.buildingType,
+          owner_id: ownerId,
+        })
+      );
     } else if (category === "unit") {
       // Place unit — need a valid ground tile, not sea/river unless naval/air
       const existingUnit = getUnitAtPos(state, x, y);
@@ -266,10 +271,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       }
       for (let y = 0; y < state.map_height; y++) {
         for (let x = 0; x < state.map_width; x++) {
-          state = setTile(state, x, y, createTile({
-            terrain_type: brush.buildingType,
-            owner_id: ownerId,
-          }));
+          state = setTile(
+            state,
+            x,
+            y,
+            createTile({
+              terrain_type: brush.buildingType,
+              owner_id: ownerId,
+            })
+          );
         }
       }
     }
@@ -290,8 +300,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return;
     }
     // Only push undo if state actually changed
-    if (draft && JSON.stringify(draft.tiles) !== JSON.stringify(gestureStartState.tiles) ||
-        draft && JSON.stringify(draft.units) !== JSON.stringify(gestureStartState.units)) {
+    if (
+      (draft && JSON.stringify(draft.tiles) !== JSON.stringify(gestureStartState.tiles)) ||
+      (draft && JSON.stringify(draft.units) !== JSON.stringify(gestureStartState.units))
+    ) {
       get().pushUndo(gestureStartState);
     }
     set({ isGesturing: false, gestureStartState: null, redoStack: [] });

@@ -23,7 +23,7 @@ function evaluateTile(
   y: number,
   state: GameState,
   playerId: number,
-  canCapture: boolean,
+  canCapture: boolean
 ): number {
   const tile = getTile(state, x, y);
   if (!tile) return 0;
@@ -114,7 +114,7 @@ function findBestMove(
   unit: UnitState,
   state: GameState,
   playerId: number,
-  unitData: ReturnType<typeof getUnitData>,
+  unitData: ReturnType<typeof getUnitData>
 ): GameCommand | null {
   const reachable = getReachableTiles(state, unit);
   if (reachable.length === 0) return null;
@@ -205,13 +205,16 @@ function decideUnitActions(unit: UnitState, state: GameState, playerId: number):
       for (const u of Object.values(state.units)) {
         if (u.owner_id !== playerId && !u.is_loaded) {
           if (manhattanDistance(unit.x, unit.y, u.x, u.y) <= 5) {
-            return [...cmds, {
-              type: "DIG_TRENCH" as const,
-              player_id: playerId,
-              unit_id: unit.id,
-              target_x: unit.x,
-              target_y: unit.y,
-            }];
+            return [
+              ...cmds,
+              {
+                type: "DIG_TRENCH" as const,
+                player_id: playerId,
+                unit_id: unit.id,
+                target_x: unit.x,
+                target_y: unit.y,
+              },
+            ];
           }
         }
       }
