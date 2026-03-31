@@ -268,16 +268,16 @@ function AnalyticsFilters({
   modelsInData,
   dateRange,
   onDateRangeChange,
+  onExport,
   onClear,
-  entries,
 }: {
   modelFilter: string;
   onModelChange: (v: string) => void;
   modelsInData: string[];
   dateRange: DateRange;
   onDateRangeChange: (v: DateRange) => void;
+  onExport: () => void;
   onClear: () => void;
-  entries: UsageEntry[];
 }) {
   return (
     <div className="flex flex-wrap items-center gap-x-6 gap-y-3 mb-6">
@@ -319,14 +319,14 @@ function AnalyticsFilters({
       </div>
       <div className="flex items-center gap-2 ml-auto">
         <button
-          onClick={() => exportUsageData(entries)}
-          className="px-2.5 py-1 text-xs font-semibold text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+          onClick={onExport}
+          className="px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-gray-600 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg transition-colors"
         >
-          Export JSON
+          Export
         </button>
         <button
           onClick={onClear}
-          className="px-2.5 py-1 text-xs font-semibold text-red-500 hover:text-white hover:bg-red-500 bg-red-50 rounded-md transition-colors"
+          className="px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors"
         >
           Clear History
         </button>
@@ -448,6 +448,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
   const [analyticsModelFilter, setAnalyticsModelFilter] = useState<string>("all");
   const [dateRange, setDateRange] = useState<DateRange>("all");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const isAnalyticsTab = tab === "usage" || tab === "games" || tab === "performance";
 
   const modelsInUsageData = useMemo(() => {
     const set = new Set<string>();
@@ -512,49 +513,27 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
       <main className="flex-1 overflow-y-auto">
         <div className="mx-auto px-6 py-8">
           {tab === "keys" && <TabApiKeys />}
-          {tab === "usage" && (
+          {isAnalyticsTab && (
             <>
-              <TokenPricingNote className="mb-6" />
+              {tab === "usage" && <TokenPricingNote className="mb-6" />}
               <AnalyticsFilters
                 modelFilter={analyticsModelFilter}
                 onModelChange={setAnalyticsModelFilter}
                 modelsInData={modelsInUsageData}
                 dateRange={dateRange}
                 onDateRangeChange={setDateRange}
+                onExport={() => exportUsageData(allEntries)}
                 onClear={() => setShowClearConfirm(true)}
-                entries={allEntries}
               />
-              <TabUsageOverview modelFilter={analyticsModelFilter} dateRange={dateRange} />
-            </>
-          )}
-          {tab === "games" && (
-            <>
-              <TokenPricingNote className="mb-6" />
-              <AnalyticsFilters
-                modelFilter={analyticsModelFilter}
-                onModelChange={setAnalyticsModelFilter}
-                modelsInData={modelsInUsageData}
-                dateRange={dateRange}
-                onDateRangeChange={setDateRange}
-                onClear={() => setShowClearConfirm(true)}
-                entries={allEntries}
-              />
-              <TabPerGameStats modelFilter={analyticsModelFilter} dateRange={dateRange} />
-            </>
-          )}
-          {tab === "performance" && (
-            <>
-              <TokenPricingNote className="mb-6" />
-              <AnalyticsFilters
-                modelFilter={analyticsModelFilter}
-                onModelChange={setAnalyticsModelFilter}
-                modelsInData={modelsInUsageData}
-                dateRange={dateRange}
-                onDateRangeChange={setDateRange}
-                onClear={() => setShowClearConfirm(true)}
-                entries={allEntries}
-              />
-              <TabModelPerformance modelFilter={analyticsModelFilter} dateRange={dateRange} />
+              {tab === "usage" && (
+                <TabUsageOverview modelFilter={analyticsModelFilter} dateRange={dateRange} />
+              )}
+              {tab === "games" && (
+                <TabPerGameStats modelFilter={analyticsModelFilter} dateRange={dateRange} />
+              )}
+              {tab === "performance" && (
+                <TabModelPerformance modelFilter={analyticsModelFilter} dateRange={dateRange} />
+              )}
             </>
           )}
         </div>
