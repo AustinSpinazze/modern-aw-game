@@ -1,6 +1,6 @@
 // Turn / player / funds sidebar panel.
 
-import { useGameStore } from "../store/game-store";
+import { useGameStore } from "../../store/game-store";
 
 export default function InfoPanel() {
   const gameState = useGameStore((s) => s.gameState);

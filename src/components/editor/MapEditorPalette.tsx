@@ -4,7 +4,7 @@
 // Shows actual sprite previews from the WarsWorld sprite sheets.
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useEditorStore, type BrushCategory } from "../store/editor-store";
+import { useEditorStore, type BrushCategory } from "../../store/editor-store";
 
 // ── Data ─────────────────────────────────────────────────────────────────────
 

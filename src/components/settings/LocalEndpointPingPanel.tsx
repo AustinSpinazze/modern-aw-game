@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { pingLocalLlmBaseUrl } from "../lib/local-llm-ping";
+import { pingLocalLlmBaseUrl } from "../../lib/local-llm-ping";
 
 interface LocalEndpointPingPanelProps {
   url: string;

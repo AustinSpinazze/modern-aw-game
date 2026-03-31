@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useConfigStore } from "../store/config-store";
-import { useUsageStore, type UsageEntry } from "../store/usage-store";
+import { useConfigStore } from "../../store/config-store";
+import { useUsageStore } from "../../store/usage-store";
 import {
   BarChart,
   Bar,
@@ -16,88 +16,30 @@ import {
   Line,
 } from "recharts";
 import { LocalEndpointPingPanel } from "./LocalEndpointPingPanel";
+import {
+  ANTHROPIC_MODELS,
+  OPENAI_MODELS,
+  GEMINI_MODELS,
+  LOCAL_MODELS,
+  PROVIDER_COLORS,
+  PROVIDER_TW,
+  providerLabel,
+} from "../../lib/ai-models";
+import { formatTokens, getMonthKey } from "../../lib/format";
+import {
+  type DateRange,
+  DATE_RANGE_OPTIONS,
+  detectGameSessions,
+  filterEntriesByModel,
+  filterEntriesByDateRange,
+  fillMonthlyGaps,
+  exportUsageData,
+} from "../../lib/usage-analytics";
+import SummaryCard from "../shared/SummaryCard";
+import ConfirmDialog from "../shared/ConfirmDialog";
+import TabBar from "../shared/TabBar";
 
 const VERSION = "v0.1.0";
-
-// ── Model lists (verified against provider docs — March 2026) ───────────────
-
-const ANTHROPIC_MODELS = [
-  { id: "claude-opus-4-6", label: "Claude Opus 4.6 (most capable)" },
-  { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 (recommended)" },
-  { id: "claude-haiku-4-5", label: "Claude Haiku 4.5 (fastest)" },
-  { id: "claude-opus-4-5", label: "Claude Opus 4.5 (legacy)" },
-  { id: "claude-sonnet-4-5", label: "Claude Sonnet 4.5 (legacy)" },
-  { id: "claude-opus-4-1", label: "Claude Opus 4.1 (legacy)" },
-  { id: "claude-sonnet-4-0", label: "Claude Sonnet 4 (legacy)" },
-  { id: "claude-opus-4-0", label: "Claude Opus 4 (legacy)" },
-];
-
-const OPENAI_MODELS = [
-  { id: "gpt-5.4", label: "GPT-5.4 (most capable)" },
-  { id: "gpt-5.4-mini", label: "GPT-5.4 Mini (fast)" },
-  { id: "gpt-5.4-nano", label: "GPT-5.4 Nano (smallest)" },
-  { id: "o3", label: "o3 (reasoning)" },
-  { id: "o4-mini", label: "o4-mini (reasoning, fast)" },
-  { id: "o3-mini", label: "o3-mini (reasoning, budget)" },
-  { id: "gpt-5", label: "GPT-5" },
-  { id: "gpt-5-mini", label: "GPT-5 Mini" },
-  { id: "gpt-4.1", label: "GPT-4.1" },
-  { id: "gpt-4o", label: "GPT-4o (legacy)" },
-  { id: "gpt-4o-mini", label: "GPT-4o Mini (legacy)" },
-];
-
-const GEMINI_MODELS = [
-  { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (most capable)" },
-  { id: "gemini-3-flash-preview", label: "Gemini 3 Flash (frontier)" },
-  { id: "gemini-3.1-flash-lite-preview", label: "Gemini 3.1 Flash Lite (budget)" },
-  { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro (reasoning)" },
-  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash (recommended)" },
-  { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite (light)" },
-];
-
-const LOCAL_MODELS = [
-  { id: "llama3.2", label: "Llama 3.2" },
-  { id: "llama3", label: "Llama 3" },
-  { id: "deepseek-r1:7b", label: "DeepSeek R1 7B" },
-  { id: "kimi-k2", label: "Kimi K2" },
-  { id: "mistral", label: "Mistral" },
-  { id: "phi3", label: "Phi-3" },
-];
-
-// ── Formatting helpers ───────────────────────────────────────────────────────
-
-function formatTokens(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${Math.round(n).toLocaleString()}`;
-  return String(Math.round(n));
-}
-
-function getMonthKey(ts: number): string {
-  const d = new Date(ts);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function providerLabel(p: string): string {
-  if (p === "anthropic") return "Anthropic";
-  if (p === "openai") return "OpenAI";
-  if (p === "gemini") return "Google Gemini";
-  if (p === "local_http") return "Local Model";
-  return p;
-}
-
-const PROVIDER_COLORS: Record<string, string> = {
-  anthropic: "#ef4444",
-  openai: "#10b981",
-  gemini: "#3b82f6",
-  local_http: "#f59e0b",
-};
-
-const PROVIDER_TW: Record<string, string> = {
-  anthropic: "bg-red-500",
-  openai: "bg-emerald-500",
-  gemini: "bg-blue-500",
-  local_http: "bg-amber-500",
-};
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -105,161 +47,6 @@ type SettingsTab = "keys" | "usage" | "games" | "performance";
 
 interface SettingsPageProps {
   onBack: () => void;
-}
-
-// ── Game session detection ───────────────────────────────────────────────────
-
-interface GameSession {
-  id: number;
-  entries: UsageEntry[];
-  totalTokens: number;
-  models: string[];
-}
-
-function detectGameSessions(entries: UsageEntry[]): GameSession[] {
-  const gameTurns = entries
-    .filter((e) => e.context === "game_turn")
-    .sort((a, b) => a.timestamp - b.timestamp);
-
-  if (gameTurns.length === 0) return [];
-
-  // Group by matchId when available
-  const byMatchId = new Map<string, UsageEntry[]>();
-  const noMatchId: UsageEntry[] = [];
-
-  for (const e of gameTurns) {
-    if (e.matchId) {
-      const list = byMatchId.get(e.matchId);
-      if (list) list.push(e);
-      else byMatchId.set(e.matchId, [e]);
-    } else {
-      noMatchId.push(e);
-    }
-  }
-
-  const sessions: GameSession[] = [];
-
-  // Sessions from matchId grouping
-  for (const group of byMatchId.values()) {
-    sessions.push(buildSession(sessions.length + 1, group));
-  }
-
-  // Legacy entries without matchId — fall back to 10-min gap heuristic
-  if (noMatchId.length > 0) {
-    let current: UsageEntry[] = [noMatchId[0]];
-    for (let i = 1; i < noMatchId.length; i++) {
-      if (noMatchId[i].timestamp - noMatchId[i - 1].timestamp > 10 * 60 * 1000) {
-        sessions.push(buildSession(sessions.length + 1, current));
-        current = [];
-      }
-      current.push(noMatchId[i]);
-    }
-    if (current.length > 0) {
-      sessions.push(buildSession(sessions.length + 1, current));
-    }
-  }
-
-  // Sort by earliest entry timestamp
-  sessions.sort((a, b) => a.entries[0].timestamp - b.entries[0].timestamp);
-  // Re-number
-  sessions.forEach((s, i) => (s.id = i + 1));
-
-  return sessions;
-}
-
-function buildSession(id: number, entries: UsageEntry[]): GameSession {
-  return {
-    id,
-    entries,
-    totalTokens: entries.reduce((s, e) => s + e.inputTokens + e.outputTokens, 0),
-    models: [...new Set(entries.map((e) => e.model))],
-  };
-}
-
-type DateRange = "all" | "12m" | "6m" | "3m" | "30d";
-
-const DATE_RANGE_OPTIONS: { id: DateRange; label: string }[] = [
-  { id: "all", label: "All time" },
-  { id: "12m", label: "Past year" },
-  { id: "6m", label: "6 months" },
-  { id: "3m", label: "3 months" },
-  { id: "30d", label: "30 days" },
-];
-
-function getDateRangeCutoff(range: DateRange): number {
-  if (range === "all") return 0;
-  const now = Date.now();
-  const ms: Record<Exclude<DateRange, "all">, number> = {
-    "12m": 365 * 24 * 60 * 60 * 1000,
-    "6m": 182 * 24 * 60 * 60 * 1000,
-    "3m": 91 * 24 * 60 * 60 * 1000,
-    "30d": 30 * 24 * 60 * 60 * 1000,
-  };
-  return now - ms[range];
-}
-
-function filterEntriesByModel(entries: UsageEntry[], modelFilter: string): UsageEntry[] {
-  if (modelFilter === "all") return entries;
-  return entries.filter((e) => e.model === modelFilter);
-}
-
-function filterEntriesByDateRange(entries: UsageEntry[], range: DateRange): UsageEntry[] {
-  if (range === "all") return entries;
-  const cutoff = getDateRangeCutoff(range);
-  return entries.filter((e) => e.timestamp >= cutoff);
-}
-
-/** Generate all YYYY-MM keys from startKey to endKey inclusive. */
-function generateMonthKeys(startKey: string, endKey: string): string[] {
-  const keys: string[] = [];
-  const [sy, sm] = startKey.split("-").map(Number);
-  const [ey, em] = endKey.split("-").map(Number);
-  let y = sy;
-  let m = sm;
-  while (y < ey || (y === ey && m <= em)) {
-    keys.push(`${y}-${String(m).padStart(2, "0")}`);
-    m++;
-    if (m > 12) {
-      m = 1;
-      y++;
-    }
-  }
-  return keys;
-}
-
-/** Fill in zero-value months so the chart shows the full date range. */
-function fillMonthlyGaps(
-  byMonth: Record<string, number>,
-  dateRange: DateRange
-): Array<{ month: string; tokens: number }> {
-  const dataKeys = Object.keys(byMonth).sort();
-  if (dataKeys.length === 0) return [];
-
-  const now = new Date();
-  const endKey = getMonthKey(now.getTime());
-
-  let startKey: string;
-  if (dateRange === "all") {
-    startKey = dataKeys[0];
-  } else {
-    const cutoff = getDateRangeCutoff(dateRange);
-    startKey = getMonthKey(cutoff);
-  }
-
-  return generateMonthKeys(startKey, endKey).map((key) => ({
-    month: key,
-    tokens: byMonth[key] ?? 0,
-  }));
-}
-
-function exportUsageData(entries: UsageEntry[]) {
-  const blob = new Blob([JSON.stringify(entries, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `modern-aw-usage-${new Date().toISOString().slice(0, 10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
 }
 
 function AnalyticsFilters({
@@ -400,42 +187,6 @@ function TokenPricingNote({ className }: { className?: string }) {
   );
 }
 
-// ── Confirmation Modal ──────────────────────────────────────────────────────
-
-function ConfirmClearModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onCancel();
-      }}
-    >
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6">
-        <h3 className="text-base font-bold text-gray-900 uppercase tracking-wide mb-2">
-          Clear Usage History
-        </h3>
-        <p className="text-sm text-gray-600 leading-relaxed mb-6">
-          This will permanently delete all token usage data, game sessions, and model performance
-          records. This cannot be undone.
-        </p>
-        <div className="flex gap-3">
-          <button
-            onClick={onConfirm}
-            className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold text-sm uppercase tracking-wider py-2.5 rounded-lg transition-colors"
-          >
-            Clear All Data
-          </button>
-          <button
-            onClick={onCancel}
-            className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium text-sm py-2.5 rounded-lg transition-colors"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Main Component
@@ -490,22 +241,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
           </h1>
 
           {/* Tabs */}
-          <nav className="flex gap-0">
-            {tabs.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className={`px-5 py-3 text-sm font-semibold uppercase tracking-wider transition-colors relative ${
-                  tab === t.id ? "text-amber-600" : "text-gray-400 hover:text-gray-600"
-                }`}
-              >
-                {t.label}
-                {tab === t.id && (
-                  <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-amber-500 rounded-full" />
-                )}
-              </button>
-            ))}
-          </nav>
+          <TabBar tabs={tabs} active={tab} onChange={setTab} accent="amber" />
         </div>
       </header>
 
@@ -549,12 +285,16 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
       </footer>
 
       {showClearConfirm && (
-        <ConfirmClearModal
+        <ConfirmDialog
+          title="Clear Usage History"
+          message="This will permanently delete all token usage data, game sessions, and model performance records. This cannot be undone."
+          confirmLabel="Clear All Data"
           onConfirm={() => {
             clearHistory();
             setShowClearConfirm(false);
           }}
           onCancel={() => setShowClearConfirm(false)}
+          variant="destructive"
         />
       )}
     </div>
@@ -1356,17 +1096,6 @@ function TabModelPerformance({
 // Shared UI components
 // ═════════════════════════════════════════════════════════════════════════════
 
-function SummaryCard({ label, value, sub }: { label: string; value: string; sub: string }) {
-  return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5 text-center">
-      <div className="text-xs text-gray-400 uppercase tracking-[0.15em] font-bold mb-2">
-        {label}
-      </div>
-      <div className="text-3xl font-black text-gray-900">{value}</div>
-      <div className="text-[10px] text-gray-400 uppercase tracking-wider mt-1">{sub}</div>
-    </div>
-  );
-}
 
 function ChartCard({
   title,

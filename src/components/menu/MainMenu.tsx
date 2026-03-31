@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import type { SavedGameMeta } from "../types";
+import type { SavedGameMeta } from "../../types";
 
 interface MainMenuProps {
   onNewGame: () => void;

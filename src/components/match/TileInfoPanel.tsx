@@ -1,9 +1,9 @@
 // Hovered tile detail panel — shows full unit stats for both selected and hovered units.
 
-import { useGameStore } from "../store/game-store";
-import { getTile, getUnitAt, getUnit } from "../game/game-state";
-import { getTerrainData, getUnitData } from "../game/data-loader";
-import type { UnitState, GameState } from "../game/types";
+import { useGameStore } from "../../store/game-store";
+import { getTile, getUnitAt, getUnit } from "../../game/game-state";
+import { getTerrainData, getUnitData } from "../../game/data-loader";
+import type { UnitState, GameState } from "../../game/types";
 
 const TEAM_TEXT: Record<number, string> = {
   0: "text-red-500",

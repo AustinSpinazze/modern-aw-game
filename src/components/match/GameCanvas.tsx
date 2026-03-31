@@ -13,23 +13,23 @@ import {
   animatePanTo,
   updateShake,
   startShake,
-} from "../rendering/pixi-app";
-import { ParticleSystem } from "../rendering/particle-system";
-import { TerrainRenderer } from "../rendering/terrain-renderer";
-import { UnitRenderer } from "../rendering/unit-renderer";
-import { HighlightRenderer } from "../rendering/highlight-renderer";
-import { MovementAnimator } from "../rendering/movement-animator";
-import { CombatAnimator } from "../rendering/combat-animator";
-import { FogRenderer } from "../rendering/fog-renderer";
-import { InputHandler } from "../rendering/input-handler";
-import { useGameStore } from "../store/game-store";
-import type { Vec2, GameState, CmdAttack } from "../game/types";
-import { getUnitAt, getTile, getUnit } from "../game/game-state";
-import { getTerrainData, getUnitData } from "../game/data-loader";
-import { applyCommand } from "../game/apply-command";
-import { validateCommand } from "../game/validators";
-import { getAttackableTiles } from "../game/pathfinding";
-import { canAttack } from "../game/combat";
+} from "../../rendering/pixi-app";
+import { ParticleSystem } from "../../rendering/particle-system";
+import { TerrainRenderer } from "../../rendering/terrain-renderer";
+import { UnitRenderer } from "../../rendering/unit-renderer";
+import { HighlightRenderer } from "../../rendering/highlight-renderer";
+import { MovementAnimator } from "../../rendering/movement-animator";
+import { CombatAnimator } from "../../rendering/combat-animator";
+import { FogRenderer } from "../../rendering/fog-renderer";
+import { InputHandler } from "../../rendering/input-handler";
+import { useGameStore } from "../../store/game-store";
+import type { Vec2, GameState, CmdAttack } from "../../game/types";
+import { getUnitAt, getTile, getUnit } from "../../game/game-state";
+import { getTerrainData, getUnitData } from "../../game/data-loader";
+import { applyCommand } from "../../game/apply-command";
+import { validateCommand } from "../../game/validators";
+import { getAttackableTiles } from "../../game/pathfinding";
+import { canAttack } from "../../game/combat";
 
 interface GameCanvasProps {
   onFacilityClick?: (x: number, y: number) => void;

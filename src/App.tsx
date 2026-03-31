@@ -9,19 +9,19 @@ import {
   type ReactNode,
 } from "react";
 import { flushSync } from "react-dom";
-import MatchSetup from "./components/MatchSetup";
+import MatchSetup from "./components/setup/MatchSetup";
 
-const MapEditor = lazy(() => import("./components/MapEditor"));
-import GameCanvas from "./components/GameCanvas";
-import InfoPanel from "./components/InfoPanel";
-import TileInfoPanel from "./components/TileInfoPanel";
-import ActionMenu from "./components/ActionMenu";
-import BuyMenu from "./components/BuyMenu";
-import ActionLog from "./components/ActionLog";
-import SettingsModal from "./components/SettingsModal";
-import SettingsPage from "./components/SettingsPage";
-import MainMenu from "./components/MainMenu";
-import TurnTransitionOverlay from "./components/TurnTransitionOverlay";
+const MapEditor = lazy(() => import("./components/editor/MapEditor"));
+import GameCanvas from "./components/match/GameCanvas";
+import InfoPanel from "./components/match/InfoPanel";
+import TileInfoPanel from "./components/match/TileInfoPanel";
+import ActionMenu from "./components/match/ActionMenu";
+import BuyMenu from "./components/match/BuyMenu";
+import ActionLog from "./components/match/ActionLog";
+import SettingsModal from "./components/settings/SettingsModal";
+import SettingsPage from "./components/settings/SettingsPage";
+import MainMenu from "./components/menu/MainMenu";
+import TurnTransitionOverlay from "./components/match/TurnTransitionOverlay";
 import type { SavedGameMeta } from "./types";
 import { useGameStore } from "./store/game-store";
 import { useGame } from "./hooks/useGame";
@@ -30,6 +30,11 @@ import { useUsageStore } from "./store/usage-store";
 import { loadGameData, getTerrainData } from "./game/data-loader";
 import { getTile } from "./game/game-state";
 import type { GameState } from "./game/types";
+import { TEAM_COLORS } from "./lib/team-colors";
+import ConfirmDialog from "./components/shared/ConfirmDialog";
+import { useTurnTimer } from "./hooks/useTurnTimer";
+import { useGameKeyboard } from "./hooks/useGameKeyboard";
+import { useAutoSave, type SavedGameFile } from "./hooks/useAutoSave";
 
 // AI turn runners
 import { runHeuristicTurn } from "./ai/heuristic";
@@ -84,45 +89,12 @@ class ErrorBoundary extends Component<
 
 type AppView = "menu" | "setup" | "game" | "editor" | "settings";
 
-// Team color config shared across banner and sidebar
-const TEAM_TEXT: Record<number, string> = {
-  0: "text-red-400",
-  1: "text-blue-400",
-  2: "text-green-400",
-  3: "text-yellow-400",
-};
-const TEAM_DOT: Record<number, string> = {
-  0: "bg-red-400",
-  1: "bg-blue-400",
-  2: "bg-green-400",
-  3: "bg-yellow-400",
-};
-const TEAM_RING: Record<number, string> = {
-  0: "ring-red-500",
-  1: "ring-blue-500",
-  2: "ring-green-500",
-  3: "ring-yellow-500",
-};
-const TEAM_BORDER: Record<number, string> = {
-  0: "border-red-500",
-  1: "border-blue-500",
-  2: "border-green-500",
-  3: "border-yellow-500",
-};
-const TEAM_BG: Record<number, string> = {
-  0: "bg-red-500",
-  1: "bg-blue-500",
-  2: "bg-green-500",
-  3: "bg-yellow-500",
-};
-
-interface SavedGameFile {
-  version: number;
-  savedAt: string;
-  turnNumber: number;
-  playerCount: number;
-  state: GameState;
-}
+// Derived team color lookups from shared constants
+const TEAM_TEXT: Record<number, string> = Object.fromEntries(TEAM_COLORS.map((c, i) => [i, c.text]));
+const TEAM_DOT: Record<number, string> = Object.fromEntries(TEAM_COLORS.map((c, i) => [i, c.dot]));
+const TEAM_RING: Record<number, string> = Object.fromEntries(TEAM_COLORS.map((c, i) => [i, c.ring]));
+const TEAM_BORDER: Record<number, string> = Object.fromEntries(TEAM_COLORS.map((c, i) => [i, c.border]));
+const TEAM_BG: Record<number, string> = Object.fromEntries(TEAM_COLORS.map((c, i) => [i, c.bg]));
 
 function AppContent() {
   const [view, setView] = useState<AppView>("menu");
@@ -137,21 +109,6 @@ function AppContent() {
 
   // Saved games list (for main menu)
   const [gameSaves, setGameSaves] = useState<SavedGameMeta[]>([]);
-
-  // Turn timer state
-  const [turnStartTime, setTurnStartTime] = useState<number | null>(null);
-  const [timeRemaining, setTimeRemaining] = useState<number | null>(null); // null = not yet ticking
-  // Mirror of timeRemaining as a ref so the turn-change effect always reads the
-  // latest value without needing it in the dependency array (avoids stale closure).
-  const timeRemainingRef = useRef<number | null>(null);
-  // Per-player carryover bank: seconds saved from ending a turn early.
-  // Keyed by player ID so each player accumulates their own unused time.
-  const pendingCarryoverRef = useRef<Record<number, number>>({});
-  // Prevents the auto-end-turn from firing more than once per turn
-  const timerAutoEndedRef = useRef(false);
-  // Timer pause state
-  const [timerPaused, setTimerPaused] = useState(false);
-  const pausedAtRef = useRef<number | null>(null);
 
   // Load saves list for main menu
   useEffect(() => {
@@ -188,40 +145,30 @@ function AppContent() {
 
   const prevPlayerIndexRef = useRef<number>(-1);
   const prevPhaseRef = useRef<string>("");
-  const prevTurnNumberRef = useRef<number>(-1);
   const llmTurnInProgressRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // ── Extracted hooks ─────────────────────────────────────────────────────
+  const {
+    timeRemaining,
+    turnStartTime,
+    setTurnStartTime,
+    timerPaused,
+    pauseTimer,
+    resumeTimer,
+    resetTimerState,
+    timeRemainingRef,
+    pendingCarryoverRef,
+    timerAutoEndedRef,
+  } = useTurnTimer({ gameState, view, menuOpen });
+
+  const { resetTurnTracking } = useAutoSave(gameState, view);
+
+  useGameKeyboard(view, setZoomLevel);
 
   // ── Sync encrypted API keys from Electron on startup ───────────────────
   useEffect(() => {
     useConfigStore.getState().syncFromElectron().catch(console.error);
-  }, []);
-
-  // ── Timer pause / resume / reset helpers ────────────────────────────────
-  const resetTimerState = useCallback(() => {
-    pausedAtRef.current = null;
-    timeRemainingRef.current = null;
-    pendingCarryoverRef.current = {};
-    timerAutoEndedRef.current = false;
-    setTimerPaused(false);
-    setTimeRemaining(null);
-    setTurnStartTime(null);
-  }, []);
-
-  const pauseTimer = useCallback(() => {
-    if (pausedAtRef.current !== null) return; // already paused
-    pausedAtRef.current = Date.now();
-    setTimerPaused(true);
-  }, []);
-
-  const resumeTimer = useCallback(() => {
-    if (pausedAtRef.current === null) return; // not paused
-    const pauseDuration = Date.now() - pausedAtRef.current;
-    pausedAtRef.current = null;
-    // Shift turnStartTime forward by however long we were paused so elapsed
-    // time doesn't count the pause duration.
-    setTurnStartTime((prev) => (prev !== null ? prev + pauseDuration : null));
-    setTimerPaused(false);
   }, []);
 
   // ── Close menu on outside click ──────────────────────────────────────────
@@ -235,16 +182,6 @@ function AppContent() {
     document.addEventListener("mousedown", handleOutside);
     return () => document.removeEventListener("mousedown", handleOutside);
   }, [menuOpen]);
-
-  // ── Auto-pause timer while the menu dropdown is open ────────────────────
-  useEffect(() => {
-    if (view !== "game") return;
-    if (menuOpen) {
-      pauseTimer();
-    } else {
-      resumeTimer();
-    }
-  }, [menuOpen, view, pauseTimer, resumeTimer]);
 
   // ── Turn transition banner ──────────────────────────────────────────────
   useEffect(() => {
@@ -285,7 +222,6 @@ function AppContent() {
             (pendingCarryoverRef.current[prevPlayer.id] ?? 0) + timeRemainingRef.current;
         }
         timeRemainingRef.current = null;
-        setTimeRemaining(null);
 
         // Only start a countdown for human turns.
         // Carry over this player's own banked seconds (chess-style increment).
@@ -304,68 +240,7 @@ function AppContent() {
 
     prevPlayerIndexRef.current = newIndex;
     prevPhaseRef.current = newPhase;
-  }, [gameState, view]);
-
-  // ── Initialize timer when game view first loads (turn 1) ───────────────
-  useEffect(() => {
-    if (view !== "game" || !gameState) return;
-    const limit = gameState.turn_time_limit ?? 0;
-    if (limit <= 0) return;
-    const player = gameState.players[gameState.current_player_index];
-    if (player?.controller_type !== "human") return;
-    timerAutoEndedRef.current = false;
-    timeRemainingRef.current = null;
-    pendingCarryoverRef.current = {};
-    setTimeRemaining(null);
-    setTurnStartTime(Date.now());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view]); // only fire when entering game view, not on every state update
-
-  // ── Turn timer countdown ────────────────────────────────────────────────
-  useEffect(() => {
-    if (!gameState || !turnStartTime || timerPaused) return;
-    const limit = gameState.turn_time_limit ?? 0;
-    if (limit <= 0) return;
-
-    const currentPlayer = gameState.players[gameState.current_player_index];
-    // Only count down on human turns — AI ends its own turn
-    if (currentPlayer?.controller_type !== "human") return;
-
-    const interval = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - turnStartTime) / 1000);
-      const remaining = Math.max(0, limit - elapsed);
-      timeRemainingRef.current = remaining;
-      setTimeRemaining(remaining);
-      if (remaining === 0 && !timerAutoEndedRef.current) {
-        timerAutoEndedRef.current = true; // fire only once per turn
-        const store = useGameStore.getState();
-        if (!store.isAnimating && !store.processingQueue) {
-          const player = gameState.players[gameState.current_player_index];
-          if (player) {
-            store.submitCommand({ type: "END_TURN", player_id: player.id });
-          }
-        }
-      }
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, [gameState, turnStartTime, timerPaused]);
-
-  // ── Auto-save after each turn end ──────────────────────────────────────
-  useEffect(() => {
-    if (!gameState || view !== "game" || !window.electronAPI) return;
-    if (gameState.turn_number === prevTurnNumberRef.current) return;
-    prevTurnNumberRef.current = gameState.turn_number;
-
-    const saveData: SavedGameFile = {
-      version: 1,
-      savedAt: new Date().toISOString(),
-      turnNumber: gameState.turn_number,
-      playerCount: gameState.players.length,
-      state: gameState,
-    };
-    window.electronAPI.saveGame("autosave", saveData).catch(console.error);
-  }, [gameState, view]);
+  }, [gameState, view, timerAutoEndedRef, timeRemainingRef, pendingCarryoverRef, setTurnStartTime]);
 
   // ── Handle AI turns ────────────────────────────────────────────────────
   useEffect(() => {
@@ -404,96 +279,26 @@ function AppContent() {
     return () => clearTimeout(timer);
   }, [gameState, currentPlayer, processingQueue, queueCommands]);
 
-  // ── Keyboard shortcuts ──────────────────────────────────────────────────
-  useEffect(() => {
-    if (view !== "game") return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't fire if typing in an input
-      if (
-        (e.target as HTMLElement).tagName === "INPUT" ||
-        (e.target as HTMLElement).tagName === "TEXTAREA"
-      )
-        return;
-
-      const store = useGameStore.getState();
-      const state = store.gameState;
-      if (!state) return;
-
-      const player = state.players[state.current_player_index];
-      const isHumanTurn = player?.controller_type === "human" && state.phase === "action";
-
-      switch (e.key) {
-        case "Escape":
-          // Cancel pending move first, then deselect
-          if (store.pendingMove) {
-            store.cancelPendingMove();
-          } else if (store.selectedUnit) {
-            store.selectUnit(null);
-          }
-          break;
-
-        case "e":
-        case "E":
-          // End turn (human only, not if selecting/pending)
-          if (isHumanTurn && !store.isAnimating && !store.processingQueue) {
-            store.submitCommand({ type: "END_TURN", player_id: player!.id });
-          }
-          break;
-
-        case "w":
-        case "W":
-          // Wait with selected unit that has a pending move
-          if (isHumanTurn && store.selectedUnit && store.pendingMove && !store.isAnimating) {
-            store.startMoveAnimation({
-              type: "WAIT",
-              player_id: player!.id,
-              unit_id: store.selectedUnit.id,
-            });
-          }
-          break;
-
-        case "+":
-        case "=":
-          zoomIn();
-          break;
-
-        case "-":
-        case "_":
-          zoomOut();
-          break;
-
-        case "0":
-          resetZoom();
-          setZoomLevel(getZoomLevel());
-          break;
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [view]);
-
   // Snapshot the game state at match start so Rematch can restore it
   const initialGameStateRef = useRef<GameState | null>(null);
 
   const handleMatchStart = useCallback(() => {
     prevPlayerIndexRef.current = -1;
     prevPhaseRef.current = "";
-    prevTurnNumberRef.current = -1;
+    resetTurnTracking();
     initialGameStateRef.current = useGameStore.getState().gameState;
     setView("game");
-  }, []);
+  }, [resetTurnTracking]);
 
   const handleRematch = useCallback(() => {
     if (!initialGameStateRef.current) return;
     useGameStore.getState().setGameState(initialGameStateRef.current);
     prevPlayerIndexRef.current = -1;
     prevPhaseRef.current = "";
-    prevTurnNumberRef.current = -1;
+    resetTurnTracking();
     resetTimerState();
     setView("game");
-  }, [resetTimerState]);
+  }, [resetTimerState, resetTurnTracking]);
 
   const handleResign = useCallback(() => {
     const state = useGameStore.getState().gameState;
@@ -524,14 +329,14 @@ function AppContent() {
         useGameStore.getState().setGameState(raw.state);
         prevPlayerIndexRef.current = -1;
         prevPhaseRef.current = "";
-        prevTurnNumberRef.current = -1;
+        resetTurnTracking();
         resetTimerState();
         setView("game");
       } catch (e) {
         console.error("Failed to load save:", e);
       }
     },
-    [resetTimerState]
+    [resetTimerState, resetTurnTracking]
   );
 
   const handleDeleteSave = useCallback(async (name: string) => {
@@ -652,13 +457,8 @@ function AppContent() {
     : hoveredTileData?.terrain_type;
   const hoveredTerrainData = hoveredTerrainType ? getTerrainData(hoveredTerrainType) : null;
 
-  // Faction header uses a slightly darkened bg for yellow so white text is legible
-  const TEAM_HEADER_BG: Record<number, string> = {
-    0: "bg-red-500",
-    1: "bg-blue-500",
-    2: "bg-green-600",
-    3: "bg-yellow-500",
-  };
+  // Faction header uses headerBg from shared team colors
+  const TEAM_HEADER_BG: Record<number, string> = Object.fromEntries(TEAM_COLORS.map((c, i) => [i, c.headerBg]));
 
   // Game view
   return (
@@ -917,57 +717,29 @@ function AppContent() {
 
       {/* Exit confirmation modal */}
       {showExitConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="bg-white border border-gray-200 rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4">
-            <h2 className="text-gray-900 font-bold text-lg mb-1">Exit Game?</h2>
-            <p className="text-gray-500 text-sm mb-5">
-              Any moves made this turn will be lost. The game was autosaved at the start of this
-              turn.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={handleExitGame}
-                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded-lg transition-colors"
-              >
-                Exit
-              </button>
-              <button
-                onClick={() => setShowExitConfirm(false)}
-                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 rounded-lg transition-colors"
-              >
-                Keep Playing
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="Exit Game?"
+          message="Any moves made this turn will be lost. The game was autosaved at the start of this turn."
+          confirmLabel="Exit"
+          cancelLabel="Keep Playing"
+          onConfirm={handleExitGame}
+          onCancel={() => setShowExitConfirm(false)}
+          variant="destructive"
+        />
       )}
 
       {showResignConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="bg-white border border-gray-200 rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4">
-            <h2 className="text-gray-900 font-bold text-lg mb-1">Resign?</h2>
-            <p className="text-gray-500 text-sm mb-5">
-              This will forfeit the match. Your opponent will be declared the winner.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowResignConfirm(false);
-                  handleResign();
-                }}
-                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded-lg transition-colors"
-              >
-                Resign
-              </button>
-              <button
-                onClick={() => setShowResignConfirm(false)}
-                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="Resign?"
+          message="This will forfeit the match. Your opponent will be declared the winner."
+          confirmLabel="Resign"
+          onConfirm={() => {
+            setShowResignConfirm(false);
+            handleResign();
+          }}
+          onCancel={() => setShowResignConfirm(false)}
+          variant="destructive"
+        />
       )}
 
       {/* Turn transition overlay */}

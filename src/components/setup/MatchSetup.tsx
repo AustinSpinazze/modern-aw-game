@@ -1,7 +1,7 @@
 // Pre-game lobby: configure players, map, and match rules.
 
 import { useState, useEffect, useRef } from "react";
-import type { ControllerType, GameState } from "../game/types";
+import type { ControllerType, GameState } from "../../game/types";
 import {
   createGameState,
   createPlayer,
@@ -10,16 +10,16 @@ import {
   addUnit,
   updateTile,
   getNextUnitId,
-} from "../game/game-state";
-import { generateMatchSeed } from "../game/rng";
-import { loadGameData } from "../game/data-loader";
-import { parseAwbwMapText, importAwbwMap } from "../game/awbw-import";
-import { applyIncome } from "../game/economy";
-import { useGameStore } from "../store/game-store";
-import { useConfigStore } from "../store/config-store";
-import { computeStatsFromAwbwTiles, computeStatsFromGameState } from "../game/map-stats";
-import type { MapStats } from "../game/map-stats";
-import { loadSavedMaps, persistSavedMaps, type SavedMap } from "../game/saved-maps";
+} from "../../game/game-state";
+import { generateMatchSeed } from "../../game/rng";
+import { loadGameData } from "../../game/data-loader";
+import { parseAwbwMapText, importAwbwMap } from "../../game/awbw-import";
+import { applyIncome } from "../../game/economy";
+import { useGameStore } from "../../store/game-store";
+import { useConfigStore } from "../../store/config-store";
+import { computeStatsFromAwbwTiles, computeStatsFromGameState } from "../../game/map-stats";
+import type { MapStats } from "../../game/map-stats";
+import { loadSavedMaps, persistSavedMaps, type SavedMap } from "../../game/saved-maps";
 
 interface PlayerConfig {
   controllerType: ControllerType;

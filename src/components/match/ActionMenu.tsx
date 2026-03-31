@@ -1,13 +1,13 @@
 // Unit action popup: Move/Attack/Capture/Wait/etc.
 // Shown after selecting a unit with a pending move destination.
 
-import { useGameStore } from "../store/game-store";
-import { getTerrainData, getUnitData } from "../game/data-loader";
-import { getTile, getUnit, getUnitAt } from "../game/game-state";
-import { getAttackableTiles, isPassable, manhattanDistance } from "../game/pathfinding";
-import { canAttack, calculateDamage } from "../game/combat";
-import { TILE_SIZE, TILE_SCALE, getStageTransform } from "../rendering/pixi-app";
-import type { Vec2 } from "../game/types";
+import { useGameStore } from "../../store/game-store";
+import { getTerrainData, getUnitData } from "../../game/data-loader";
+import { getTile, getUnit, getUnitAt } from "../../game/game-state";
+import { getAttackableTiles, isPassable, manhattanDistance } from "../../game/pathfinding";
+import { canAttack, calculateDamage } from "../../game/combat";
+import { TILE_SIZE, TILE_SCALE, getStageTransform } from "../../rendering/pixi-app";
+import type { Vec2 } from "../../game/types";
 
 const DISPLAY = TILE_SIZE * TILE_SCALE;
 

@@ -1,74 +1,25 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useConfigStore } from "../store/config-store";
-import { useUsageStore } from "../store/usage-store";
+import { useConfigStore } from "../../store/config-store";
+import { useUsageStore } from "../../store/usage-store";
 import { LocalEndpointPingPanel } from "./LocalEndpointPingPanel";
+import {
+  ANTHROPIC_MODELS,
+  OPENAI_MODELS,
+  GEMINI_MODELS,
+  PROVIDER_TW,
+  providerLabel,
+} from "../../lib/ai-models";
+import { formatTokens } from "../../lib/format";
+import { exportUsageData } from "../../lib/usage-analytics";
+import TabBar from "../shared/TabBar";
 
 interface SettingsModalProps {
   onClose: () => void;
 }
 
-// Model lists verified against provider docs — March 2026
-
-const ANTHROPIC_MODELS = [
-  { id: "claude-opus-4-6", label: "Claude Opus 4.6 (most capable)" },
-  { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 (recommended)" },
-  { id: "claude-haiku-4-5", label: "Claude Haiku 4.5 (fastest)" },
-  { id: "claude-opus-4-5", label: "Claude Opus 4.5 (legacy)" },
-  { id: "claude-sonnet-4-5", label: "Claude Sonnet 4.5 (legacy)" },
-  { id: "claude-opus-4-1", label: "Claude Opus 4.1 (legacy)" },
-  { id: "claude-sonnet-4-0", label: "Claude Sonnet 4 (legacy)" },
-  { id: "claude-opus-4-0", label: "Claude Opus 4 (legacy)" },
-];
-
-const OPENAI_MODELS = [
-  { id: "gpt-5.4", label: "GPT-5.4 (most capable)" },
-  { id: "gpt-5.4-mini", label: "GPT-5.4 Mini (fast)" },
-  { id: "gpt-5.4-nano", label: "GPT-5.4 Nano (smallest)" },
-  { id: "o3", label: "o3 (reasoning)" },
-  { id: "o4-mini", label: "o4-mini (reasoning, fast)" },
-  { id: "o3-mini", label: "o3-mini (reasoning, budget)" },
-  { id: "gpt-5", label: "GPT-5" },
-  { id: "gpt-5-mini", label: "GPT-5 Mini" },
-  { id: "gpt-4.1", label: "GPT-4.1" },
-  { id: "gpt-4o", label: "GPT-4o (legacy)" },
-  { id: "gpt-4o-mini", label: "GPT-4o Mini (legacy)" },
-];
-
-const GEMINI_MODELS = [
-  { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (most capable)" },
-  { id: "gemini-3-flash-preview", label: "Gemini 3 Flash (frontier)" },
-  { id: "gemini-3.1-flash-lite-preview", label: "Gemini 3.1 Flash Lite (budget)" },
-  { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro (reasoning)" },
-  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash (recommended)" },
-  { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite (light)" },
-];
-
-// ── Formatting helpers ───────────────────────────────────────────────────────
-
-function formatTokens(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
-}
-
 function getMonthLabel(ts: number): string {
   const d = new Date(ts);
   return d.toLocaleString("default", { month: "short", year: "2-digit" });
-}
-
-function getProviderColor(provider: string): string {
-  if (provider === "anthropic") return "bg-orange-500";
-  if (provider === "openai") return "bg-emerald-500";
-  if (provider === "gemini") return "bg-blue-500";
-  return "bg-gray-500";
-}
-
-function getProviderLabel(provider: string): string {
-  if (provider === "anthropic") return "Anthropic";
-  if (provider === "openai") return "OpenAI";
-  if (provider === "gemini") return "Google";
-  if (provider === "local_http") return "Local";
-  return provider;
 }
 
 // ── Usage Dashboard ──────────────────────────────────────────────────────────
@@ -290,7 +241,7 @@ function UsageDashboard() {
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-1.5">
                         <span
-                          className={`w-2 h-2 rounded-full shrink-0 ${getProviderColor(data.provider)}`}
+                          className={`w-2 h-2 rounded-full shrink-0 ${PROVIDER_TW[data.provider] ?? "bg-gray-500"}`}
                         />
                         <span className="text-gray-800 font-medium truncate max-w-[130px]">
                           {model}
@@ -330,15 +281,7 @@ function UsageDashboard() {
       {/* ── Clear ── */}
       <div className="pt-1 flex gap-3">
         <button
-          onClick={() => {
-            const blob = new Blob([JSON.stringify(entries, null, 2)], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `modern-aw-usage-${new Date().toISOString().slice(0, 10)}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-          }}
+          onClick={() => exportUsageData(entries)}
           className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
         >
           Export JSON
@@ -745,16 +688,15 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
               </svg>
             </button>
           </div>
-          <div className="flex gap-0 px-5 mt-3">
-            <TabButton
-              label="AI Providers"
-              active={tab === "providers"}
-              onClick={() => setTab("providers")}
-            />
-            <TabButton
-              label="Usage Dashboard"
-              active={tab === "usage"}
-              onClick={() => setTab("usage")}
+          <div className="px-5 mt-3">
+            <TabBar
+              tabs={[
+                { id: "providers" as const, label: "AI Providers" },
+                { id: "usage" as const, label: "Usage Dashboard" },
+              ]}
+              active={tab}
+              onChange={setTab}
+              accent="red"
             />
           </div>
         </div>
@@ -817,26 +759,3 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
   );
 }
 
-function TabButton({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
-        active ? "text-red-600" : "text-gray-500 hover:text-gray-700"
-      }`}
-    >
-      {label}
-      {active && (
-        <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-red-500 rounded-full" />
-      )}
-    </button>
-  );
-}

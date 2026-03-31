@@ -12,24 +12,24 @@ import {
   TILE_SCALE,
   fitMapToStage,
   resetPanZoom,
-} from "../rendering/pixi-app";
-import { TerrainRenderer } from "../rendering/terrain-renderer";
-import { UnitRenderer } from "../rendering/unit-renderer";
-import { useEditorStore } from "../store/editor-store";
-import { loadGameData } from "../game/data-loader";
-import { duplicateState } from "../game/game-state";
-import { computeStatsFromGameState } from "../game/map-stats";
-import type { MapStats } from "../game/map-stats";
-import { parseAwbwMapText, importAwbwMap } from "../game/awbw-import";
-import { exportToAwbwCsv } from "../game/awbw-export";
-import { loadSavedMaps, upsertSavedMap, deleteSavedMap, type SavedMap } from "../game/saved-maps";
+} from "../../rendering/pixi-app";
+import { TerrainRenderer } from "../../rendering/terrain-renderer";
+import { UnitRenderer } from "../../rendering/unit-renderer";
+import { useEditorStore } from "../../store/editor-store";
+import { loadGameData } from "../../game/data-loader";
+import { duplicateState } from "../../game/game-state";
+import { computeStatsFromGameState } from "../../game/map-stats";
+import type { MapStats } from "../../game/map-stats";
+import { parseAwbwMapText, importAwbwMap } from "../../game/awbw-import";
+import { exportToAwbwCsv } from "../../game/awbw-export";
+import { loadSavedMaps, upsertSavedMap, deleteSavedMap, type SavedMap } from "../../game/saved-maps";
 import {
   getMapGenProvider,
   sendMapGenMessage,
   parseMapResponse,
   MAP_GEN_SYSTEM_PROMPT,
-} from "../ai/map-generator";
-import type { ChatMessage } from "../ai/llm-providers";
+} from "../../ai/map-generator";
+import type { ChatMessage } from "../../ai/llm-providers";
 import MapEditorPalette from "./MapEditorPalette";
 import { Graphics } from "pixi.js";
 
@@ -169,7 +169,7 @@ function EditorStatsPanel({ stats }: { stats: MapStats }) {
 
 interface MapEditorProps {
   onClose: () => void;
-  onPlay?: (state: import("../game/types").GameState) => void;
+  onPlay?: (state: import("../../game/types").GameState) => void;
 }
 
 export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
@@ -478,7 +478,7 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
     const canvas = canvasRef.current;
     if (!canvas || !dataLoaded) return;
 
-    import("../rendering/pixi-app").then(({ enablePanZoom, disablePanZoom }) => {
+    import("../../rendering/pixi-app").then(({ enablePanZoom, disablePanZoom }) => {
       enablePanZoom(canvas);
       return () => disablePanZoom();
     });

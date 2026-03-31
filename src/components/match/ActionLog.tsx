@@ -1,7 +1,7 @@
 // Recent action log for the sidebar — shows categorised commands with filter chips.
 
 import { useState, useMemo } from "react";
-import { useGameStore } from "../store/game-store";
+import { useGameStore } from "../../store/game-store";
 
 type FilterCategory = "MOVE" | "ATTACK" | "CAPTURE" | "BUILD" | "SYSTEM";
 

@@ -1,11 +1,11 @@
 // Unit purchase modal shown when clicking an owned, unoccupied facility.
 
 import { useState } from "react";
-import { useGameStore } from "../store/game-store";
-import { getTerrainData, getUnitData } from "../game/data-loader";
-import { getTile, getPlayer } from "../game/game-state";
-import { getProducibleUnits } from "../game/economy";
-import type { WeaponData } from "../game/types";
+import { useGameStore } from "../../store/game-store";
+import { getTerrainData, getUnitData } from "../../game/data-loader";
+import { getTile, getPlayer } from "../../game/game-state";
+import { getProducibleUnits } from "../../game/economy";
+import type { WeaponData } from "../../game/types";
 
 interface BuyMenuProps {
   facilityX: number;
