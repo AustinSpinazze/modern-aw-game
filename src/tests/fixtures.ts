@@ -2,11 +2,10 @@
  * **Test fixtures**: minimal {@link GameState} builders without loading `public/data` JSON.
  */
 
-import type { GameState, UnitState, TileState, PlayerState } from "../game/types";
+import type { GameState, UnitState, TileState } from "../game/types";
 import {
   createGameState,
   createUnit,
-  createTile,
   createPlayer,
   addUnit,
   initializeMap,

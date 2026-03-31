@@ -34,12 +34,6 @@ const TEAM_SELECTED_BG: Record<number, string> = {
   2: "bg-green-50 border-l-4 border-green-500",
   3: "bg-yellow-50 border-l-4 border-yellow-400",
 };
-const TEAM_FUNDS_TEXT: Record<number, string> = {
-  0: "text-red-500",
-  1: "text-blue-500",
-  2: "text-green-600",
-  3: "text-yellow-500",
-};
 
 function weaponName(w: WeaponData): string {
   return (
@@ -69,7 +63,6 @@ export default function BuyMenu({ facilityX, facilityY, onClose }: BuyMenuProps)
   const headerBg = TEAM_HEADER_BG[team] ?? "bg-gray-700";
   const deployBg = TEAM_DEPLOY_BG[team] ?? "bg-gray-700 hover:bg-gray-600";
   const selectedBg = TEAM_SELECTED_BG[team] ?? "bg-gray-50 border-l-4 border-gray-400";
-  const fundsText = TEAM_FUNDS_TEXT[team] ?? "text-gray-900";
 
   const handleBuy = (unitType: string) => {
     const result = submitCommand({

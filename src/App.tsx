@@ -94,18 +94,9 @@ class ErrorBoundary extends Component<
 
 type AppView = "menu" | "setup" | "game" | "editor" | "agentConfiguration";
 
-// Derived team color lookups from shared constants
-const TEAM_TEXT: Record<number, string> = Object.fromEntries(
-  TEAM_COLORS.map((c, i) => [i, c.text])
-);
-const TEAM_DOT: Record<number, string> = Object.fromEntries(TEAM_COLORS.map((c, i) => [i, c.dot]));
-const TEAM_RING: Record<number, string> = Object.fromEntries(
-  TEAM_COLORS.map((c, i) => [i, c.ring])
-);
 const TEAM_BORDER: Record<number, string> = Object.fromEntries(
   TEAM_COLORS.map((c, i) => [i, c.border])
 );
-const TEAM_BG: Record<number, string> = Object.fromEntries(TEAM_COLORS.map((c, i) => [i, c.bg]));
 
 function AppContent() {
   const [view, setView] = useState<AppView>("menu");
@@ -162,7 +153,6 @@ function AppContent() {
   // ── Extracted hooks ─────────────────────────────────────────────────────
   const {
     timeRemaining,
-    turnStartTime,
     setTurnStartTime,
     timerPaused,
     pauseTimer,

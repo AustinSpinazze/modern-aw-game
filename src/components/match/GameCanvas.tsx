@@ -3,7 +3,7 @@
  * Client-only; parent {@link ../../App} lazy-loads the route.
  */
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   initPixiApp,
   destroyPixiApp,
@@ -130,12 +130,7 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     previewUnit,
     previewReachableTiles,
     previewAttackableTiles,
-    selectUnit,
-    setHoveredTile,
-    setPendingMove,
-    setPreviewUnit,
     submitCommand,
-    resetSelection,
     onAnimationComplete,
     onPreviewAnimationComplete,
     // Command queue for AI/external
@@ -209,7 +204,6 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
             pendingMove,
             setPendingMove,
             confirmMoveAndAction,
-            submitCommand,
             selectUnit,
             resetSelection,
             cancelPendingMove,

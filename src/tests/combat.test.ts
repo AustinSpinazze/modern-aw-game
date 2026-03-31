@@ -9,7 +9,7 @@ vi.mock("../game/dataLoader");
 import { getUnitData, getTerrainData } from "../game/dataLoader";
 import { MOCK_UNITS, MOCK_TERRAIN } from "./mockData";
 import { calculateDamage, canAttack, executeCombat, getBestWeapon } from "../game/combat";
-import { makeState, addTestUnit, setTerrain } from "./fixtures";
+import { makeState, setTerrain } from "./fixtures";
 import type { UnitState } from "../game/types";
 
 beforeAll(() => {

@@ -454,7 +454,7 @@ export default function ActionMenu() {
 
       {/* Get in: board an adjacent transport */}
       {unloadingCargoIndex === null &&
-        getInTransports.map(({ transportId, transportName }) => (
+        getInTransports.map(({ transportId }) => (
           <button
             key={`getin-${transportId}`}
             onClick={() =>

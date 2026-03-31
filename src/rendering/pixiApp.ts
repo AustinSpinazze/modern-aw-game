@@ -23,8 +23,7 @@ const spritesheets: Record<string, Spritesheet> = {};
 
 // ── Pan / Zoom state ──────────────────────────────────────────────────────────
 // Fixed-scale rendering: tiles always render at TILE_SIZE * TILE_SCALE (48px).
-// _baseScale / _baseX / _baseY are always 1 / 0 / 0.
-// All camera positioning is done exclusively through _panOffsetX/Y + _userZoom.
+// Camera positioning uses _panOffsetX/Y + _userZoom.
 let _panOffsetX = 0;
 let _panOffsetY = 0;
 let _userZoom = 1.0;
@@ -46,23 +45,9 @@ export function getMinZoom(): number {
 // Keep MIN_ZOOM exported as a static fallback for callers that reference it directly.
 export const MIN_ZOOM = 0.25;
 
-// Snap zoom to the nearest multiple of 1/TILE_SCALE so each source texel maps
-// to an exact integer number of screen pixels — eliminates moiré/grid patterns.
-// Valid levels: 1/3, 2/3, 1, 4/3, 5/3, 2, 7/3, 8/3, 3 …
-// At zoom k/TILE_SCALE each 16×16 texel is exactly k screen pixels wide.
-function snapZoom(z: number): number {
-  return Math.round(z * TILE_SCALE) / TILE_SCALE;
-}
-
-// _baseScale / _baseX / _baseY are kept for getStageTransform() compatibility
-// but are always 1 / 0 / 0 under fixed-scale rendering.
-let _baseScale = 1;
-let _baseX = 0;
-let _baseY = 0;
-
 function applyStageTransform(): void {
   if (!app) return;
-  app.stage.scale.set(_userZoom); // _baseScale is always 1
+  app.stage.scale.set(_userZoom);
   app.stage.x = Math.round(_panOffsetX);
   app.stage.y = Math.round(_panOffsetY);
   _zoomChangeCallback?.(_userZoom);
@@ -197,7 +182,7 @@ export function enablePanZoom(canvas: HTMLCanvasElement): void {
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
 
-      // World point under cursor before zoom (_baseScale=1, _baseX/Y=0)
+      // World point under cursor before zoom
       const worldX = (mouseX - _panOffsetX) / _userZoom;
       const worldY = (mouseY - _panOffsetY) / _userZoom;
 
@@ -415,9 +400,6 @@ export function fitMapToStage(mapW: number, mapH: number): void {
   if (!app) return;
   _lastMapW = mapW;
   _lastMapH = mapH;
-  _baseScale = 1;
-  _baseX = 0;
-  _baseY = 0;
 
   // Allow zooming out until the whole map fits the viewport, floor at 0.25.
   const mapPixelW = mapW * TILE_SIZE * TILE_SCALE;
@@ -648,9 +630,6 @@ export function destroyPixiApp(): void {
   _panOffsetX = 0;
   _panOffsetY = 0;
   _userZoom = 1.0;
-  _baseScale = 1;
-  _baseX = 0;
-  _baseY = 0;
   _lastMapW = 0;
   _lastMapH = 0;
 

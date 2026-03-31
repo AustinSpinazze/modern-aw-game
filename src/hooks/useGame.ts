@@ -6,11 +6,11 @@
 
 import { useGameStore } from "../store/gameStore";
 import { getCurrentPlayer, getUnitAt, getTile } from "../game/gameState";
-import { getTerrainData, getUnitData } from "../game/dataLoader";
+import { getTerrainData } from "../game/dataLoader";
 
 export function useGame() {
   const store = useGameStore();
-  const { gameState, selectedUnit, submitCommand } = store;
+  const { gameState, submitCommand } = store;
 
   const currentPlayer = gameState ? getCurrentPlayer(gameState) : null;
   const isMyTurn = (playerId: number) => currentPlayer?.id === playerId;

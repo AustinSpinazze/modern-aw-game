@@ -12,7 +12,6 @@
 import type { GameState, GameCommand } from "./types";
 import {
   getUnit,
-  getUnitAt,
   getPlayer,
   getTile,
   updateUnit,
@@ -21,10 +20,9 @@ import {
   updateTile,
   updatePlayer,
   getNextUnitId,
-  duplicateState,
 } from "./gameState";
 import { getUnitData } from "./dataLoader";
-import { executeCombat, executeSelfDestruct, damageFob, getCounterWeaponIndex } from "./combat";
+import { executeCombat, executeSelfDestruct, getCounterWeaponIndex } from "./combat";
 import { applyIncome, calculateHealCost, calculateMergeRefund } from "./economy";
 import { FOB_COST } from "./economy";
 import { findPath } from "./pathfinding";

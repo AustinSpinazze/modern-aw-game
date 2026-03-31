@@ -6,7 +6,6 @@ import { describe, it, expect } from "vitest";
 import {
   createGameState,
   createUnit,
-  createTile,
   createPlayer,
   addUnit,
   removeUnit,

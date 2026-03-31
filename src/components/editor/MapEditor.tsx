@@ -12,7 +12,6 @@ import {
   getApp,
   TILE_SIZE,
   TILE_SCALE,
-  fitMapToStage,
   resetPanZoom,
 } from "../../rendering/pixiApp";
 import { TerrainRenderer } from "../../rendering/terrainRenderer";
@@ -189,7 +188,6 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
   const undoStack = useEditorStore((s) => s.undoStack);
   const redoStack = useEditorStore((s) => s.redoStack);
   const dirty = useEditorStore((s) => s.dirty);
-  const currentMapId = useEditorStore((s) => s.currentMapId);
 
   const {
     newMap,
@@ -205,7 +203,6 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
     setMapName,
     setMapDescription,
     setBrush,
-    clearEditor,
     markClean,
   } = useEditorStore.getState();
 

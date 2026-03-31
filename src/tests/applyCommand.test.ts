@@ -160,7 +160,6 @@ describe("ATTACK command", () => {
     let s = deterministicState();
     s = addTestUnit(s, { id: 1, unit_type: "infantry", owner_id: 0, x: 0, y: 0 });
     s = addTestUnit(s, { id: 2, unit_type: "infantry", owner_id: 1, x: 1, y: 0 });
-    const before = s;
     s = applyCommand(s, {
       type: "ATTACK",
       player_id: 0,

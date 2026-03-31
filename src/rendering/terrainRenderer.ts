@@ -443,7 +443,7 @@ export class TerrainRenderer {
    * Shows a small "C" badge in the bottom-left corner (AWBW style).
    * Drawn on captureOverlay so it appears above units.
    */
-  private drawCaptureIndicator(capturePoints: number, px: number, py: number): void {
+  private drawCaptureIndicator(_capturePoints: number, px: number, py: number): void {
     const g = new Graphics();
 
     // Small square badge in bottom-left corner

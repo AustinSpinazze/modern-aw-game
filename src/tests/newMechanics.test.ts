@@ -261,7 +261,6 @@ describe("counter-attack ammo depletion", () => {
       target_id: 2,
       weapon_index: 0,
     });
-    const defender = getUnit(s, 2);
     // Tank cannon vs mech has 0 damage in our mock, so no counter actually fires.
     // Let's test with infantry vs infantry where MG has infinite ammo — not useful.
     // Better: use tank (cannon) attacking another tank. Tank counters with cannon.
@@ -319,7 +318,6 @@ describe("counter-attack ammo depletion", () => {
   });
 
   it("canCounterattack returns false when defender ammo is depleted", () => {
-    const s = makeState();
     // Mech with bazooka at 0 ammo cannot counter tank
     const attacker = makeUnit({
       id: 1,
@@ -328,14 +326,6 @@ describe("counter-attack ammo depletion", () => {
       x: 0,
       y: 0,
       ammo: { cannon: 9 },
-    });
-    const defender = makeUnit({
-      id: 2,
-      unit_type: "mech",
-      owner_id: 1,
-      x: 1,
-      y: 0,
-      ammo: { bazooka: 0 },
     });
     // Mech bazooka deals 55 to tank but has 0 ammo. MG deals 6 to tank (still works).
     // MG has infinite ammo (-1), so it CAN still counter via MG.

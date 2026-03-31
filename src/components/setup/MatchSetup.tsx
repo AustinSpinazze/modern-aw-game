@@ -97,7 +97,6 @@ const PLAYER_BORDER = [
   "border-yellow-500",
 ];
 
-const STEPS = ["Players", "Map", "Options", "Review"];
 const STEP_LABELS = ["Players", "Map", "Options", "Review"];
 
 // ── Tile-ID → minimap color ──────────────────────────────────────────────────
@@ -292,43 +291,6 @@ function GameStateMinimap({ state }: { state: GameState }) {
       className="rounded border border-slate-600 block mx-auto"
       style={{ imageRendering: "pixelated", maxWidth: "100%" }}
     />
-  );
-}
-
-// ── Step indicator ─────────────────────────────────────────────────────────────
-function StepIndicator({ current }: { current: number }) {
-  return (
-    <div className="flex items-center gap-0">
-      {STEPS.map((label, i) => {
-        const isCompleted = i < current;
-        const isCurrent = i === current;
-        const dotClass = isCompleted
-          ? "w-2.5 h-2.5 rounded-full bg-amber-500/70"
-          : isCurrent
-            ? "w-2.5 h-2.5 rounded-full bg-amber-500"
-            : "w-2.5 h-2.5 rounded-full bg-slate-700 border border-slate-600";
-        const textClass = isCurrent
-          ? "text-amber-400"
-          : isCompleted
-            ? "text-slate-400"
-            : "text-slate-600";
-        return (
-          <div key={label} className="flex items-center">
-            <div className="flex flex-col items-center gap-1 px-3">
-              <div className={dotClass} />
-              <span className={`text-sm font-semibold uppercase tracking-wide ${textClass}`}>
-                {label}
-              </span>
-            </div>
-            {i < STEPS.length - 1 && (
-              <div
-                className={`w-8 h-px mb-4 ${i < current ? "bg-amber-500/50" : "bg-slate-700"}`}
-              />
-            )}
-          </div>
-        );
-      })}
-    </div>
   );
 }
 

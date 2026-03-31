@@ -23,12 +23,6 @@ const plainsTerrain = {
   can_build_fob: false,
 };
 
-const mountainTerrain = {
-  ...plainsTerrain,
-  name: "Mountain",
-  movement_costs: { foot: 2, mech: 1, tires: -1, tread: -1, air: 1, ship: -1, trans: -1, pipe: -1 },
-};
-
 const seaTerrain = {
   ...plainsTerrain,
   name: "Sea",
