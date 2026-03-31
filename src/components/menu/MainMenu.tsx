@@ -1,3 +1,7 @@
+/**
+ * **Main menu**: new game, continue (Electron saves), map editor, settings.
+ */
+
 import { useState, useEffect } from "react";
 import type { SavedGameMeta } from "../../types";
 

@@ -1,4 +1,6 @@
-// Selection and overlay highlights.
+/**
+ * Move range, attack range, selection cursor, and path preview **overlays** (Pixi Graphics).
+ */
 
 import { Container, Graphics } from "pixi.js";
 import type { Vec2 } from "../game/types";

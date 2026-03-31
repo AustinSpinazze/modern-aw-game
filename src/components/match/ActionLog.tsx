@@ -1,4 +1,6 @@
-// Recent action log for the sidebar — shows categorised commands with filter chips.
+/**
+ * **Command log** sidebar with category filters; reflects `command_log` from game state.
+ */
 
 import { useState, useMemo } from "react";
 import { useGameStore } from "../../store/game-store";

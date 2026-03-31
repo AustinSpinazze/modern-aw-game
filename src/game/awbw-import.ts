@@ -1,7 +1,11 @@
-// AWBW map import: converts AWBW tile ID grids into GameState objects.
-// Tile ID reference: Based on WarsWorld's map-importer-utilities.ts
-// https://github.com/WarsWorld/WarsWorld/blob/main/src/server/tools/map-importer-utilities.ts
-//
+/**
+ * AWBW map **import**: integer tile grids / CSV → {@link GameState} + internal terrain keys.
+ * Remaps arbitrary AWBW factions to four players; building ID order varies by tile ID range.
+ *
+ * Tile ID reference: WarsWorld `map-importer-utilities.ts`
+ * https://github.com/WarsWorld/WarsWorld/blob/main/src/server/tools/map-importer-utilities.ts
+ */
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // IMPORTANT: AWBW TILE ID QUIRKS (for future AI sessions)
 // ═══════════════════════════════════════════════════════════════════════════════

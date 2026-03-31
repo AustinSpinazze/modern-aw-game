@@ -1,4 +1,7 @@
-// Token usage tracking — persisted to localStorage (tokens only; no cost estimates).
+/**
+ * **Token usage history** for analytics (Zustand + localStorage): per-call provider, model, tokens,
+ * context (`game_turn`, `map_gen`, …). Settings UI reads this; no dollar estimates.
+ */
 
 import { create } from "zustand";
 

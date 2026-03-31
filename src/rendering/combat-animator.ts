@@ -1,11 +1,7 @@
-// Combat animation system — flat tile-overlay style matching HighlightRenderer.
-// Uses simple colored rect fills with alpha transitions — no rings, no circles.
-// All effects are additive tile overlays that match the existing pixel-art aesthetic.
-//
-// Timeline (frames at ~60fps, total 28 frames ≈ 467ms):
-//   0–8    Attacker flash  — yellow tile overlay fades in then out (firing)
-//   5–18   Defender flash  — white → red tile overlay (impact)
-//   8–28   Destruction     — rapid triple white flicker, then dark fade-out (if unit dies)
+/**
+ * **Combat VFX**: timed tile flashes (attack, hit, destroy) as simple Pixi `Graphics` overlays,
+ * frame-synced (~28 frames) to match {@link HighlightRenderer} aesthetic.
+ */
 
 import { Container, Graphics } from "pixi.js";
 import type { Vec2 } from "../game/types";

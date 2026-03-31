@@ -1,3 +1,7 @@
+/**
+ * **Local LLM reachability** UI: debounced ping + manual “Check connection” + last check time.
+ */
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { pingLocalLlmBaseUrl } from "../../lib/local-llm-ping";
 

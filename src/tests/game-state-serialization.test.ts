@@ -1,3 +1,7 @@
+/**
+ * @file Vitest: round-trip `stateToDict` / `stateFromDict` serialization.
+ */
+
 import { describe, it, expect } from "vitest";
 import { stateFromDict, stateToDict, createGameState, createPlayer } from "../game/game-state";
 

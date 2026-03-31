@@ -1,3 +1,7 @@
+/**
+ * Full-page **settings**: API keys, models, usage analytics (Recharts), token pricing notes, local endpoint ping.
+ */
+
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useConfigStore } from "../../store/config-store";
 import { useUsageStore } from "../../store/usage-store";
@@ -45,10 +49,16 @@ const VERSION = "v0.1.0";
 
 type SettingsTab = "keys" | "usage" | "games" | "performance";
 
+/** Props for the {@link SettingsPage} component. */
 interface SettingsPageProps {
+  /** Callback to navigate back to the main menu. */
   onBack: () => void;
 }
 
+/**
+ * Filter toolbar for the analytics tabs (Usage, Per-Game, Performance).
+ * Provides model selector, date range toggle buttons, export, and clear history actions.
+ */
 function AnalyticsFilters({
   modelFilter,
   onModelChange,
@@ -122,6 +132,10 @@ function AnalyticsFilters({
   );
 }
 
+/**
+ * Informational callout explaining why the dashboard shows tokens instead of dollar costs,
+ * with links to provider pricing pages and estimation guidance.
+ */
 function TokenPricingNote({ className }: { className?: string }) {
   return (
     <div
@@ -187,11 +201,15 @@ function TokenPricingNote({ className }: { className?: string }) {
   );
 }
 
-
 // ═════════════════════════════════════════════════════════════════════════════
 // Main Component
 // ═════════════════════════════════════════════════════════════════════════════
 
+/**
+ * Full-page AI configuration and analytics dashboard.
+ * Contains four tabs: API Keys & Models, Usage Overview, Per-Game Stats, and Model Performance.
+ * Used as a standalone page (not a modal) with its own header, footer, and back navigation.
+ */
 export default function SettingsPage({ onBack }: SettingsPageProps) {
   const [tab, setTab] = useState<SettingsTab>("keys");
   const allEntries = useUsageStore((s) => s.entries);
@@ -277,9 +295,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
 
       <footer className="border-t border-gray-200 bg-white px-6 py-3">
         <div className="flex items-center justify-between">
-          <p className="text-xs text-gray-400 uppercase tracking-[0.2em] font-medium">
-            Modern AW
-          </p>
+          <p className="text-xs text-gray-400 uppercase tracking-[0.2em] font-medium">Modern AW</p>
           <span className="text-xs text-gray-400 font-mono">{VERSION}</span>
         </div>
       </footer>
@@ -305,6 +321,11 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
 // Tab 1: API Keys & Models
 // ═════════════════════════════════════════════════════════════════════════════
 
+/**
+ * API Keys & Models tab content.
+ * Renders a 2x2 grid of provider cards (Anthropic, OpenAI, Gemini, Local) with
+ * API key inputs, model selectors, and a save button that commits to the config store.
+ */
 function TabApiKeys() {
   const store = useConfigStore();
 
@@ -415,6 +436,12 @@ function TabApiKeys() {
   );
 }
 
+/**
+ * Card for configuring a single AI provider (cloud or local).
+ * Cloud providers show an API key input and model dropdown.
+ * Local providers show an endpoint URL, a free-text model input with datalist suggestions,
+ * and an embedded {@link LocalEndpointPingPanel} for connectivity testing.
+ */
 function ProviderCard({
   name,
   subtitle,
@@ -584,6 +611,11 @@ function ProviderCard({
 // Tab 2: Usage Overview
 // ═════════════════════════════════════════════════════════════════════════════
 
+/**
+ * Usage Overview tab content.
+ * Displays summary cards (total tokens, API calls, games, avg tokens/game),
+ * a monthly bar chart, a provider pie chart, and a provider bar breakdown.
+ */
 function TabUsageOverview({
   modelFilter,
   dateRange,
@@ -782,6 +814,11 @@ function TabUsageOverview({
 // Tab 3: Per-Game Stats
 // ═════════════════════════════════════════════════════════════════════════════
 
+/**
+ * Per-Game Stats tab content.
+ * Groups API calls into game sessions (separated by 10-minute idle gaps) and displays
+ * a bar chart of token usage per game plus a summary table with models used.
+ */
 function TabPerGameStats({
   modelFilter,
   dateRange,
@@ -897,6 +934,11 @@ function TabPerGameStats({
 // Tab 4: Model Performance
 // ═════════════════════════════════════════════════════════════════════════════
 
+/**
+ * Model Performance tab content.
+ * Shows win/loss rates by model, per-model token usage breakdowns,
+ * and a cumulative tokens-over-time line chart.
+ */
 function TabModelPerformance({
   modelFilter,
   dateRange,
@@ -1096,7 +1138,7 @@ function TabModelPerformance({
 // Shared UI components
 // ═════════════════════════════════════════════════════════════════════════════
 
-
+/** White bordered card wrapper for charts and data tables with a title and optional subtitle. */
 function ChartCard({
   title,
   subtitle,
@@ -1119,6 +1161,7 @@ function ChartCard({
   );
 }
 
+/** Centered placeholder shown when a tab has no data to display. */
 function EmptyState({ message, detail }: { message: string; detail?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-gray-400">

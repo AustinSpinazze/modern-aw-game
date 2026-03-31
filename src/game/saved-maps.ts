@@ -1,5 +1,7 @@
-// Shared saved-maps persistence layer.
-// Used by both MatchSetup and MapEditor.
+/**
+ * User-saved maps in `localStorage` (id, name, AWBW CSV, dimensions). Shared by match setup and
+ * the map editor via {@link loadSavedMaps} / {@link upsertSavedMap}.
+ */
 
 export interface SavedMap {
   id: string;

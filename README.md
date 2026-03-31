@@ -1,36 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Modern AW
 
-## Getting Started
+Turn-based tactics game (Advance Wars–style) built with **React 19**, **Vite 7**, **Pixi.js v8**, and **Electron** (desktop). Game rules live in pure TypeScript under `src/game/`; the UI is React + Tailwind 4; match rendering uses Pixi.
 
-First, run the development server:
+**Architecture overview:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)  
+**Contributor rules and pitfalls:** [CLAUDE.md](CLAUDE.md)
+
+## Prerequisites
+
+- Node 20+ recommended
+- [pnpm](https://pnpm.io/) (used in some test scripts) or npm
+
+## Scripts
+
+| Command         | Description                                    |
+| --------------- | ---------------------------------------------- |
+| `pnpm dev`      | Vite dev server + Electron (desktop shell)     |
+| `pnpm build`    | Production bundle to `dist/`                   |
+| `pnpm preview`  | Serve the production build locally             |
+| `pnpm package`  | Build + package desktop app (electron-builder) |
+| `pnpm test`     | Vitest unit tests                              |
+| `pnpm test:e2e` | Playwright against a production build          |
+
+## Getting started
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The Vite dev server defaults to **http://localhost:5173**; Electron loads that URL when running the desktop app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project layout (short)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `src/game/` — rules engine (immutable state, commands, combat, pathfinding)
+- `src/rendering/` — Pixi layers and animators
+- `src/components/` — React UI
+- `src/store/` — Zustand
+- `src/ai/` — heuristic AI + LLM turn runner (Electron IPC for cloud APIs when available)
+- `electron/` — main process + preload
+- `public/data/`, `public/sprites/` — JSON data and atlases
 
-## Learn More
+## Docs
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [docs/units.md](docs/units.md) — unit reference
+- [docs/ROADMAP.md](docs/ROADMAP.md) — roadmap (including planned online multiplayer)

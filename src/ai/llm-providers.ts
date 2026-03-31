@@ -1,5 +1,8 @@
-// Shared LLM call functions for all providers.
-// Uses Electron IPC when available, falls back to direct fetch in browser.
+/**
+ * Provider adapters for cloud LLMs (Anthropic, OpenAI, Gemini) and local Ollama-compatible HTTP.
+ * Uses **Electron IPC** when `window.electronAPI` is present (keys stay off the renderer); otherwise
+ * direct `fetch` in the browser. Records token usage via {@link ../store/usage-store}.
+ */
 
 import { useConfigStore } from "../store/config-store";
 import { useUsageStore } from "../store/usage-store";
@@ -35,7 +38,14 @@ function trackUsage(
   if (result.usage && (result.usage.inputTokens > 0 || result.usage.outputTokens > 0)) {
     useUsageStore
       .getState()
-      .record(provider, usageModel, result.usage.inputTokens, result.usage.outputTokens, context, matchId);
+      .record(
+        provider,
+        usageModel,
+        result.usage.inputTokens,
+        result.usage.outputTokens,
+        context,
+        matchId
+      );
   } else {
     // Estimate tokens (~4 chars per token) when API doesn't return usage
     const inputChars = inputMessages?.reduce((sum, m) => sum + m.content.length, 0) ?? 0;
@@ -112,7 +122,14 @@ export async function callAnthropicViaIPC(
     result = await callAnthropicDirect(messages, model, options);
   }
 
-  trackUsage("anthropic", model, result, options?.usageContext ?? "unknown", messages, options?.matchId);
+  trackUsage(
+    "anthropic",
+    model,
+    result,
+    options?.usageContext ?? "unknown",
+    messages,
+    options?.matchId
+  );
   return result.text;
 }
 
@@ -186,7 +203,14 @@ export async function callGeminiViaIPC(
     result = await callGeminiDirect(messages, model, options);
   }
 
-  trackUsage("gemini", model, result, options?.usageContext ?? "unknown", messages, options?.matchId);
+  trackUsage(
+    "gemini",
+    model,
+    result,
+    options?.usageContext ?? "unknown",
+    messages,
+    options?.matchId
+  );
   return result.text;
 }
 
@@ -242,7 +266,14 @@ export async function callOpenAIViaIPC(
     result = await callOpenAIDirect(messages, model, options);
   }
 
-  trackUsage("openai", model, result, options?.usageContext ?? "unknown", messages, options?.matchId);
+  trackUsage(
+    "openai",
+    model,
+    result,
+    options?.usageContext ?? "unknown",
+    messages,
+    options?.matchId
+  );
   return result.text;
 }
 

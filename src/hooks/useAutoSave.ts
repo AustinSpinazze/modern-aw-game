@@ -1,3 +1,7 @@
+/**
+ * @file Electron-only autosave hook: persists {@link GameState} when the turn advances.
+ */
+
 import { useEffect, useRef } from "react";
 import type { GameState } from "../game/types";
 

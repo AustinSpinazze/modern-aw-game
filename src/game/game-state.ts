@@ -1,5 +1,9 @@
-// State factory functions and mutation helpers.
-// All mutations go through these helpers to keep state immutable-friendly.
+/**
+ * Immutable **helpers** for {@link GameState}: factories (`createGameState`, `createUnit`, …),
+ * queries (`getUnit`, `getTile`), and updates that return **new** state objects (never mutate in place).
+ *
+ * Central place for duplicating state and ID allocation; {@link ./apply-command} composes these helpers.
+ */
 
 import type { GameState, PlayerState, UnitState, TileState } from "./types";
 

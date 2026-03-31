@@ -1,5 +1,10 @@
-// Shared static cache for terrain.json and units.json data.
-// In the browser, these are loaded once and cached.
+/**
+ * Loads and caches `public/data/terrain.json` and `units.json` in the **browser** (async fetch).
+ * Exposes synchronous getters used everywhere in game logic; {@link loadGameData} must complete
+ * before {@link getTerrainData} / {@link getUnitData} return real values.
+ *
+ * Server code uses {@link ./server-data-loader} + {@link loadGameDataSync} instead.
+ */
 
 import type { TerrainData, UnitData } from "./types";
 

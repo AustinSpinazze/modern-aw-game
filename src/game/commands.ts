@@ -1,7 +1,11 @@
-// Command factory and deserialization helpers.
+/**
+ * Command serialization helpers: builds strongly-typed {@link GameCommand} objects from loose
+ * `CommandDict` payloads (network, replays, AI JSON). Inverse of what logging / multiplayer send.
+ */
+
 import type { GameCommand, CommandDict } from "./types";
 
-// Parse a raw dictionary into a typed GameCommand
+/** Parse a raw dictionary into a typed {@link GameCommand}, or `null` if unknown/invalid. */
 export function commandFromDict(data: CommandDict): GameCommand | null {
   const type = data.type as string;
   const player_id = (data.player_id as number) ?? 0;

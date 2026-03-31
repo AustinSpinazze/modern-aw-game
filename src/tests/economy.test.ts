@@ -1,3 +1,7 @@
+/**
+ * @file Vitest: {@link ../game/economy} income and unit costs.
+ */
+
 import { vi, describe, it, expect, beforeAll } from "vitest";
 
 vi.mock("../game/data-loader");

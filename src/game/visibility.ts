@@ -1,12 +1,13 @@
-// Fog-of-war visibility computation.
-// Pure function — no side effects, no Pixi imports.
-//
-// Rules (AWBW-style):
-//   • Each non-loaded unit reveals tiles within its vision radius (Manhattan distance).
-//   • Owned properties (any tile with owner_id === playerId) reveal their own tile + 1 ring.
-//   • Forest tiles are only visible from within 1 tile, regardless of viewer vision.
-//   • Submerged submarines are only visible from adjacent tiles (distance ≤ 1).
-//   • If fog_of_war is false, returns null (caller treats null as "all visible").
+/**
+ * Fog-of-war visibility computation. Pure functions — no side effects, no Pixi.
+ *
+ * Rules (AWBW-style):
+ * - Each non-loaded unit reveals tiles within its vision radius (Manhattan distance).
+ * - Owned properties (`owner_id === playerId`) reveal their tile + one ring.
+ * - Forest tiles are only fully visible from within 1 tile.
+ * - Submerged submarines are only visible from adjacent tiles (distance ≤ 1).
+ * - If `fog_of_war` is false, returns `null` (caller treats as “all visible”).
+ */
 
 import type { GameState } from "./types";
 import { getUnitData } from "./data-loader";

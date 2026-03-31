@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Reusable **tab strip** with underline indicator (settings-style navigation).
+ */
+
 /** Accent color for the active tab indicator and text. */
 type TabAccent = "amber" | "red";
 
@@ -65,9 +69,7 @@ export default function TabBar<T extends string>({
             key={t.id}
             onClick={() => onChange(t.id)}
             className={`px-5 py-3 text-sm font-semibold uppercase tracking-wider transition-colors relative ${
-              isActive
-                ? ACCENT_ACTIVE[accent]
-                : "text-gray-400 hover:text-gray-600"
+              isActive ? ACCENT_ACTIVE[accent] : "text-gray-400 hover:text-gray-600"
             }`}
           >
             {t.label}

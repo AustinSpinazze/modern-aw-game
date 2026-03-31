@@ -1,4 +1,6 @@
-// Unit purchase modal shown when clicking an owned, unoccupied facility.
+/**
+ * **Deploy menu** at factories/airports/ports: lists {@link ../../game/economy} producible units.
+ */
 
 import { useState } from "react";
 import { useGameStore } from "../../store/game-store";

@@ -1,4 +1,10 @@
-// All TypeScript interfaces for the game state
+/**
+ * Core game domain types: players, units, tiles, {@link GameState}, and the discriminated union of
+ * {@link GameCommand} variants. Lives under `src/game/` only — no React or Pixi imports.
+ *
+ * Commands are validated in {@link ./validators} and applied in {@link ./apply-command}; this file
+ * defines the shape the rest of the engine agrees on.
+ */
 
 export type ControllerType =
   | "human"

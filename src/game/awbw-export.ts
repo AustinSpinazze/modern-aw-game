@@ -1,5 +1,7 @@
-// AWBW map export: converts a GameState into AWBW CSV format.
-// This is the inverse of importAwbwMap() from awbw-import.ts.
+/**
+ * AWBW map **export**: {@link GameState} → CSV tile ID grid compatible with AWBW-style tools.
+ * Inverse direction of {@link ./awbw-import}; used when saving or sharing maps.
+ */
 
 import type { GameState } from "./types";
 

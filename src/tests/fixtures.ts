@@ -1,5 +1,6 @@
-// Test fixtures: lightweight GameState builders for unit tests.
-// These bypass the real JSON data loader so tests run without file I/O.
+/**
+ * **Test fixtures**: minimal {@link GameState} builders without loading `public/data` JSON.
+ */
 
 import type { GameState, UnitState, TileState, PlayerState } from "../game/types";
 import {

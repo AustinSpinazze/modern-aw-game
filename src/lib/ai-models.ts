@@ -1,5 +1,6 @@
-// Shared AI model definitions and provider utilities.
-// Single source of truth — used by SettingsPage, SettingsModal, and any future consumers.
+/**
+ * **Model catalog** (ids + labels) per provider for settings dropdowns; keeps API model strings consistent.
+ */
 
 /** A selectable model option for a provider dropdown. */
 export interface ModelOption {

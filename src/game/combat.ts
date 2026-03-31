@@ -1,5 +1,8 @@
-// Combat system: damage calculation and execution.
-// Direct port of combat.gd
+/**
+ * Combat: Advance Wars–style damage formula, luck rolls via {@link ./rng}, counterattacks, and
+ * execution hooks used from {@link ./apply-command}. Pure where possible; reads terrain and unit
+ * data from {@link ./data-loader}.
+ */
 
 import type { GameState, UnitState, TileState, CombatResult } from "./types";
 import { getTile, incrementAttackCounter } from "./game-state";

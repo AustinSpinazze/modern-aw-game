@@ -1,14 +1,9 @@
-// Fog-of-war overlay renderer — STUB.
-//
-// Fog is now rendered by tinting terrain sprites directly in TerrainRenderer
-// (see FOG_TINT constant there).  A separate Pixi Graphics overlay layer was
-// abandoned because setting alpha < 1 on any Container in Pixi v8 creates an
-// intermediate compositing group (offscreen RenderTexture).  In Electron's
-// WebGL renderer that compositing path fails silently, making the entire stage
-// appear blank even though input events continue to work.
-//
-// This class is kept as a no-op so the GameCanvas wiring (fogRendererRef,
-// fogRenderer.getContainer() added to stage) continues to compile unchanged.
+/**
+ * Fog-of-war **placeholder** container (no-op draw). Actual fog tints live in `TerrainRenderer`.
+ *
+ * A separate Graphics overlay was dropped: low-alpha overlay groups in Pixi v8 can break Electron WebGL.
+ * This class stays so `GameCanvas` stage wiring stays stable.
+ */
 
 import { Container } from "pixi.js";
 

@@ -1,5 +1,7 @@
-// Pixi.js Application singleton + lifecycle.
-// Uses WarsWorld sprite sheets with Pixi.js Spritesheet class.
+/**
+ * **Pixi application** singleton: WebGL canvas, asset loading (WarsWorld sprite sheets), pan/zoom,
+ * and texture helpers (`getSprite`, `getAnimation`). Client-only; must not be imported from server code.
+ */
 
 import { Application, Assets, Spritesheet, Texture, TextureSource } from "pixi.js";
 import type { GameState } from "../game/types";

@@ -1,4 +1,6 @@
-// Converts canvas pointer events to tile coordinates.
+/**
+ * Maps **pointer events** from the Pixi canvas to grid {@link Vec2} tile coords (click, hover, right-click).
+ */
 
 import type { Application } from "pixi.js";
 import { TILE_SIZE, TILE_SCALE } from "./pixi-app";

@@ -1,5 +1,13 @@
-// Applies a validated command to a GameState, returning the new state.
-// IMPORTANT: validateCommand() must be called before this.
+/**
+ * Applies a **already-validated** {@link GameCommand} to {@link GameState}, returning an updated
+ * immutable snapshot. This is the **only** place game rules should mutate state after a command.
+ *
+ * **Contract:** {@link ./validators.validateCommand} must run first; never call `applyCommand` on
+ * unvalidated input (API routes and Partykit enforce this).
+ *
+ * Handles movement, combat, economy side-effects (income, heals), capture, production, fog inputs,
+ * and turn advancement — each `switch` arm mirrors one command type from {@link ./types}.
+ */
 
 import type { GameState, GameCommand } from "./types";
 import {

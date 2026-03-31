@@ -110,7 +110,7 @@ All 30 custom units. Cost in credits, move points, domain. Damage values are bas
 
 ---
 
-### Heavy Tank (M1A2 SEPv3)
+### Heavy Tank (new Abrams X)
 
 **Cost:** 16,000 | **Move:** 5 (tread) | **Vision:** 2 | **Can Capture:** No
 **Weapons:** Heavy cannon (ammo 5, range 1) + Coax MG (unlimited, range 1)

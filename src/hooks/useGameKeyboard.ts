@@ -1,3 +1,7 @@
+/**
+ * @file Match view keyboard layer: zoom, end turn, wait, escape — wired from {@link ../App}.
+ */
+
 import { useEffect } from "react";
 import { useGameStore } from "../store/game-store";
 import { zoomIn, zoomOut, resetZoom, getZoomLevel } from "../rendering/pixi-app";
@@ -19,10 +23,7 @@ import { zoomIn, zoomOut, resetZoom, getZoomLevel } from "../rendering/pixi-app"
  * @param view       - The current application view (e.g. `"game"`, `"menu"`).
  * @param setZoomLevel - Callback to sync React state with the current zoom level.
  */
-export function useGameKeyboard(
-  view: string,
-  setZoomLevel: (level: number) => void,
-): void {
+export function useGameKeyboard(view: string, setZoomLevel: (level: number) => void): void {
   useEffect(() => {
     if (view !== "game") return;
 

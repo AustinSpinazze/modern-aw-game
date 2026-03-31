@@ -1,4 +1,7 @@
-// Unified map statistics computation from any map source.
+/**
+ * Map analytics: building/terrain counts for previews (match setup, editor) from AWBW tiles or
+ * a live {@link GameState}.
+ */
 
 import type { GameState } from "./types";
 import { mapAwbwTile } from "./awbw-import";

@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Standard **confirm/cancel** dialog using {@link ./ModalBackdrop}.
+ */
+
 import ModalBackdrop from "./ModalBackdrop";
 
 /**
@@ -28,10 +32,8 @@ export interface ConfirmDialogProps {
 }
 
 const CONFIRM_STYLES: Record<ConfirmVariant, string> = {
-  default:
-    "bg-amber-500 hover:bg-amber-400 text-white",
-  destructive:
-    "bg-red-500 hover:bg-red-600 text-white",
+  default: "bg-amber-500 hover:bg-amber-400 text-white",
+  destructive: "bg-red-500 hover:bg-red-600 text-white",
 };
 
 /**
@@ -65,9 +67,7 @@ export default function ConfirmDialog({
   return (
     <ModalBackdrop onClose={onCancel} opacity="medium">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6">
-        <h3 className="text-base font-bold text-gray-900 uppercase tracking-wide mb-2">
-          {title}
-        </h3>
+        <h3 className="text-base font-bold text-gray-900 uppercase tracking-wide mb-2">{title}</h3>
         <p className="text-sm text-gray-600 leading-relaxed mb-6">{message}</p>
         <div className="flex gap-3">
           <button

@@ -7,14 +7,16 @@ update this file so future sessions don't repeat the mistake.
 
 ## Project Overview
 
-Turn-based tactics game (Advance Wars-inspired) built with Next.js 16 App Router + Pixi.js.
+Turn-based tactics game (Advance Wars-inspired). **Stack and layer diagram:** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+**Build:** Vite 7 + React 19 + TypeScript; desktop builds use Electron (see `vite.config.ts`, `electron/`).
 
 - **Game logic** lives in `src/game/` — pure TypeScript, no framework dependencies
-- **Rendering** lives in `src/rendering/` — Pixi.js v8, always loaded client-side only
-- **UI** is React + Tailwind in `src/components/`
+- **Rendering** lives in `src/rendering/` — Pixi.js v8, loaded only from components that mount the canvas (e.g. `GameCanvas.tsx`)
+- **UI** is React + Tailwind in `src/components/` — entry is `src/App.tsx` (see `index.html` → `src/main.tsx`)
 - **State** is Zustand in `src/store/`
-- **Multiplayer** is Partykit in `party/match.ts`
-- **AI providers** are server-side in `app/api/ai/`
+- **AI** lives in `src/ai/` — heuristic (no network); LLM turns use **Electron IPC** via `window.electronAPI` when running in Electron (keys stay out of the renderer), or direct HTTP to providers / local Ollama in a plain browser
+- **Online multiplayer** is **not** in the repo yet — PartyKit-style rooms are documented in [docs/ROADMAP.md](docs/ROADMAP.md); there is no `party/` server today
 
 ---
 
@@ -26,13 +28,13 @@ Turn-based tactics game (Advance Wars-inspired) built with Next.js 16 App Router
 - `apply-command.ts` is the only place commands are applied to state. Don't apply commands inline elsewhere.
 - `validators.ts` must be called before `apply-command.ts`. Never skip validation.
 - `data-loader.ts` is the shared data cache — call `loadGameData()` once on the client before any game logic runs.
-- For server-side (API routes, Partykit), use `server-data-loader.ts` which reads from `public/data/` via `fs`.
+- For **Node** (scripts, tests, or future tooling), use `server-data-loader.ts` to read `public/data/` via `fs`.
 
 ### Rendering (`src/rendering/`)
 
-- Pixi.js must never be imported at the top level of a file that could run on the server.
-- All rendering files have `"use client"` at the top.
-- `GameCanvas.tsx` uses `dynamic(() => import(...), { ssr: false })` — never remove the `ssr: false`.
+- The app is a **client SPA** (Vite); there is no SSR. Still keep Pixi imports **scoped** to components that own the canvas so tests and tree-shaking stay clear.
+- Some components still carry a `"use client"` directive from the Next.js migration — harmless; Vite ignores it.
+- `GameCanvas.tsx` is a normal import from `App.tsx` (not a framework-specific dynamic import).
 - TILE_SIZE = 16px (sprite sheet resolution). TILE_SCALE = 3 (display multiplier → 48px tiles).
 
 ### Sprite System (WarsWorld)
@@ -58,38 +60,31 @@ Turn-based tactics game (Advance Wars-inspired) built with Next.js 16 App Router
 
 ### React Components
 
-- Components that use Zustand store, browser APIs, or Pixi.js need `"use client"` directive.
-- Page components in `app/` are Server Components by default — only add `"use client"` when needed.
-- The match page (`app/match/[matchId]/page.tsx`) is `"use client"` because it drives the AI loop.
+- Prefer **one-way data flow**: UI reads `useGameStore` and dispatches commands via `submitCommand` / `queueCommands`, not ad-hoc state mutation.
+- The **AI turn loop** (heuristic + LLM) is driven from `App.tsx` when the current player is not human.
 
 ### State Management
 
 - `useGameStore` is the single source of truth for game state during a match.
-- `useConfigStore` is persisted to localStorage (API keys, settings). Never store keys in env client-side.
-- When the AI is running its turn, set `aiRunning: true` in the match page to show the indicator.
+- `useConfigStore` persists API keys and models (localStorage in the browser; Electron can sync encrypted keys via `safeStorage` — see `config-store.ts`). Never store secrets in client env vars.
+- When the AI is running its turn, set `aiRunning: true` to show the indicator.
 
-### API Routes
+### AI integration (no separate backend)
 
-- AI routes (`/api/ai/*`) are server-side only. They receive `apiKey` from the client body OR fall back to `process.env.*`.
-- Always call `loadGameDataForServer()` at the top of every AI route before running game logic.
-- API routes validate + apply each command through `validateCommand` → `applyCommand` on a `duplicateState`.
-
-### Partykit (`party/match.ts`)
-
-- The room is the authoritative source for multiplayer matches.
-- Every command goes through `validateCommand` in the room before being applied.
-- After applying END_TURN, the room checks if the next player is AI and calls the appropriate API route.
+- LLM and cloud calls are implemented in `src/ai/` — not in HTTP routes. In Electron, sensitive calls go through **IPC** to `electron/main.ts`; in the browser, providers may be called directly from the renderer (user keys in config).
+- Game data must be loaded (`loadGameData()`) before any rule evaluation that uses `getUnitData()` / `getTerrainData()`.
+- All proposed commands must go through `validateCommand` → `applyCommand` on duplicated state (same as human play).
 
 ---
 
 ## Known Mistakes / Don'ts
 
-- **Don't import `fs` or Node.js builtins in files under `src/` that run in the browser.** Use `server-data-loader.ts` (which does the `import('fs/promises')` dynamically) only from API routes.
+- **Don't import `fs` or Node.js builtins in files under `src/` that run in the browser.** Use `server-data-loader.ts` only from Node contexts (scripts, tests, future servers).
 - **Don't use `useState` for game state.** All game state goes through `useGameStore`. Local component state is fine for UI-only concerns (modal open/closed, etc.).
 - **Don't call `getUnitData()` / `getTerrainData()` before `loadGameData()` has resolved.** They return null silently, which leads to silent incorrect behavior (0 damage, units that can't move, etc.).
 - **Don't remove `has_acted: true, has_moved: true` from `applyCommand` results.** Several command handlers in `apply-command.ts` must mark units as acted; missing this breaks the turn loop.
 - **Pixi `Graphics.fill()` / `Graphics.stroke()` changed in Pixi v8.** The API takes an object `{ color, alpha }` not positional args. Don't revert to v7-style calls.
-- **`next.config.ts` uses `turbopack: {}` to silence the webpack/turbopack conflict.** Don't add a `webpack` config block — it conflicts with Turbopack in Next.js 16.
+- **Don't change `vite.config.ts` `base` casually** — Electron production loads `dist/index.html` via `file://`; `base: "./"` keeps asset paths working.
 - **UX improvements: don't change the map or sprites.** Refine only the **menus and chrome surrounding the map** (setup screens, sidebar, top bar, modals, action menu). The Pixi canvas (terrain, units, sprites, highlights, fog, animations) stays untouched; see `docs/UX_IMPROVEMENT_PLAN.md`.
 
 ---
@@ -107,12 +102,10 @@ Turn-based tactics game (Advance Wars-inspired) built with Next.js 16 App Router
 
 - `kebab-case.ts` for all source files.
 - `PascalCase.tsx` for React components.
-- Route handlers are always `route.ts` inside the appropriate `app/api/` directory.
 
 ### Imports
 
-- Import from `@/*` alias for all `src/` imports in `app/` files.
-  - e.g. `import { useGameStore } from "@/src/store/game-store"` — but prefer relative imports when already inside `src/`.
+- Use the `@/*` path alias for `src/` (configured in `tsconfig.json` and `vite.config.ts`).
 - Game logic files (`src/game/`) should only import from other `src/game/` files or `data-loader`.
 - Rendering files may import from `src/game/`.
 
@@ -136,36 +129,26 @@ Movement cost of `-1` means **impassable** for that move type. Always check `> 0
 
 ---
 
-## Active Refactoring
-
-> ⚠️ **ELECTRON REFACTOR IN PROGRESS** — See [docs/ELECTRON_REFACTOR.md](/docs/ELECTRON_REFACTOR.md) for the migration plan.
->
-> Before making changes, check the refactor document for current phase and status.
-
----
-
-## Running the Project
+## Running the project
 
 ```bash
-npm run dev          # Dev server at http://localhost:3000 (or next available port)
-npm run build        # Production build (must pass before merging)
-npx tsc --noEmit     # Type check only
-npx partykit dev     # Partykit multiplayer server (separate terminal)
+pnpm dev          # Vite + Electron (dev server URL injected; default http://localhost:5173)
+pnpm build        # Production build to dist/ (must pass before merging)
+npx tsc --noEmit  # Typecheck only
 ```
 
-The Next.js MCP server auto-connects when `npm run dev` is running. Use `get_errors` to check for
-build/runtime errors before declaring work done.
+Online multiplayer: there is no PartyKit dev script yet — see roadmap when it lands.
 
 ---
 
-## Verification Checklist (run before saying "done")
+## Verification checklist (run before saying "done")
 
 1. `npx tsc --noEmit` — zero errors
-2. `npm run build` — clean build
-3. Dev server: main menu renders
+2. `pnpm build` — clean build
+3. Dev app: main menu renders
 4. Start local match → map renders with terrain sprites + units
 5. Click unit → blue reachable tiles appear
 6. Move unit → unit moves, reachable tiles clear
 7. Click enemy in attack range → combat resolves, HP bars update
-8. End Turn → AI player takes heuristic turn automatically
-9. Check browser console — no unhandled errors
+8. End Turn → AI player takes heuristic turn automatically (unless configured otherwise)
+9. Check DevTools console — no unhandled errors

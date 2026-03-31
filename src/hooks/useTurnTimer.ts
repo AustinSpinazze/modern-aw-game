@@ -1,10 +1,18 @@
+/**
+ * @file Per-turn countdown for timed matches; pauses when menus open, can auto–end turn.
+ */
+
 import { useState, useRef, useCallback, useEffect } from "react";
 import type { GameState } from "../game/types";
 import { useGameStore } from "../store/game-store";
 
+/** Parameters for the {@link useTurnTimer} hook. */
 interface UseTurnTimerParams {
+  /** Current game state, or null if no match is active. */
   gameState: GameState | null;
+  /** Current application view (e.g. "game", "menu"). */
   view: string;
+  /** Whether the menu overlay is currently open (pauses the timer). */
   menuOpen: boolean;
 }
 

@@ -1,3 +1,8 @@
+/**
+ * Root **application shell**: view routing (menu, setup, match, editor, settings), loads {@link ./game/data-loader},
+ * wires keyboard/timer/autosave, and hosts the Pixi {@link ./components/match/GameCanvas} match view.
+ */
+
 import {
   useState,
   useCallback,
@@ -90,10 +95,16 @@ class ErrorBoundary extends Component<
 type AppView = "menu" | "setup" | "game" | "editor" | "settings";
 
 // Derived team color lookups from shared constants
-const TEAM_TEXT: Record<number, string> = Object.fromEntries(TEAM_COLORS.map((c, i) => [i, c.text]));
+const TEAM_TEXT: Record<number, string> = Object.fromEntries(
+  TEAM_COLORS.map((c, i) => [i, c.text])
+);
 const TEAM_DOT: Record<number, string> = Object.fromEntries(TEAM_COLORS.map((c, i) => [i, c.dot]));
-const TEAM_RING: Record<number, string> = Object.fromEntries(TEAM_COLORS.map((c, i) => [i, c.ring]));
-const TEAM_BORDER: Record<number, string> = Object.fromEntries(TEAM_COLORS.map((c, i) => [i, c.border]));
+const TEAM_RING: Record<number, string> = Object.fromEntries(
+  TEAM_COLORS.map((c, i) => [i, c.ring])
+);
+const TEAM_BORDER: Record<number, string> = Object.fromEntries(
+  TEAM_COLORS.map((c, i) => [i, c.border])
+);
 const TEAM_BG: Record<number, string> = Object.fromEntries(TEAM_COLORS.map((c, i) => [i, c.bg]));
 
 function AppContent() {
@@ -458,7 +469,9 @@ function AppContent() {
   const hoveredTerrainData = hoveredTerrainType ? getTerrainData(hoveredTerrainType) : null;
 
   // Faction header uses headerBg from shared team colors
-  const TEAM_HEADER_BG: Record<number, string> = Object.fromEntries(TEAM_COLORS.map((c, i) => [i, c.headerBg]));
+  const TEAM_HEADER_BG: Record<number, string> = Object.fromEntries(
+    TEAM_COLORS.map((c, i) => [i, c.headerBg])
+  );
 
   // Game view
   return (

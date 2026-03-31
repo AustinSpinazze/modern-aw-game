@@ -1,6 +1,8 @@
-// Batch-first LLM turn orchestrator.
-// Asks the LLM to plan the entire turn in one call, validates commands
-// sequentially against evolving state, and only retries if needed.
+/**
+ * **LLM turn runner**: one batched model call per turn → JSON commands →
+ * {@link ../game/validators.validateCommand} + {@link ../game/apply-command.applyCommand} in order.
+ * Falls back to {@link ./heuristic.runHeuristicTurn} on failure; integrates with {@link ../store/game-store}.
+ */
 
 import type { GameCommand } from "../game/types";
 import { validateCommand } from "../game/validators";

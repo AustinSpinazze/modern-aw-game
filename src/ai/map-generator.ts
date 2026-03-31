@@ -1,4 +1,7 @@
-// LLM-powered map generation with conversational refinement.
+/**
+ * Map generator: prompts an LLM to emit AWBW CSV tile grids, parses via {@link ../game/awbw-import},
+ * used from the map editor chat UI. Model selection follows {@link ../store/config-store}.
+ */
 
 import type { ChatMessage } from "./llm-providers";
 import {

@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Full-screen **click-out + Escape** backdrop wrapping modal children.
+ */
+
 import { useEffect } from "react";
 
 /**

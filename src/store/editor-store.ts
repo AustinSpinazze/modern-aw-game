@@ -1,5 +1,7 @@
-// Zustand store for the map editor. Holds draft GameState, brush, undo/redo.
-// Does NOT touch useGameStore — only pushes to it when the user clicks "Play".
+/**
+ * **Map editor** state: draft {@link GameState}, brush, undo stacks, AI generation messages.
+ * Isolated from {@link ./game-store}; “Play test” copies draft into the live match flow when ready.
+ */
 
 import { create } from "zustand";
 import type { GameState, UnitState } from "../game/types";

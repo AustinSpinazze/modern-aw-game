@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Small **metric card** for analytics dashboards (label, value, optional sub/detail).
+ */
+
 /** Props for the {@link SummaryCard} component. */
 export interface SummaryCardProps {
   /** Upper label displayed in small uppercase text (e.g. "Total Tokens"). */
@@ -39,12 +43,8 @@ export default function SummaryCard({ label, value, sub, detail }: SummaryCardPr
         {label}
       </div>
       <div className="text-3xl font-black text-gray-900">{value}</div>
-      {sub && (
-        <div className="text-[10px] text-gray-400 uppercase tracking-wider mt-1">{sub}</div>
-      )}
-      {detail && (
-        <div className="text-[9px] text-gray-400 mt-0.5">{detail}</div>
-      )}
+      {sub && <div className="text-[10px] text-gray-400 uppercase tracking-wider mt-1">{sub}</div>}
+      {detail && <div className="text-[9px] text-gray-400 mt-0.5">{detail}</div>}
     </div>
   );
 }

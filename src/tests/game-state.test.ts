@@ -1,3 +1,7 @@
+/**
+ * @file Vitest: {@link ../game/game-state} factories and helpers.
+ */
+
 import { describe, it, expect } from "vitest";
 import {
   createGameState,

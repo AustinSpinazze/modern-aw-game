@@ -1,5 +1,6 @@
-// Unit action popup: Move/Attack/Capture/Wait/etc.
-// Shown after selecting a unit with a pending move destination.
+/**
+ * Post-move **action ring**: attack, capture, wait, etc., positioned from Pixi stage coords.
+ */
 
 import { useGameStore } from "../../store/game-store";
 import { getTerrainData, getUnitData } from "../../game/data-loader";

@@ -1,5 +1,7 @@
-// Usage analytics helpers extracted from SettingsPage.
-// Provides date filtering, game session detection, and data export utilities.
+/**
+ * Pure helpers for usage **analytics** UI: date ranges, session detection from {@link UsageEntry},
+ * CSV export — no React; consumed by settings analytics tabs.
+ */
 
 import type { UsageEntry } from "../store/usage-store";
 
@@ -205,7 +207,7 @@ export function generateMonthKeys(startKey: string, endKey: string): string[] {
  */
 export function fillMonthlyGaps(
   byMonth: Record<string, number>,
-  dateRange: DateRange,
+  dateRange: DateRange
 ): Array<{ month: string; tokens: number }> {
   const dataKeys = Object.keys(byMonth).sort();
   if (dataKeys.length === 0) return [];

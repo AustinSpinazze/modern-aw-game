@@ -1,4 +1,6 @@
-// Shared formatting utilities used across analytics and dashboard components.
+/**
+ * Shared **number/date formatting** for analytics (tokens, month keys).
+ */
 
 /**
  * Formats a token count for display.

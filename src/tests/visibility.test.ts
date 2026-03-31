@@ -1,3 +1,7 @@
+/**
+ * @file Vitest: {@link ../game/visibility} fog-of-war grids.
+ */
+
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { computeVisibility } from "../game/visibility";
 import * as dataLoader from "../game/data-loader";

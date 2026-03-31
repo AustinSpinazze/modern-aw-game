@@ -1,5 +1,7 @@
-// Compact state serializer for LLM prompts.
-// Produces a human-readable text summary instead of the full GameState JSON.
+/**
+ * Flattens {@link GameState} into a **text** digest for LLM system/user prompts (not full JSON).
+ * Keeps token counts lower and highlights what the model needs to choose legal commands.
+ */
 
 import type { GameState } from "../game/types";
 import { getTerrainData } from "../game/data-loader";

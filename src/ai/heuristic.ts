@@ -1,5 +1,7 @@
-// Offline heuristic AI. Port of ai_heuristic.gd.
-// Runs entirely client-side with no API calls.
+/**
+ * Offline **heuristic AI** (no network): simple scoring, move/attack/capture heuristics, runs
+ * synchronously for `controller_type === "heuristic"`. Used when no API keys or as fallback.
+ */
 
 import type { GameState, GameCommand, UnitState } from "../game/types";
 import {

@@ -1,5 +1,7 @@
-// Server-side data loader for API routes and Partykit.
-// Uses Node.js fs to read from public/data/ at build/runtime.
+/**
+ * Loads the same terrain/units JSON as {@link ./data-loader} but from **Node** (`fs`) for
+ * `/api/*` routes and Partykit. Bridges to `loadGameDataSync` so game logic shares one cache.
+ */
 
 import { loadGameDataSync, isDataLoaded } from "./data-loader";
 import path from "path";

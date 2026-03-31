@@ -1,3 +1,7 @@
+/**
+ * @file Vitest: {@link ../game/apply-command.applyCommand} coverage (move, attack, economy, etc.).
+ */
+
 import { vi, describe, it, expect, beforeAll } from "vitest";
 
 vi.mock("../game/data-loader");

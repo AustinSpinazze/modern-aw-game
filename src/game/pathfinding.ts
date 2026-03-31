@@ -1,5 +1,7 @@
-// A* pathfinding and movement utilities.
-// Direct port of pathfinding.gd
+/**
+ * Movement: terrain costs per move type, A* paths, reachable tiles for UI highlights, and attack
+ * range helpers. Consumes {@link ./data-loader} terrain + unit move types; no rendering.
+ */
 
 import type { GameState, UnitState, Vec2 } from "./types";
 import { getTile, getUnitAt } from "./game-state";

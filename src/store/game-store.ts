@@ -1,4 +1,8 @@
-// Zustand game store: holds GameState and drives the game loop.
+/**
+ * **Authoritative match UI state** (Zustand): current {@link GameState}, selection, reachable tiles,
+ * fog snapshot, command queue for animations, and `submitCommand` → validate → apply → AI turn.
+ * Bridges React/Pixi to pure `src/game/*` logic.
+ */
 
 import { create } from "zustand";
 import type { GameState, GameCommand, UnitState, Vec2 } from "../game/types";

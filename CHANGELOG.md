@@ -639,7 +639,7 @@ Added automated testing pipeline for AI agents to verify Electron app changes:
 
 This allows AI agents to verify changes by running tests and viewing screenshots!
 
-**Planning Document:** `docs/ELECTRON_REFACTOR.md`
+**Planning:** Stack and layers are documented in `docs/ARCHITECTURE.md`.
 
 ---
 

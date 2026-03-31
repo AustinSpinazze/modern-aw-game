@@ -1,7 +1,9 @@
 "use client";
 
-// Main map editor component. Pixi.js canvas + toolbar + palette.
-// Renders a draft GameState and lets the user paint tiles/buildings/units.
+/**
+ * **Map editor** view: Pixi preview, brush palette, undo/redo, AI mapgen chat, import/export AWBW CSV.
+ * State lives in {@link ../../store/editor-store}.
+ */
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
@@ -22,7 +24,12 @@ import { computeStatsFromGameState } from "../../game/map-stats";
 import type { MapStats } from "../../game/map-stats";
 import { parseAwbwMapText, importAwbwMap } from "../../game/awbw-import";
 import { exportToAwbwCsv } from "../../game/awbw-export";
-import { loadSavedMaps, upsertSavedMap, deleteSavedMap, type SavedMap } from "../../game/saved-maps";
+import {
+  loadSavedMaps,
+  upsertSavedMap,
+  deleteSavedMap,
+  type SavedMap,
+} from "../../game/saved-maps";
 import {
   getMapGenProvider,
   sendMapGenMessage,

@@ -1,5 +1,7 @@
-// Sprite name mappings from our game IDs to WarsWorld sprite frame names.
-// WarsWorld uses specific naming conventions for terrain, buildings, and units.
+/**
+ * **WarsWorld frame names** and bitmask tables: terrain IDs → PNG names, road/river autotile keys,
+ * building animations, unit animation prefixes. Consumed only by renderers + palette UI.
+ */
 
 // ─── Army color mapping ─────────────────────────────────────────────────────
 // Maps our player IDs (0, 1, 2, 3) to WarsWorld spritesheet keys

@@ -1,6 +1,7 @@
-// Tests for the 6 new game mechanics:
-// 1. Unit Merging (MERGE)
-// 2. Ammo Depletion (counter-attack ammo)
+/**
+ * @file Vitest: advanced mechanics (merge, ammo, repair, trenches, FOB, stealth, etc.).
+ */
+
 // 3. Repair/Healing (domain-aware, costs funds)
 // 4. Auto-Resupply on properties
 // 5. Stealth Hide/Unhide (HIDE, UNHIDE)

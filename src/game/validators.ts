@@ -1,4 +1,10 @@
-// Command validation. Direct port of validators.gd.
+/**
+ * Command validation: checks whether a {@link GameCommand} is legal for the current
+ * {@link GameState} (ownership, phase, ranges, terrain, funds, etc.).
+ *
+ * Every path that accepts player or AI input must call this before {@link ./apply-command.applyCommand}.
+ * Returns structured errors for UI feedback; game logic stays pure.
+ */
 
 import type { GameState, GameCommand, ValidationResult } from "./types";
 import type {

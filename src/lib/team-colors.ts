@@ -1,5 +1,6 @@
-// Single source of truth for team / player color constants.
-// Indexed by player index (0 = Red/P1, 1 = Blue/P2, 2 = Green/P3, 3 = Yellow/P4).
+/**
+ * Canonical **player/team colors** (Tailwind class bundles) for P1–P4 across UI and match chrome.
+ */
 
 /** Tailwind class bundle for a single team. */
 export interface TeamColorClasses {

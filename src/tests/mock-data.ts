@@ -1,5 +1,6 @@
-// Minimal mock unit and terrain data for tests.
-// Covers all unit types referenced in test files.
+/**
+ * **Inline unit/terrain JSON** subsets for Vitest when `data-loader` is mocked.
+ */
 
 import type { UnitData, TerrainData } from "../game/types";
 

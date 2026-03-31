@@ -1,4 +1,7 @@
-/** Try Ollama first, then a generic OpenAI-compatible listing (e.g. LM Studio). */
+/**
+ * Connectivity probe for local LLM servers: `GET /api/tags` (Ollama), then `GET /v1/models` (OpenAI-compatible).
+ * Used by settings UI only — not authoritative for gameplay.
+ */
 
 export async function pingLocalLlmBaseUrl(baseUrl: string): Promise<boolean> {
   const base = baseUrl.trim().replace(/\/$/, "");

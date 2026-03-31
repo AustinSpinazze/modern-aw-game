@@ -1,6 +1,7 @@
-// Terrain renderer using WarsWorld sprite sheets.
-// Terrain tiles are 16x16 in the sprite sheets, scaled up for display.
-// Buildings use AnimatedSprite for idle animations.
+/**
+ * Renders **terrain + buildings** from {@link ./sprite-mapping} (bitmask roads/rivers, HQ animations).
+ * Applies fog tinting when enabled — see {@link ./fog-renderer} for historical no-op overlay.
+ */
 
 import { AnimatedSprite, Container, Graphics, Sprite, Text, TextStyle } from "pixi.js";
 import type { GameState, TileState } from "../game/types";

@@ -1,5 +1,6 @@
-// Unit renderer using WarsWorld sprite sheets with animations.
-// Units have idle animations and movement direction animations.
+/**
+ * **Unit sprites** (idle + facing) with team tints; works with {@link ./movement-animator} during moves.
+ */
 
 import { AnimatedSprite, Container, Graphics, Text, TextStyle } from "pixi.js";
 import type { GameState, UnitState } from "../game/types";

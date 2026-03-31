@@ -1,4 +1,6 @@
-// Pre-game lobby: configure players, map, and match rules.
+/**
+ * **Match setup** wizard: players/controllers, AWBW map import, skirmish options, saved maps → {@link ../../store/game-store}.
+ */
 
 import { useState, useEffect, useRef } from "react";
 import type { ControllerType, GameState } from "../../game/types";

@@ -1,5 +1,7 @@
-// Economy: income calculation and unit costs.
-// Direct port of economy.gd
+/**
+ * Economy: property income, unit purchase prices, heal/merge costs, and FOB build cost.
+ * Used from {@link ./apply-command} when resolving turns, purchases, and repairs.
+ */
 
 import type { GameState } from "./types";
 import { getTile, getPlayer, updatePlayer } from "./game-state";

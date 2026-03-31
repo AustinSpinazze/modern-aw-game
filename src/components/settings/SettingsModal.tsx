@@ -1,3 +1,7 @@
+/**
+ * Compact **settings modal** (overlay): providers, usage dashboard, local ping — used when full {@link ./SettingsPage} is not shown.
+ */
+
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useConfigStore } from "../../store/config-store";
 import { useUsageStore } from "../../store/usage-store";
@@ -335,9 +339,7 @@ function SummaryCard({
         {value}
       </div>
       <div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">{label}</div>
-      {detail && (
-        <div className="text-[9px] text-gray-400 mt-0.5">{detail}</div>
-      )}
+      {detail && <div className="text-[9px] text-gray-400 mt-0.5">{detail}</div>}
     </div>
   );
 }
@@ -758,4 +760,3 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
     </div>
   );
 }
-

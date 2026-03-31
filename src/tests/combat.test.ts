@@ -1,3 +1,7 @@
+/**
+ * @file Vitest: {@link ../game/combat} damage and combat resolution.
+ */
+
 import { vi, describe, it, expect, beforeAll } from "vitest";
 
 vi.mock("../game/data-loader");

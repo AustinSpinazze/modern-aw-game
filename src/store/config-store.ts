@@ -1,6 +1,8 @@
-// Persisted settings: API keys, preferences.
-// API keys are stored encrypted via Electron's safeStorage when running in Electron.
-// Non-sensitive settings (model names, localHttpUrl) are persisted via localStorage.
+/**
+ * **App configuration** (Zustand + persist): API keys, default models, local Ollama URL.
+ * In Electron, keys sync via `safeStorage`; in the browser, persisted fields are still localStorage
+ * (see persist config). Consumed by match setup, settings, and {@link ../ai/llm-providers}.
+ */
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";

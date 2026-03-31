@@ -1,6 +1,6 @@
-// Lightweight particle VFX for combat impacts.
-// Uses Pixi Graphics for small colored quads — no textures needed.
-// Capped pool prevents perf issues during long AI turns.
+/**
+ * Optional **particle bursts** on hit/destroy (Pixi `Graphics` quads, pooled, capped for perf).
+ */
 
 import { Container, Graphics } from "pixi.js";
 import { TILE_SIZE, TILE_SCALE } from "./pixi-app";

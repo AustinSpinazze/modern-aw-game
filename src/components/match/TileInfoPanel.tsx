@@ -1,4 +1,6 @@
-// Hovered tile detail panel — shows full unit stats for both selected and hovered units.
+/**
+ * **Inspector** for hovered/selected tile: terrain defense, unit stats, weapon preview.
+ */
 
 import { useGameStore } from "../../store/game-store";
 import { getTile, getUnitAt, getUnit } from "../../game/game-state";

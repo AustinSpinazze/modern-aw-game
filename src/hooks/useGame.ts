@@ -1,4 +1,8 @@
-// Convenience hook wrapping the game store + common game actions.
+/**
+ * Thin wrapper around {@link ../store/game-store}: exposes `currentPlayer`, `endTurn`, `selectTile`,
+ * `canBuyAt`, and forwards the rest of the store. Use in match UI instead of importing the store directly
+ * when you only need ergonomic helpers.
+ */
 
 import { useGameStore } from "../store/game-store";
 import { getCurrentPlayer, getUnitAt, getTile } from "../game/game-state";

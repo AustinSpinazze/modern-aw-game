@@ -1,3 +1,7 @@
+/**
+ * Full-screen **turn banner** (“Day N — Player X”) between human/AI turns.
+ */
+
 interface TurnTransitionOverlayProps {
   visible: boolean;
   playerName: string;

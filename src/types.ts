@@ -1,4 +1,6 @@
-// Shared application-level types (not game logic types).
+/**
+ * Cross-cutting **UI/app types** (e.g. Electron save metadata) — not part of `src/game/types`.
+ */
 
 export interface SavedGameMeta {
   name: string;

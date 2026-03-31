@@ -1,6 +1,7 @@
-// Deterministic RNG system for multiplayer-safe randomness.
-// All random values are derived from a seeded hash combining match_seed,
-// turn_number, attack_counter, and entity IDs.
+/**
+ * Deterministic “random” for combat luck: same inputs → same outputs across clients and replays.
+ * Mixes `match_seed`, `turn_number`, `attack_counter`, and entity IDs via {@link hashCombine}.
+ */
 
 export const DEFAULT_LUCK_MIN = 0.0;
 export const DEFAULT_LUCK_MAX = 0.1;

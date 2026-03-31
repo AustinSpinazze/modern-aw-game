@@ -1,6 +1,6 @@
-// Movement animation system - animates units moving along a path.
-// Uses WarsWorld directional sprites with step-synced movement.
-// Units move in discrete steps to match animation frames (no skating).
+/**
+ * **Movement playback**: steps units along a path with directional {@link sprite-mapping} animations.
+ */
 
 import { AnimatedSprite, Container } from "pixi.js";
 import type { Vec2 } from "../game/types";

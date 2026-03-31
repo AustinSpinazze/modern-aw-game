@@ -1,3 +1,7 @@
+/**
+ * @file Vitest: {@link ../game/pathfinding} A* and reachability.
+ */
+
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { findPath, getReachableTiles, manhattanDistance } from "../game/pathfinding";
 import * as dataLoader from "../game/data-loader";

@@ -1,7 +1,8 @@
 "use client";
 
-// Tile/building/unit picker sidebar for the map editor.
-// Shows actual sprite previews from the WarsWorld sprite sheets.
+/**
+ * Editor **palette** sidebar: terrain/building/unit brush picks with sprite previews from WarsWorld sheets.
+ */
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useEditorStore, type BrushCategory } from "../../store/editor-store";

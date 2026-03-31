@@ -1,4 +1,7 @@
-// Mounts the Pixi.js canvas and wires game input.
+/**
+ * **In-match Pixi canvas**: owns renderers, animators, input handler, and sync from {@link ../../store/game-store}.
+ * Client-only; parent {@link ../../App} lazy-loads the route.
+ */
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
@@ -31,6 +34,7 @@ import { validateCommand } from "../../game/validators";
 import { getAttackableTiles } from "../../game/pathfinding";
 import { canAttack } from "../../game/combat";
 
+/** Props for the GameCanvas component. */
 interface GameCanvasProps {
   onFacilityClick?: (x: number, y: number) => void;
 }
