@@ -25,10 +25,10 @@ Turn-based tactics game (Advance Wars-inspired). **Stack and layer diagram:** [d
 ### Game Logic (`src/game/`)
 
 - **All game state is immutable.** Every mutation helper returns a new state object, never mutates in place.
-- `apply-command.ts` is the only place commands are applied to state. Don't apply commands inline elsewhere.
-- `validators.ts` must be called before `apply-command.ts`. Never skip validation.
-- `data-loader.ts` is the shared data cache — call `loadGameData()` once on the client before any game logic runs.
-- For **Node** (scripts, tests, or future tooling), use `server-data-loader.ts` to read `public/data/` via `fs`.
+- `applyCommand.ts` is the only place commands are applied to state. Don't apply commands inline elsewhere.
+- `validators.ts` must be called before `applyCommand.ts`. Never skip validation.
+- `dataLoader.ts` is the shared data cache — call `loadGameData()` once on the client before any game logic runs.
+- For **Node** (scripts, tests, or future tooling), use `serverDataLoader.ts` to read `public/data/` via `fs`.
 
 ### Rendering (`src/rendering/`)
 
@@ -40,14 +40,14 @@ Turn-based tactics game (Advance Wars-inspired). **Stack and layer diagram:** [d
 ### Sprite System (WarsWorld)
 
 - Sprites are in `public/sprites/warsworld/` — PNG + JSON pairs per army color
-- Use `getSprite(sheetKey, frameName)` from `pixi-app.ts` to get static textures
-- Use `getAnimation(sheetKey, animName)` from `pixi-app.ts` to get animation frame arrays
+- Use `getSprite(sheetKey, frameName)` from `pixiApp.ts` to get static textures
+- Use `getAnimation(sheetKey, animName)` from `pixiApp.ts` to get animation frame arrays
 - Sheet keys: `"neutral"`, `"orange-star"`, `"blue-moon"`, `"green-earth"`, `"yellow-comet"`
-- `sprite-mapping.ts` defines mappings for terrain, roads, rivers, buildings, units
+- `spriteMapping.ts` defines mappings for terrain, roads, rivers, buildings, units
 - Roads/rivers use bitmask auto-tiling (see `ROAD_SPRITE_MAP`, `RIVER_SPRITE_MAP`)
 - Buildings use `AnimatedSprite` for owned buildings, static `Sprite` for neutral
 
-### AWBW Map Import (`src/game/awbw-import.ts`)
+### AWBW Map Import (`src/game/awbwImport.ts`)
 
 - **Max 4 players supported.** Maps with 5+ factions throw an error.
 - **All factions remap to players 0-3 sequentially**, regardless of AWBW faction type (Grey Sky, Black Hole, Amber Blaze, etc.)
@@ -56,7 +56,7 @@ Turn-based tactics game (Advance Wars-inspired). **Stack and layer diagram:** [d
   - Extended range (117-126): `factory, airport, city, hq, port`
   - Extended range (149+): `airport, city, factory, port, hq`
 - If buildings render wrong (port instead of HQ), check which ID range the map uses and adjust `buildingTypes` array in `mapAwbwTile()`
-- See detailed comments at top of `awbw-import.ts` for full documentation
+- See detailed comments at top of `awbwImport.ts` for full documentation
 
 ### React Components
 
@@ -66,7 +66,7 @@ Turn-based tactics game (Advance Wars-inspired). **Stack and layer diagram:** [d
 ### State Management
 
 - `useGameStore` is the single source of truth for game state during a match.
-- `useConfigStore` persists API keys and models (localStorage in the browser; Electron can sync encrypted keys via `safeStorage` — see `config-store.ts`). Never store secrets in client env vars.
+- `useConfigStore` persists API keys and models (localStorage in the browser; Electron can sync encrypted keys via `safeStorage` — see `configStore.ts`). Never store secrets in client env vars.
 - When the AI is running its turn, set `aiRunning: true` to show the indicator.
 
 ### AI integration (no separate backend)
@@ -79,13 +79,13 @@ Turn-based tactics game (Advance Wars-inspired). **Stack and layer diagram:** [d
 
 ## Known Mistakes / Don'ts
 
-- **Don't import `fs` or Node.js builtins in files under `src/` that run in the browser.** Use `server-data-loader.ts` only from Node contexts (scripts, tests, future servers).
+- **Don't import `fs` or Node.js builtins in files under `src/` that run in the browser.** Use `serverDataLoader.ts` only from Node contexts (scripts, tests, future servers).
 - **Don't use `useState` for game state.** All game state goes through `useGameStore`. Local component state is fine for UI-only concerns (modal open/closed, etc.).
 - **Don't call `getUnitData()` / `getTerrainData()` before `loadGameData()` has resolved.** They return null silently, which leads to silent incorrect behavior (0 damage, units that can't move, etc.).
-- **Don't remove `has_acted: true, has_moved: true` from `applyCommand` results.** Several command handlers in `apply-command.ts` must mark units as acted; missing this breaks the turn loop.
+- **Don't remove `has_acted: true, has_moved: true` from `applyCommand` results.** Several command handlers in `applyCommand.ts` must mark units as acted; missing this breaks the turn loop.
 - **Pixi `Graphics.fill()` / `Graphics.stroke()` changed in Pixi v8.** The API takes an object `{ color, alpha }` not positional args. Don't revert to v7-style calls.
 - **Don't change `vite.config.ts` `base` casually** — Electron production loads `dist/index.html` via `file://`; `base: "./"` keeps asset paths working.
-- **UX improvements: don't change the map or sprites.** Refine only the **menus and chrome surrounding the map** (setup screens, sidebar, top bar, modals, action menu). The Pixi canvas (terrain, units, sprites, highlights, fog, animations) stays untouched; see `docs/UX_IMPROVEMENT_PLAN.md`.
+- **UX improvements: don't change the map or sprites.** Refine only the **menus and chrome surrounding the map** (setup screens, sidebar, top bar, modals, action menu). The Pixi canvas (terrain, units, sprites, highlights, fog, animations) stays untouched.
 
 ---
 
@@ -100,13 +100,15 @@ Turn-based tactics game (Advance Wars-inspired). **Stack and layer diagram:** [d
 
 ### File Naming
 
-- `kebab-case.ts` for all source files.
-- `PascalCase.tsx` for React components.
+- **Directories:** `camelCase` (e.g. `src/components/agentConfigurationAndAnalytics/`).
+- **Non-component TypeScript** (`src/game/`, hooks, stores, `src/lib/`, etc.): **`camelCase.ts`** (e.g. `applyCommand.ts`, `dataLoader.ts`, `gameStore.ts`).
+- **React components:** **`PascalCase.tsx`** — one file per primary component (e.g. `AgentConfigurationAndAnalyticsPage.tsx`, `AgentConfigurationTab.tsx`). Co-located helpers in the same file are fine; split into separate `PascalCase.tsx` files when a screen grows large.
+- **Exception:** `src/vite-env.d.ts` stays as-is (Vite convention).
 
 ### Imports
 
 - Use the `@/*` path alias for `src/` (configured in `tsconfig.json` and `vite.config.ts`).
-- Game logic files (`src/game/`) should only import from other `src/game/` files or `data-loader`.
+- Game logic files (`src/game/`) should only import from other `src/game/` files or `dataLoader`.
 - Rendering files may import from `src/game/`.
 
 ### Tailwind

@@ -3,8 +3,8 @@
  */
 
 import { useEffect } from "react";
-import { useGameStore } from "../store/game-store";
-import { zoomIn, zoomOut, resetZoom, getZoomLevel } from "../rendering/pixi-app";
+import { useGameStore } from "../store/gameStore";
+import { zoomIn, zoomOut, resetZoom, getZoomLevel } from "../rendering/pixiApp";
 
 /**
  * Registers global keyboard shortcuts while the game view is active.

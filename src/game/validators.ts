@@ -2,7 +2,7 @@
  * Command validation: checks whether a {@link GameCommand} is legal for the current
  * {@link GameState} (ownership, phase, ranges, terrain, funds, etc.).
  *
- * Every path that accepts player or AI input must call this before {@link ./apply-command.applyCommand}.
+ * Every path that accepts player or AI input must call this before {@link ./applyCommand.applyCommand}.
  * Returns structured errors for UI feedback; game logic stays pure.
  */
 
@@ -25,8 +25,8 @@ import type {
   CmdHide,
   CmdUnhide,
 } from "./types";
-import { getCurrentPlayer, getUnit, getUnitAt, getPlayer, getTile } from "./game-state";
-import { getUnitData, getTerrainData } from "./data-loader";
+import { getCurrentPlayer, getUnit, getUnitAt, getPlayer, getTile } from "./gameState";
+import { getUnitData, getTerrainData } from "./dataLoader";
 import { canAttack } from "./combat";
 import { isDestinationReachable, isPassable, manhattanDistance } from "./pathfinding";
 import { FOB_COST } from "./economy";

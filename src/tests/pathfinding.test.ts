@@ -4,10 +4,10 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { findPath, getReachableTiles, manhattanDistance } from "../game/pathfinding";
-import * as dataLoader from "../game/data-loader";
+import * as dataLoader from "../game/dataLoader";
 import { makeState, addTestUnit, setTerrain } from "./fixtures";
 
-vi.mock("../game/data-loader", () => ({
+vi.mock("../game/dataLoader", () => ({
   getUnitData: vi.fn(),
   getTerrainData: vi.fn(),
   loadGameData: vi.fn(),

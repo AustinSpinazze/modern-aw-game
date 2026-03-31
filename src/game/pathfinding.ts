@@ -1,11 +1,11 @@
 /**
  * Movement: terrain costs per move type, A* paths, reachable tiles for UI highlights, and attack
- * range helpers. Consumes {@link ./data-loader} terrain + unit move types; no rendering.
+ * range helpers. Consumes {@link ./dataLoader} terrain + unit move types; no rendering.
  */
 
 import type { GameState, UnitState, Vec2 } from "./types";
-import { getTile, getUnitAt } from "./game-state";
-import { getTerrainData, getUnitData } from "./data-loader";
+import { getTile, getUnitAt } from "./gameState";
+import { getTerrainData, getUnitData } from "./dataLoader";
 
 // Movement cost for a terrain type + move type pair. -1 = impassable.
 export function getMovementCost(terrainType: string, moveType: string): number {

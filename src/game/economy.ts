@@ -1,11 +1,11 @@
 /**
  * Economy: property income, unit purchase prices, heal/merge costs, and FOB build cost.
- * Used from {@link ./apply-command} when resolving turns, purchases, and repairs.
+ * Used from {@link ./applyCommand} when resolving turns, purchases, and repairs.
  */
 
 import type { GameState } from "./types";
-import { getTile, getPlayer, updatePlayer } from "./game-state";
-import { getTerrainData, getUnitData } from "./data-loader";
+import { getTile, getPlayer, updatePlayer } from "./gameState";
+import { getTerrainData, getUnitData } from "./dataLoader";
 
 export function calculateIncome(state: GameState, playerId: number): number {
   let income = 0;

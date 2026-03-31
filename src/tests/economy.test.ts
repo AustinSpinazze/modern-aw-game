@@ -4,10 +4,10 @@
 
 import { vi, describe, it, expect, beforeAll } from "vitest";
 
-vi.mock("../game/data-loader");
+vi.mock("../game/dataLoader");
 
-import { getUnitData, getTerrainData } from "../game/data-loader";
-import { MOCK_UNITS, MOCK_TERRAIN } from "./mock-data";
+import { getUnitData, getTerrainData } from "../game/dataLoader";
+import { MOCK_UNITS, MOCK_TERRAIN } from "./mockData";
 import {
   calculateIncome,
   applyIncome,
@@ -17,7 +17,7 @@ import {
   getUnitCost,
 } from "../game/economy";
 import { makeState, setTerrain } from "./fixtures";
-import { updatePlayer } from "../game/game-state";
+import { updatePlayer } from "../game/gameState";
 
 beforeAll(() => {
   vi.mocked(getUnitData).mockImplementation((id) => MOCK_UNITS[id] ?? null);

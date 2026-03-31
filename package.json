@@ -9,9 +9,9 @@
     "preview": "vite preview",
     "package": "vite build && electron-builder",
     "test:e2e": "pnpm build && playwright test --config=e2e/playwright.config.ts",
-    "test:quick": "pnpm build && npx tsx e2e/quick-check.ts",
-    "test:visual": "pnpm test:quick && cat e2e/results/quick-check-text.txt",
-    "test:game": "pnpm build && npx tsx e2e/game-test.ts",
+    "test:quick": "pnpm build && npx tsx e2e/quickCheck.ts",
+    "test:visual": "pnpm test:quick && cat e2e/results/quickCheck-text.txt",
+    "test:game": "pnpm build && npx tsx e2e/gameTest.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

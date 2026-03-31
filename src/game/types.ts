@@ -2,7 +2,7 @@
  * Core game domain types: players, units, tiles, {@link GameState}, and the discriminated union of
  * {@link GameCommand} variants. Lives under `src/game/` only — no React or Pixi imports.
  *
- * Commands are validated in {@link ./validators} and applied in {@link ./apply-command}; this file
+ * Commands are validated in {@link ./validators} and applied in {@link ./applyCommand}; this file
  * defines the shape the rest of the engine agrees on.
  */
 

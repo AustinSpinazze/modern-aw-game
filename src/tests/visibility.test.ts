@@ -4,11 +4,11 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { computeVisibility } from "../game/visibility";
-import * as dataLoader from "../game/data-loader";
+import * as dataLoader from "../game/dataLoader";
 import { makeState, addTestUnit, setTerrain } from "./fixtures";
 
 // Mock getUnitData to return a simple 2-vision unit
-vi.mock("../game/data-loader", () => ({
+vi.mock("../game/dataLoader", () => ({
   getUnitData: vi.fn(),
   getTerrainData: vi.fn(),
   loadGameData: vi.fn(),

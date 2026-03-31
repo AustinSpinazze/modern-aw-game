@@ -1,5 +1,5 @@
 /**
- * **In-match Pixi canvas**: owns renderers, animators, input handler, and sync from {@link ../../store/game-store}.
+ * **In-match Pixi canvas**: owns renderers, animators, input handler, and sync from {@link ../../store/gameStore}.
  * Client-only; parent {@link ../../App} lazy-loads the route.
  */
 
@@ -16,20 +16,20 @@ import {
   animatePanTo,
   updateShake,
   startShake,
-} from "../../rendering/pixi-app";
-import { ParticleSystem } from "../../rendering/particle-system";
-import { TerrainRenderer } from "../../rendering/terrain-renderer";
-import { UnitRenderer } from "../../rendering/unit-renderer";
-import { HighlightRenderer } from "../../rendering/highlight-renderer";
-import { MovementAnimator } from "../../rendering/movement-animator";
-import { CombatAnimator } from "../../rendering/combat-animator";
-import { FogRenderer } from "../../rendering/fog-renderer";
-import { InputHandler } from "../../rendering/input-handler";
-import { useGameStore } from "../../store/game-store";
+} from "../../rendering/pixiApp";
+import { ParticleSystem } from "../../rendering/particleSystem";
+import { TerrainRenderer } from "../../rendering/terrainRenderer";
+import { UnitRenderer } from "../../rendering/unitRenderer";
+import { HighlightRenderer } from "../../rendering/highlightRenderer";
+import { MovementAnimator } from "../../rendering/movementAnimator";
+import { CombatAnimator } from "../../rendering/combatAnimator";
+import { FogRenderer } from "../../rendering/fogRenderer";
+import { InputHandler } from "../../rendering/inputHandler";
+import { useGameStore } from "../../store/gameStore";
 import type { Vec2, GameState, CmdAttack } from "../../game/types";
-import { getUnitAt, getTile, getUnit } from "../../game/game-state";
-import { getTerrainData, getUnitData } from "../../game/data-loader";
-import { applyCommand } from "../../game/apply-command";
+import { getUnitAt, getTile, getUnit } from "../../game/gameState";
+import { getTerrainData, getUnitData } from "../../game/dataLoader";
+import { applyCommand } from "../../game/applyCommand";
 import { validateCommand } from "../../game/validators";
 import { getAttackableTiles } from "../../game/pathfinding";
 import { canAttack } from "../../game/combat";
@@ -399,7 +399,7 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
       })
       .catch(() => {
         // Swallow: only fires if the init was aborted (e.g. Pixi internal error
-        // mid-init). The sequential chain in pixi-app.ts ensures the next call
+        // mid-init). The sequential chain in pixiApp.ts ensures the next call
         // will still run cleanly.
       });
 

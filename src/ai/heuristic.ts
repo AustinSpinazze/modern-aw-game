@@ -11,11 +11,11 @@ import {
   getPlayer,
   getUnit,
   getUnitAt,
-} from "../game/game-state";
-import { getUnitData, getTerrainData } from "../game/data-loader";
+} from "../game/gameState";
+import { getUnitData, getTerrainData } from "../game/dataLoader";
 import { getReachableTiles, getAttackableTiles, manhattanDistance } from "../game/pathfinding";
 import { canAttack, calculateDamage } from "../game/combat";
-import { applyCommand } from "../game/apply-command";
+import { applyCommand } from "../game/applyCommand";
 import { validateCommand } from "../game/validators";
 
 // ── Tile evaluation ──────────────────────────────────────────────────────────

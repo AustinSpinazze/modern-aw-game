@@ -40,7 +40,7 @@ const CONFIRM_STYLES: Record<ConfirmVariant, string> = {
  * A reusable confirmation dialog built on {@link ModalBackdrop}.
  *
  * Displays a title, message, and two action buttons (confirm + cancel).
- * Styled to match the existing SettingsPage ConfirmClearModal pattern
+ * Styled to match the agent configuration & analytics confirm-clear pattern
  * (rounded-xl, shadow-2xl, uppercase bold title).
  *
  * @example

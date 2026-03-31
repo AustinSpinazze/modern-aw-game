@@ -1,5 +1,5 @@
 /**
- * **Main menu**: new game, continue (Electron saves), map editor, settings.
+ * **Main menu**: new game, continue (Electron saves), map editor, agent configuration & analytics.
  */
 
 import { useState, useEffect } from "react";
@@ -9,7 +9,7 @@ interface MainMenuProps {
   onNewGame: () => void;
   onContinue: (saveName: string) => void;
   onMapEditor: () => void;
-  onSettings: () => void;
+  onAgentConfigurationAndAnalytics: () => void;
   onDeleteSave: (name: string) => void;
   saves: SavedGameMeta[];
 }
@@ -20,7 +20,7 @@ export default function MainMenu({
   onNewGame,
   onContinue,
   onMapEditor,
-  onSettings,
+  onAgentConfigurationAndAnalytics,
   onDeleteSave,
   saves,
 }: MainMenuProps) {
@@ -150,7 +150,7 @@ export default function MainMenu({
 
           {/* 04 AI CONFIG & ANALYTICS */}
           <button
-            onClick={onSettings}
+            onClick={onAgentConfigurationAndAnalytics}
             className="flex items-center gap-4 w-full px-6 py-5 bg-white hover:bg-gray-50 transition-colors group"
           >
             <span className="text-gray-400 font-mono text-base w-6 shrink-0">04</span>

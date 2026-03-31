@@ -1,5 +1,5 @@
 /**
- * **Match setup** wizard: players/controllers, AWBW map import, skirmish options, saved maps → {@link ../../store/game-store}.
+ * **Match setup** wizard: players/controllers, AWBW map import, skirmish options, saved maps → {@link ../../store/gameStore}.
  */
 
 import { useState, useEffect, useRef } from "react";
@@ -12,16 +12,16 @@ import {
   addUnit,
   updateTile,
   getNextUnitId,
-} from "../../game/game-state";
+} from "../../game/gameState";
 import { generateMatchSeed } from "../../game/rng";
-import { loadGameData } from "../../game/data-loader";
-import { parseAwbwMapText, importAwbwMap } from "../../game/awbw-import";
+import { loadGameData } from "../../game/dataLoader";
+import { parseAwbwMapText, importAwbwMap } from "../../game/awbwImport";
 import { applyIncome } from "../../game/economy";
-import { useGameStore } from "../../store/game-store";
-import { useConfigStore } from "../../store/config-store";
-import { computeStatsFromAwbwTiles, computeStatsFromGameState } from "../../game/map-stats";
-import type { MapStats } from "../../game/map-stats";
-import { loadSavedMaps, persistSavedMaps, type SavedMap } from "../../game/saved-maps";
+import { useGameStore } from "../../store/gameStore";
+import { useConfigStore } from "../../store/configStore";
+import { computeStatsFromAwbwTiles, computeStatsFromGameState } from "../../game/mapStats";
+import type { MapStats } from "../../game/mapStats";
+import { loadSavedMaps, persistSavedMaps, type SavedMap } from "../../game/savedMaps";
 
 interface PlayerConfig {
   controllerType: ControllerType;
@@ -45,7 +45,6 @@ interface ParsedPreview {
 
 interface MatchSetupProps {
   onMatchStart: () => void;
-  onOpenSettings?: () => void;
   onExit?: () => void;
 }
 
@@ -333,7 +332,7 @@ function StepIndicator({ current }: { current: number }) {
   );
 }
 
-export default function MatchSetup({ onMatchStart, onOpenSettings, onExit }: MatchSetupProps) {
+export default function MatchSetup({ onMatchStart, onExit }: MatchSetupProps) {
   // Wizard state
   const [step, setStep] = useState(0);
   const [mapMode, setMapMode] = useState<"default" | "awbw" | "saved">("default");

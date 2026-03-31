@@ -3,7 +3,7 @@
  */
 
 import { useState, useMemo } from "react";
-import { useGameStore } from "../../store/game-store";
+import { useGameStore } from "../../store/gameStore";
 
 type FilterCategory = "MOVE" | "ATTACK" | "CAPTURE" | "BUILD" | "SYSTEM";
 

@@ -32,27 +32,27 @@ flowchart TB
   end
 
   subgraph state [Zustand stores]
-    GameStore[game-store]
-    ConfigStore[config-store]
-    EditorStore[editor-store]
-    UsageStore[usage-store]
+    GameStore[gameStore]
+    ConfigStore[configStore]
+    EditorStore[editorStore]
+    UsageStore[usageStore]
   end
 
   subgraph game [Pure game engine]
     Validators[validators]
-    Apply[apply-command]
-    GameState[game-state]
+    Apply[applyCommand]
+    GameState[gameState]
     Types[types]
   end
 
   subgraph pixi [Pixi rendering]
-    PixiApp[pixi-app]
+    PixiApp[pixiApp]
     Renderers[terrain / unit / highlight / ...]
   end
 
   subgraph ai [AI adapters]
-    LLM[llm-providers]
-    TurnRunner[llm-turn-runner]
+    LLM[llmProviders]
+    TurnRunner[llmTurnRunner]
     Heuristic[heuristic]
   end
 
@@ -88,7 +88,7 @@ flowchart TB
 Every legal action is a **command** (`src/game/types.ts` — discriminated union). The pipeline is always:
 
 1. **`validateCommand(state, cmd)`** — [`validators.ts`](../src/game/validators.ts) — is this legal right now?
-2. **`applyCommand(state, cmd)`** — [`apply-command.ts`](../src/game/apply-command.ts) — produce a **new** immutable `GameState`.
+2. **`applyCommand(state, cmd)`** — [`applyCommand.ts`](../src/game/applyCommand.ts) — produce a **new** immutable `GameState`.
 
 Nothing else should apply commands to authoritative state (no ad-hoc `unit.x = …` in UI). AI paths (heuristic / LLM) use the same pipeline after producing command objects.
 
@@ -96,12 +96,12 @@ Nothing else should apply commands to authoritative state (no ad-hoc `unit.x = �
 
 ## State stores (what each is for)
 
-| Store              | Role                                                                                                                       |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| **`game-store`**   | Active match: `GameState`, selection, reachable/attack tiles, fog snapshot, command queue for animations, `submitCommand`. |
-| **`config-store`** | API keys, default models, local Ollama URL; persisted (Electron: secure storage where applicable).                         |
-| **`editor-store`** | Map editor draft map, brush, undo/redo; isolated until “play test” pushes into the match flow.                             |
-| **`usage-store`**  | Token usage history for analytics (no dollar estimates).                                                                   |
+| Store             | Role                                                                                                                       |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **`gameStore`**   | Active match: `GameState`, selection, reachable/attack tiles, fog snapshot, command queue for animations, `submitCommand`. |
+| **`configStore`** | API keys, default models, local Ollama URL; persisted (Electron: secure storage where applicable).                         |
+| **`editorStore`** | Map editor draft map, brush, undo/redo; isolated until “play test” pushes into the match flow.                             |
+| **`usageStore`**  | Token usage history for analytics (no dollar estimates).                                                                   |
 
 Match UI should use **`useGameStore`** for game state, not React `useState` for positions or HP.
 
@@ -109,10 +109,10 @@ Match UI should use **`useGameStore`** for game state, not React `useState` for 
 
 ## Rendering (Pixi)
 
-- **Initialization and assets:** [`src/rendering/pixi-app.ts`](../src/rendering/pixi-app.ts) — application singleton, sprite sheets, pan/zoom.
-- **World:** [`terrain-renderer.ts`](../src/rendering/terrain-renderer.ts), [`unit-renderer.ts`](../src/rendering/unit-renderer.ts), [`highlight-renderer.ts`](../src/rendering/highlight-renderer.ts), [`movement-animator.ts`](../src/rendering/movement-animator.ts), [`combat-animator.ts`](../src/rendering/combat-animator.ts).
-- **Input:** [`input-handler.ts`](../src/rendering/input-handler.ts) maps pointer events to tile coordinates.
-- **Mapping:** [`sprite-mapping.ts`](../src/rendering/sprite-mapping.ts) — game IDs ↔ WarsWorld frame names (roads/rivers bitmask, buildings, units).
+- **Initialization and assets:** [`src/rendering/pixiApp.ts`](../src/rendering/pixiApp.ts) — application singleton, sprite sheets, pan/zoom.
+- **World:** [`terrainRenderer.ts`](../src/rendering/terrainRenderer.ts), [`unitRenderer.ts`](../src/rendering/unitRenderer.ts), [`highlightRenderer.ts`](../src/rendering/highlightRenderer.ts), [`movementAnimator.ts`](../src/rendering/movementAnimator.ts), [`combatAnimator.ts`](../src/rendering/combatAnimator.ts).
+- **Input:** [`inputHandler.ts`](../src/rendering/inputHandler.ts) maps pointer events to tile coordinates.
+- **Mapping:** [`spriteMapping.ts`](../src/rendering/spriteMapping.ts) — game IDs ↔ WarsWorld frame names (roads/rivers bitmask, buildings, units).
 
 Pixi must only load in **client** contexts (e.g. components that mount the canvas). The match surface is orchestrated from [`GameCanvas.tsx`](../src/components/match/GameCanvas.tsx).
 
@@ -120,10 +120,10 @@ Pixi must only load in **client** contexts (e.g. components that mount the canva
 
 ## Data loading
 
-| Context                       | Module                                                       | Notes                                                                                       |
-| ----------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| Browser                       | [`data-loader.ts`](../src/game/data-loader.ts)               | `loadGameData()` once; then `getTerrainData` / `getUnitData` are synchronous.               |
-| Node (if used for tools/APIs) | [`server-data-loader.ts`](../src/game/server-data-loader.ts) | Reads `public/data/*.json` via `fs` and feeds the same in-memory cache as the browser path. |
+| Context                       | Module                                                   | Notes                                                                                       |
+| ----------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Browser                       | [`dataLoader.ts`](../src/game/dataLoader.ts)             | `loadGameData()` once; then `getTerrainData` / `getUnitData` are synchronous.               |
+| Node (if used for tools/APIs) | [`serverDataLoader.ts`](../src/game/serverDataLoader.ts) | Reads `public/data/*.json` via `fs` and feeds the same in-memory cache as the browser path. |
 
 Calling getters before `loadGameData()` completes yields `null` and subtle bugs — see CLAUDE.md.
 
@@ -131,13 +131,13 @@ Calling getters before `loadGameData()` completes yields `null` and subtle bugs 
 
 ## AI
 
-| Piece                                                  | Purpose                                                              |
-| ------------------------------------------------------ | -------------------------------------------------------------------- |
-| [`llm-providers.ts`](../src/ai/llm-providers.ts)       | Anthropic / OpenAI / Gemini / Ollama; Electron IPC when available.   |
-| [`llm-turn-runner.ts`](../src/ai/llm-turn-runner.ts)   | Batch model output → validated commands → apply; fallback heuristic. |
-| [`heuristic.ts`](../src/ai/heuristic.ts)               | Offline AI, no network.                                              |
-| [`state-serializer.ts`](../src/ai/state-serializer.ts) | Compact text view of state for prompts.                              |
-| [`map-generator.ts`](../src/ai/map-generator.ts)       | LLM-assisted AWBW-style maps for the editor.                         |
+| Piece                                                | Purpose                                                              |
+| ---------------------------------------------------- | -------------------------------------------------------------------- |
+| [`llmProviders.ts`](../src/ai/llmProviders.ts)       | Anthropic / OpenAI / Gemini / Ollama; Electron IPC when available.   |
+| [`llmTurnRunner.ts`](../src/ai/llmTurnRunner.ts)     | Batch model output → validated commands → apply; fallback heuristic. |
+| [`heuristic.ts`](../src/ai/heuristic.ts)             | Offline AI, no network.                                              |
+| [`stateSerializer.ts`](../src/ai/stateSerializer.ts) | Compact text view of state for prompts.                              |
+| [`mapGenerator.ts`](../src/ai/mapGenerator.ts)       | LLM-assisted AWBW-style maps for the editor.                         |
 
 ---
 
@@ -152,7 +152,7 @@ When the app runs in a normal browser, features that depend on `electronAPI` deg
 
 ## Tests
 
-- **Unit:** `src/tests/` — game rules with mocked `data-loader` and fixtures in `fixtures.ts` / `mock-data.ts`.
+- **Unit:** `src/tests/` — game rules with mocked `dataLoader` and fixtures in `fixtures.ts` / `mockData.ts`.
 - **E2E:** `e2e/` — Playwright against production build.
 
 ---
@@ -161,9 +161,9 @@ When the app runs in a normal browser, features that depend on `electronAPI` deg
 
 ```
 src/
-  game/          # Pure engine: types, validators, apply-command, combat, pathfinding, …
+  game/          # Pure engine: types, validators, applyCommand, combat, pathfinding, …
   rendering/     # Pixi: layers, animators, input
-  components/      # React UI (match/, setup/, editor/, settings/, shared/)
+  components/      # React UI (match/, setup/, editor/, agentConfigurationAndAnalytics/, shared/)
   store/         # Zustand
   hooks/         # useGame, keyboard, timer, autosave
   ai/            # LLM + heuristic

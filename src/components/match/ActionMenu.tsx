@@ -2,12 +2,12 @@
  * Post-move **action ring**: attack, capture, wait, etc., positioned from Pixi stage coords.
  */
 
-import { useGameStore } from "../../store/game-store";
-import { getTerrainData, getUnitData } from "../../game/data-loader";
-import { getTile, getUnit, getUnitAt } from "../../game/game-state";
+import { useGameStore } from "../../store/gameStore";
+import { getTerrainData, getUnitData } from "../../game/dataLoader";
+import { getTile, getUnit, getUnitAt } from "../../game/gameState";
 import { getAttackableTiles, isPassable, manhattanDistance } from "../../game/pathfinding";
 import { canAttack, calculateDamage } from "../../game/combat";
-import { TILE_SIZE, TILE_SCALE, getStageTransform } from "../../rendering/pixi-app";
+import { TILE_SIZE, TILE_SCALE, getStageTransform } from "../../rendering/pixiApp";
 import type { Vec2 } from "../../game/types";
 
 const DISPLAY = TILE_SIZE * TILE_SCALE;

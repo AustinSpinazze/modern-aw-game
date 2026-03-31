@@ -1,8 +1,8 @@
 /**
- * Match **sidebar**: turn/day, player, funds, end turn — reads {@link ../../store/game-store}.
+ * Match **sidebar**: turn/day, player, funds, end turn — reads {@link ../../store/gameStore}.
  */
 
-import { useGameStore } from "../../store/game-store";
+import { useGameStore } from "../../store/gameStore";
 
 export default function InfoPanel() {
   const gameState = useGameStore((s) => s.gameState);

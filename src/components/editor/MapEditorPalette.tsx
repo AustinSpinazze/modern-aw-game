@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useEditorStore, type BrushCategory } from "../../store/editor-store";
+import { useEditorStore, type BrushCategory } from "../../store/editorStore";
 
 // ── Data ─────────────────────────────────────────────────────────────────────
 

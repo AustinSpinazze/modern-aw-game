@@ -10,7 +10,7 @@ import {
   createPlayer,
   addUnit,
   initializeMap,
-} from "../game/game-state";
+} from "../game/gameState";
 
 /** Build a minimal 2-player game state with a blank map. */
 export function makeState(mapWidth = 5, mapHeight = 5, opts?: { fogOfWar?: boolean }): GameState {

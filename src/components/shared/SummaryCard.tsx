@@ -20,16 +20,16 @@ export interface SummaryCardProps {
  * A compact card for displaying a single metric with a label, value,
  * optional secondary text, and optional detail line.
  *
- * Unifies the SummaryCard patterns from SettingsPage (which uses `label`, `value`, `sub`)
- * and SettingsModal (which uses `label`, `value`, `detail`). This component supports all
+ * Unifies the SummaryCard patterns from AgentConfigurationAndAnalyticsPage (`label`, `value`, `sub`)
+ * and the compact modal (`label`, `value`, `detail`). This component supports all
  * three optional text fields simultaneously.
  *
  * @example
  * ```tsx
- * // SettingsPage style (with sub)
+ * // Full-page agent analytics style (with sub)
  * <SummaryCard label="Total Tokens" value="12.5K" sub="8K in / 4.5K out" />
  *
- * // SettingsModal style (with detail)
+ * // Compact modal style (with detail)
  * <SummaryCard label="Tokens" value="12.5K" detail="8K in / 4.5K out" />
  *
  * // Full variant (all fields)

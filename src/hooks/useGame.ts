@@ -1,12 +1,12 @@
 /**
- * Thin wrapper around {@link ../store/game-store}: exposes `currentPlayer`, `endTurn`, `selectTile`,
+ * Thin wrapper around {@link ../store/gameStore}: exposes `currentPlayer`, `endTurn`, `selectTile`,
  * `canBuyAt`, and forwards the rest of the store. Use in match UI instead of importing the store directly
  * when you only need ergonomic helpers.
  */
 
-import { useGameStore } from "../store/game-store";
-import { getCurrentPlayer, getUnitAt, getTile } from "../game/game-state";
-import { getTerrainData, getUnitData } from "../game/data-loader";
+import { useGameStore } from "../store/gameStore";
+import { getCurrentPlayer, getUnitAt, getTile } from "../game/gameState";
+import { getTerrainData, getUnitData } from "../game/dataLoader";
 
 export function useGame() {
   const store = useGameStore();

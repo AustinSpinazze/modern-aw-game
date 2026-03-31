@@ -2,7 +2,7 @@
 
 /**
  * **Map editor** view: Pixi preview, brush palette, undo/redo, AI mapgen chat, import/export AWBW CSV.
- * State lives in {@link ../../store/editor-store}.
+ * State lives in {@link ../../store/editorStore}.
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -14,29 +14,24 @@ import {
   TILE_SCALE,
   fitMapToStage,
   resetPanZoom,
-} from "../../rendering/pixi-app";
-import { TerrainRenderer } from "../../rendering/terrain-renderer";
-import { UnitRenderer } from "../../rendering/unit-renderer";
-import { useEditorStore } from "../../store/editor-store";
-import { loadGameData } from "../../game/data-loader";
-import { duplicateState } from "../../game/game-state";
-import { computeStatsFromGameState } from "../../game/map-stats";
-import type { MapStats } from "../../game/map-stats";
-import { parseAwbwMapText, importAwbwMap } from "../../game/awbw-import";
-import { exportToAwbwCsv } from "../../game/awbw-export";
-import {
-  loadSavedMaps,
-  upsertSavedMap,
-  deleteSavedMap,
-  type SavedMap,
-} from "../../game/saved-maps";
+} from "../../rendering/pixiApp";
+import { TerrainRenderer } from "../../rendering/terrainRenderer";
+import { UnitRenderer } from "../../rendering/unitRenderer";
+import { useEditorStore } from "../../store/editorStore";
+import { loadGameData } from "../../game/dataLoader";
+import { duplicateState } from "../../game/gameState";
+import { computeStatsFromGameState } from "../../game/mapStats";
+import type { MapStats } from "../../game/mapStats";
+import { parseAwbwMapText, importAwbwMap } from "../../game/awbwImport";
+import { exportToAwbwCsv } from "../../game/awbwExport";
+import { loadSavedMaps, upsertSavedMap, deleteSavedMap, type SavedMap } from "../../game/savedMaps";
 import {
   getMapGenProvider,
   sendMapGenMessage,
   parseMapResponse,
   MAP_GEN_SYSTEM_PROMPT,
-} from "../../ai/map-generator";
-import type { ChatMessage } from "../../ai/llm-providers";
+} from "../../ai/mapGenerator";
+import type { ChatMessage } from "../../ai/llmProviders";
 import MapEditorPalette from "./MapEditorPalette";
 import { Graphics } from "pixi.js";
 
@@ -485,7 +480,7 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
     const canvas = canvasRef.current;
     if (!canvas || !dataLoaded) return;
 
-    import("../../rendering/pixi-app").then(({ enablePanZoom, disablePanZoom }) => {
+    import("../../rendering/pixiApp").then(({ enablePanZoom, disablePanZoom }) => {
       enablePanZoom(canvas);
       return () => disablePanZoom();
     });

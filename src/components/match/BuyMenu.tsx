@@ -3,9 +3,9 @@
  */
 
 import { useState } from "react";
-import { useGameStore } from "../../store/game-store";
-import { getTerrainData, getUnitData } from "../../game/data-loader";
-import { getTile, getPlayer } from "../../game/game-state";
+import { useGameStore } from "../../store/gameStore";
+import { getTerrainData, getUnitData } from "../../game/dataLoader";
+import { getTile, getPlayer } from "../../game/gameState";
 import { getProducibleUnits } from "../../game/economy";
 import type { WeaponData } from "../../game/types";
 

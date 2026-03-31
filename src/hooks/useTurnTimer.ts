@@ -4,7 +4,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import type { GameState } from "../game/types";
-import { useGameStore } from "../store/game-store";
+import { useGameStore } from "../store/gameStore";
 
 /** Parameters for the {@link useTurnTimer} hook. */
 interface UseTurnTimerParams {

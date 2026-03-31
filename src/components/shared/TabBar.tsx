@@ -17,8 +17,8 @@ export interface TabBarProps<T extends string> {
   onChange: (id: T) => void;
   /**
    * Accent color for the active tab indicator and text.
-   * - `"amber"` — used in SettingsPage (full-page settings)
-   * - `"red"` — used in SettingsModal (compact modal)
+   * - `"amber"` — used in AgentConfigurationAndAnalyticsPage (full-page)
+   * - `"red"` — used in AgentConfigurationAndAnalyticsModal (compact modal)
    *
    * Defaults to `"amber"`.
    */
@@ -39,7 +39,7 @@ const ACCENT_INDICATOR: Record<TabAccent, string> = {
  * A reusable horizontal tab bar with an active underline indicator.
  *
  * Renders a flex row of buttons matching the tab patterns used in
- * SettingsPage (amber accent) and SettingsModal (red accent).
+ * AgentConfigurationAndAnalyticsPage (amber accent) and AgentConfigurationAndAnalyticsModal (red accent).
  *
  * @example
  * ```tsx

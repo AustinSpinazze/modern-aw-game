@@ -2,9 +2,9 @@
  * **Inspector** for hovered/selected tile: terrain defense, unit stats, weapon preview.
  */
 
-import { useGameStore } from "../../store/game-store";
-import { getTile, getUnitAt, getUnit } from "../../game/game-state";
-import { getTerrainData, getUnitData } from "../../game/data-loader";
+import { useGameStore } from "../../store/gameStore";
+import { getTile, getUnitAt, getUnit } from "../../game/gameState";
+import { getTerrainData, getUnitData } from "../../game/dataLoader";
 import type { UnitState, GameState } from "../../game/types";
 
 const TEAM_TEXT: Record<number, string> = {

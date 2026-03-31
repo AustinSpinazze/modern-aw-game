@@ -1,12 +1,12 @@
 /**
  * Combat: Advance Wars–style damage formula, luck rolls via {@link ./rng}, counterattacks, and
- * execution hooks used from {@link ./apply-command}. Pure where possible; reads terrain and unit
- * data from {@link ./data-loader}.
+ * execution hooks used from {@link ./applyCommand}. Pure where possible; reads terrain and unit
+ * data from {@link ./dataLoader}.
  */
 
 import type { GameState, UnitState, TileState, CombatResult } from "./types";
-import { getTile, incrementAttackCounter } from "./game-state";
-import { getUnitData, getTerrainData } from "./data-loader";
+import { getTile, incrementAttackCounter } from "./gameState";
+import { getUnitData, getTerrainData } from "./dataLoader";
 import { rollLuck } from "./rng";
 import { manhattanDistance } from "./pathfinding";
 

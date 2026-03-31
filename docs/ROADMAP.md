@@ -8,15 +8,15 @@ Last Updated: 2026-03-26
 
 - **Electron:** Vite + Electron in place; Next.js removed. Local save/load, encrypted API keys, settings (electron-store), IPC in `electron/main.ts`.
 - **AI:** Local OpenAI + Anthropic + local HTTP provider; heuristic fallback; AI turn with abort; settings for API keys and model.
-- **Combat:** `combat-animator.ts` — fire/hit/destruction tile overlays; wired in GameCanvas for player and queued ATTACK.
-- **Fog of War:** Full implementation — `visibility.ts` (computeVisibility), `fog-renderer.ts`, `fog_of_war` in GameState; MatchSetup option; terrain/units respect visibility.
+- **Combat:** `combatAnimator.ts` — fire/hit/destruction tile overlays; wired in GameCanvas for player and queued ATTACK.
+- **Fog of War:** Full implementation — `visibility.ts` (computeVisibility), `fogRenderer.ts`, `fog_of_war` in GameState; MatchSetup option; terrain/units respect visibility.
 - **Save/Load:** Save Game / Continue a Saved Game in UI; IPC save/load/list/delete; serialization tests.
-- **Camera:** Pan (Ctrl/Cmd + drag) and zoom in/out/reset; **camera follow** during movement (`updateCameraFollow` in `pixi-app.ts`, driven from `GameCanvas` ticker while `MovementAnimator` runs).
-- **Tests:** Vitest (unit + game-state-serialization + visibility), E2E (Playwright), game-test and electron.test.
+- **Camera:** Pan (Ctrl/Cmd + drag) and zoom in/out/reset; **camera follow** during movement (`updateCameraFollow` in `pixiApp.ts`, driven from `GameCanvas` ticker while `MovementAnimator` runs).
+- **Tests:** Vitest (unit + gameStateSerialization + visibility), E2E (Playwright), gameTest and electron.test.
 - **Transport:** Load/unload (APC, T-Copter, Lander, Carrier) with UI; LOAD/UNLOAD commands.
 - **Fuel:** Air/naval fuel consumption, resupply, 0 fuel = no move; fuel in UI.
 - **Mechanics (Session 14):** Unit Merge command, ammo-aware counterattacks, domain-aware repair/healing costs, auto-resupply on properties, Stealth hide/unhide, and submerged/hidden targeting restrictions.
-- **Tests:** 197/197 passing after adding 47 tests for new mechanics (`src/tests/new-mechanics.test.ts`).
+- **Tests:** 197/197 passing after adding 47 tests for new mechanics (`src/tests/newMechanics.test.ts`).
 
 The sections below still list some of these as planned; checkmarks and "In Progress" have been updated to match the codebase.
 
@@ -51,7 +51,7 @@ A modern Advance Wars-inspired turn-based strategy game that:
 - [x] Unit production from factories/airports/ports
 - [x] Unit merge (AW Join mechanic) with HP cap + excess HP refund
 - [x] Victory conditions (HQ capture, unit elimination)
-- [x] Fog of War (visibility computation, fog renderer, match option; see `src/game/visibility.ts`, `src/rendering/fog-renderer.ts`)
+- [x] Fog of War (visibility computation, fog renderer, match option; see `src/game/visibility.ts`, `src/rendering/fogRenderer.ts`)
 - [x] Hide/Unhide support for stealth units with fog-aware visibility rules
 
 ### Units (19 AWBW-canonical units)
@@ -89,13 +89,13 @@ A modern Advance Wars-inspired turn-based strategy game that:
 - [x] Preview move animation (unit walks to destination before action menu, AW-accurate)
 - [x] Unload tile highlights (teal-green tiles on map, click-to-unload)
 - [x] Right-click range preview works during friendly unit selection
-- [x] Combat animations (tile overlays: fire, hit, destruction; see `src/rendering/combat-animator.ts`)
+- [x] Combat animations (tile overlays: fire, hit, destruction; see `src/rendering/combatAnimator.ts`)
 - [x] Screen shake on explosions (hit + destruction intensity levels)
 - [x] Particle effects (hit sparks, destruction smoke/fire bursts)
 - [x] Smooth camera transitions (eased pan to combat midpoint)
 - [x] AI thinking indicator (spinner + header bar pill)
 - [x] Zoom and pan (GameCanvas; zoom in/out/reset in App)
-- [x] Camera follow during movement animation (safe-zone lerp; `updateCameraFollow` in `pixi-app.ts`)
+- [x] Camera follow during movement animation (safe-zone lerp; `updateCameraFollow` in `pixiApp.ts`)
 - [x] Save/load game (Electron IPC; Save Game / Continue in UI)
 - [x] Settings modal (API keys, AI provider, model)
 - [x] Local AI (OpenAI, Anthropic, local HTTP; heuristic fallback)
@@ -121,10 +121,10 @@ Implementation steps:
 
 - [ ] Install `partykit` (dev) + `partysocket` (runtime); add `partykit.json`, `tsconfig.party.json`, npm scripts
 - [ ] Create `src/multiplayer/types.ts` (shared message types)
-- [ ] Extract `party/build-game-state.ts` from MatchSetup
+- [ ] Extract `party/build-gameState.ts` from MatchSetup
 - [ ] Create `party/match.ts` (room server)
 - [ ] Create `src/multiplayer/connection.ts` (client WebSocket manager)
-- [ ] Add online mode to `game-store.ts` (onlineMode, sendCommand, handleServerUpdate)
+- [ ] Add online mode to `gameStore.ts` (onlineMode, sendCommand, handleServerUpdate)
 - [ ] Update `useGame.ts` (isOnline, isOnlineMyTurn)
 - [ ] Add game mode selector to MatchSetup (Local / Online Host / Online Join)
 - [ ] Create `OnlineLobby.tsx` component
@@ -164,9 +164,9 @@ Implementation steps:
 
 ### Combat Animations — Done ✅
 
-- [x] Attack/hit/destruction (tile overlays: fire flash, hit flash, destruction flicker; see combat-animator.ts)
+- [x] Attack/hit/destruction (tile overlays: fire flash, hit flash, destruction flicker; see combatAnimator.ts)
 - [x] Screen shake on explosions (0.5x hit, 1.0x destruction; exponential decay)
-- [x] Particle effects (hit sparks, destruction smoke/fire bursts; `particle-system.ts`)
+- [x] Particle effects (hit sparks, destruction smoke/fire bursts; `particleSystem.ts`)
 - **Won’t do:** Damage numbers or health bar feedback — hover / tile info already exposes the relevant combat context.
 
 ### Camera / Large Maps
@@ -229,9 +229,9 @@ Implementation steps:
 ### Optional polish (visual & feedback) — Mostly Done ✅
 
 - [x] **Camera follow** during unit movement (see Camera / Large Maps)
-- [x] Smooth camera transitions (eased pan to combat midpoint; `animatePanTo` in `pixi-app.ts`)
+- [x] Smooth camera transitions (eased pan to combat midpoint; `animatePanTo` in `pixiApp.ts`)
 - [x] Screen shake on explosions (hit 0.5x, destruction 1.0x; exponential decay)
-- [x] Particle effects (hit sparks, destruction smoke/fire; `particle-system.ts`)
+- [x] Particle effects (hit sparks, destruction smoke/fire; `particleSystem.ts`)
 - [x] AI thinking indicator (spinner + “AI TURN” header bar pill)
 - [x] Preview move animation (AW-accurate: unit walks to destination before action menu)
 - [x] Unload tile highlights (teal-green map highlights, click-to-unload)
@@ -270,7 +270,7 @@ Implementation steps:
 
 ### Code Quality
 
-- [ ] Add unit tests for game logic (validators, apply-command)
+- [ ] Add unit tests for game logic (validators, applyCommand)
 - [ ] Add integration tests for full turn cycles
 - [ ] Extract magic numbers to constants
 - [ ] Document public APIs with JSDoc
@@ -365,7 +365,7 @@ Single list of all planned features for easy reference. Order follows Priority M
 | –   | ~~Transport mechanics~~    | ✅ Done — Load/unload APC, T-Copter, Lander, Carrier; UI.                                                                                                                                                                                                                                                     |
 | –   | ~~Fuel mechanics~~         | ✅ Done — Air/naval fuel; resupply; 0 fuel = no move.                                                                                                                                                                                                                                                         |
 | –   | ~~Indirect fire~~          | ✅ Done — Artillery, Rocket, Missile range attacks; no counter from target.                                                                                                                                                                                                                                   |
-| –   | ~~Camera follow~~          | ✅ Done — Pan during move animation; safe-zone lerp (`pixi-app.ts` + GameCanvas).                                                                                                                                                                                                                             |
+| –   | ~~Camera follow~~          | ✅ Done — Pan during move animation; safe-zone lerp (`pixiApp.ts` + GameCanvas).                                                                                                                                                                                                                              |
 | –   | ~~Optional polish~~        | ✅ Done — Smooth camera transitions, screen shake, particles, AI thinking indicator, preview move animation, unload highlights, resign confirmation. Day/night + weather visuals deferred.                                                                                                                    |
 | 8   | Online multiplayer         | **Paused — architecture:** PartyKit is **not P2P**; match logic runs on **hosted** infra (e.g. Cloudflare via deploy) or **`partykit dev`** — not “one Electron app hosts the other” by itself. True host-on-PC needs WebSocket-in-main + NAT/LAN/VPN, WebRTC, or a relay. Pick approach, then finish wiring. |
 | 9   | Map preview                | Show map (name, size, thumbnail) before game start.                                                                                                                                                                                                                                                           |
@@ -379,7 +379,7 @@ Single list of all planned features for easy reference. Order follows Priority M
 | –   | ~~Ammo management~~        | ✅ Done (core) — ammo depletion + counter-attack ammo checks + property resupply.                                                                                                                                                                                                                             |
 | –   | Supply from APC/cities     | Supply range and mechanics.                                                                                                                                                                                                                                                                                   |
 | –   | Weather effects            | Rain, snow, clear; affect movement/vision.                                                                                                                                                                                                                                                                    |
-| –   | UX refinement (menus)      | Per docs/UX_IMPROVEMENT_PLAN.md; map/sprites unchanged.                                                                                                                                                                                                                                                       |
+| –   | UX refinement (menus)      | Menus and chrome only; map/sprites unchanged (see CLAUDE.md).                                                                                                                                                                                                                                                 |
 | –   | Multiple AI difficulty     | AI personalities / difficulty levels.                                                                                                                                                                                                                                                                         |
 | –   | Unit info panel            | Stats, HP, ammo, fuel at a glance.                                                                                                                                                                                                                                                                            |
 | –   | Damage preview             | Before attacking.                                                                                                                                                                                                                                                                                             |

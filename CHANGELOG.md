@@ -33,7 +33,7 @@ Completely reworked the movement flow to match official Advance Wars behavior:
 1. **Merge validation too permissive** — Was only blocking when BOTH units were at full HP. Now blocks when target unit is already at 10 HP (`destUnit.hp >= 10`)
 2. **Thin white line artifact** — Sub-pixel gaps between tile rows at certain zoom levels. Fixed by adding `roundPixels: true` to Pixi Application init
 3. **Lingering selection highlight during animation** — Selection highlight now clears immediately when action is confirmed and animation begins
-4. **Unloaded units not marked as waited** — `apply-command.ts` UNLOAD handler was missing `has_acted: true` on the cargo unit, so unloaded units didn't appear greyed out
+4. **Unloaded units not marked as waited** — `applyCommand.ts` UNLOAD handler was missing `has_acted: true` on the cargo unit, so unloaded units didn't appear greyed out
 
 ### UI
 
@@ -41,17 +41,17 @@ Completely reworked the movement flow to match official Advance Wars behavior:
 
 ### Files changed
 
-| File                                  | Change                                                                                                                                                                              |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/store/game-store.ts`             | Added `unloadTiles`, `unloadingCargoIndex`, `previewAnimating`, `setUnloadMode`, `onPreviewAnimationComplete`; preview animation logic in `setPendingMove` and `startMoveAnimation` |
-| `src/components/GameCanvas.tsx`       | Preview animation effect, unload tile click handling, arrow only during hover phase, right-click preview priority fix                                                               |
-| `src/components/ActionMenu.tsx`       | Unload state from store, menu positioning to avoid unload tiles, hidden during preview animation, merge condition fix                                                               |
-| `src/rendering/unit-renderer.ts`      | Added `previewPos` parameter to render unit at pending destination                                                                                                                  |
-| `src/rendering/highlight-renderer.ts` | Added `drawUnloadable()` method (teal-green overlay)                                                                                                                                |
-| `src/rendering/pixi-app.ts`           | Added `roundPixels: true` to fix sub-pixel gaps                                                                                                                                     |
-| `src/game/validators.ts`              | Merge validation: `target.hp >= 10` check                                                                                                                                           |
-| `src/game/apply-command.ts`           | UNLOAD: added `has_acted: true` to cargo unit                                                                                                                                       |
-| `src/App.tsx`                         | Resign confirmation modal                                                                                                                                                           |
+| File                                 | Change                                                                                                                                                                              |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/store/gameStore.ts`             | Added `unloadTiles`, `unloadingCargoIndex`, `previewAnimating`, `setUnloadMode`, `onPreviewAnimationComplete`; preview animation logic in `setPendingMove` and `startMoveAnimation` |
+| `src/components/GameCanvas.tsx`      | Preview animation effect, unload tile click handling, arrow only during hover phase, right-click preview priority fix                                                               |
+| `src/components/ActionMenu.tsx`      | Unload state from store, menu positioning to avoid unload tiles, hidden during preview animation, merge condition fix                                                               |
+| `src/rendering/unitRenderer.ts`      | Added `previewPos` parameter to render unit at pending destination                                                                                                                  |
+| `src/rendering/highlightRenderer.ts` | Added `drawUnloadable()` method (teal-green overlay)                                                                                                                                |
+| `src/rendering/pixiApp.ts`           | Added `roundPixels: true` to fix sub-pixel gaps                                                                                                                                     |
+| `src/game/validators.ts`             | Merge validation: `target.hp >= 10` check                                                                                                                                           |
+| `src/game/applyCommand.ts`           | UNLOAD: added `has_acted: true` to cargo unit                                                                                                                                       |
+| `src/App.tsx`                        | Resign confirmation modal                                                                                                                                                           |
 
 ### Verification
 
@@ -119,12 +119,12 @@ HP_damage = floor(damage% / 10)
 
 ### Files changed
 
-| File                               | Change                                                                                                 |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `src/game/pathfinding.ts`          | Removed domain-based enemy bypass in `findPath()` and `getReachableTiles()` — enemy units always block |
-| `src/rendering/combat-animator.ts` | Added `onDestroy` callback + `DESTROY_VFX_FRAME` timing constant                                       |
-| `src/rendering/particle-system.ts` | Increased `PARTICLES_PER_DESTROY` (14→20) and `PARTICLE_SIZE_MAX` (5→6)                                |
-| `src/components/GameCanvas.tsx`    | Wired `onDestroy` callback in both player and AI combat animation paths                                |
+| File                              | Change                                                                                                 |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `src/game/pathfinding.ts`         | Removed domain-based enemy bypass in `findPath()` and `getReachableTiles()` — enemy units always block |
+| `src/rendering/combatAnimator.ts` | Added `onDestroy` callback + `DESTROY_VFX_FRAME` timing constant                                       |
+| `src/rendering/particleSystem.ts` | Increased `PARTICLES_PER_DESTROY` (14→20) and `PARTICLE_SIZE_MAX` (5→6)                                |
+| `src/components/GameCanvas.tsx`   | Wired `onDestroy` callback in both player and AI combat animation paths                                |
 
 ### Verification
 
@@ -140,29 +140,29 @@ HP_damage = floor(damage% / 10)
 
 ### What shipped
 
-1. **Smooth camera transitions** — New `animatePanTo(tileX, tileY)` eased pan in `pixi-app.ts`. Camera gently pans to the combat midpoint when attacks resolve. Respects existing `clampPan()` and user zoom. Cancel anytime via `cancelCameraPan()`. Lerps at 0.08/frame, snaps when <0.5px from target.
+1. **Smooth camera transitions** — New `animatePanTo(tileX, tileY)` eased pan in `pixiApp.ts`. Camera gently pans to the combat midpoint when attacks resolve. Respects existing `clampPan()` and user zoom. Cancel anytime via `cancelCameraPan()`. Lerps at 0.08/frame, snaps when <0.5px from target.
 
 2. **Screen shake** — Triggered on combat hit (0.5x intensity) and unit destruction (1.0x). Implemented as temporary random-angle offset on the stage, not by mutating tile positions. Decays exponentially (0.85/frame) over ~18 frames (~300ms). Scales down when zoomed out to avoid looking bad on small maps. Tuning constants exported: `SHAKE_INTENSITY=6`, `SHAKE_DURATION=18`, `SHAKE_DECAY=0.85`.
 
-3. **Particle VFX** — New `src/rendering/particle-system.ts`. Short-lived colored quad bursts at impact tiles using Pixi Graphics. Hit = 8 orange/fire particles, Destroy = 14 fire+smoke particles. Physics: slight upward bias, gravity pull, fade in last 40% of life. Hard cap of 60 concurrent particles prevents perf issues during long AI turns. Particles sit above combat effects, below path overlay.
+3. **Particle VFX** — New `src/rendering/particleSystem.ts`. Short-lived colored quad bursts at impact tiles using Pixi Graphics. Hit = 8 orange/fire particles, Destroy = 14 fire+smoke particles. Physics: slight upward bias, gravity pull, fade in last 40% of life. Hard cap of 60 concurrent particles prevents perf issues during long AI turns. Particles sit above combat effects, below path overlay.
 
 4. **AI thinking indicator** — Enhanced the existing bottom-of-screen pill: now has a spinning border animation, slightly larger, "AI is thinking..." text. Added a compact header-bar indicator with spinning icon + "AI TURN" label in a frosted pill, visible even when bottom UI is obscured. Both clear reliably when `processingQueue` ends or turn changes.
 
 ### Files changed
 
-| File                               | Change                                                                                                                                                   |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/rendering/pixi-app.ts`        | Added `animatePanTo()`, `updateCameraPan()`, `cancelCameraPan()`, `isCameraPanning()`, `startShake()`, `updateShake()`, `isShaking()` + tuning constants |
-| `src/rendering/particle-system.ts` | **New file** — `ParticleSystem` class with `emitHit()`, `emitDestroy()`, `update()`, `clear()`                                                           |
-| `src/rendering/combat-animator.ts` | Added `onHit` and `onCounterHit` callbacks to `CombatAnimParams`, fired at impact frames                                                                 |
-| `src/components/GameCanvas.tsx`    | Wired particle system + shake + camera pan into ticker loop and all combat animation paths (player + AI queue)                                           |
-| `src/App.tsx`                      | Enhanced AI indicator with spinner animation + added header-bar "AI TURN" pill                                                                           |
+| File                              | Change                                                                                                                                                   |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/rendering/pixiApp.ts`        | Added `animatePanTo()`, `updateCameraPan()`, `cancelCameraPan()`, `isCameraPanning()`, `startShake()`, `updateShake()`, `isShaking()` + tuning constants |
+| `src/rendering/particleSystem.ts` | **New file** — `ParticleSystem` class with `emitHit()`, `emitDestroy()`, `update()`, `clear()`                                                           |
+| `src/rendering/combatAnimator.ts` | Added `onHit` and `onCounterHit` callbacks to `CombatAnimParams`, fired at impact frames                                                                 |
+| `src/components/GameCanvas.tsx`   | Wired particle system + shake + camera pan into ticker loop and all combat animation paths (player + AI queue)                                           |
+| `src/App.tsx`                     | Enhanced AI indicator with spinner animation + added header-bar "AI TURN" pill                                                                           |
 
 ### How to tune
 
 - **Shake**: Adjust `SHAKE_INTENSITY` (px), `SHAKE_DECAY` (0-1), and the intensity multiplier in `startShake()` calls (0.5 for hit, 1.0 for destroy)
-- **Particles**: Edit constants at top of `particle-system.ts` — `MAX_PARTICLES`, `PARTICLES_PER_HIT`, `PARTICLE_LIFETIME`, colors arrays
-- **Camera pan speed**: `CAMERA_PAN_LERP` in `pixi-app.ts` (lower = slower/smoother)
+- **Particles**: Edit constants at top of `particleSystem.ts` — `MAX_PARTICLES`, `PARTICLES_PER_HIT`, `PARTICLE_LIFETIME`, colors arrays
+- **Camera pan speed**: `CAMERA_PAN_LERP` in `pixiApp.ts` (lower = slower/smoother)
 
 ### Verification
 
@@ -244,7 +244,7 @@ Backend commands already existed; this session added:
 
 ### Test Coverage
 
-Added `src/tests/new-mechanics.test.ts` with **47 tests**:
+Added `src/tests/newMechanics.test.ts` with **47 tests**:
 
 | Category                             | Tests |
 | ------------------------------------ | ----- |
@@ -261,27 +261,27 @@ Added `src/tests/new-mechanics.test.ts` with **47 tests**:
 | Submerged sub targeting restriction  | 3     |
 | Command parsing (MERGE/HIDE/UNHIDE)  | 3     |
 
-Updated 2 existing tests in `apply-command.test.ts` (healing now costs funds).
+Updated 2 existing tests in `applyCommand.test.ts` (healing now costs funds).
 Added mock data: `stealth`, `cruiser` units; `airport`, `port`, `forest` terrain.
 
 ---
 
 ### Files Changed
 
-| File                              | Change                                                                                                                               |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `src/game/types.ts`               | Added `is_hidden` to `UnitState`; `MERGE`, `HIDE`, `UNHIDE` to `CommandType`; 3 new command interfaces                               |
-| `src/game/commands.ts`            | Added 3 new cases to `commandFromDict`                                                                                               |
-| `src/game/economy.ts`             | Added `calculateHealCost()`, `calculateMergeRefund()`                                                                                |
-| `src/game/combat.ts`              | Exported `getCounterWeaponIndex`; ammo check in `canCounterattack` + `getCounterWeaponIndex`; submerged/hidden targeting restriction |
-| `src/game/validators.ts`          | Added `validateMerge`, `validateHide`, `validateUnhide`                                                                              |
-| `src/game/apply-command.ts`       | Added MERGE/HIDE/UNHIDE handlers; counter-attack ammo fix; END_TURN overhaul (domain-aware healing + auto-resupply)                  |
-| `src/game/visibility.ts`          | Hidden stealth post-processing in fog                                                                                                |
-| `src/components/ActionMenu.tsx`   | Merge, Hide, Unhide, Submerge, Surface buttons                                                                                       |
-| `src/store/game-store.ts`         | MERGE skip-MOVE logic; new command types in `clearTypes`                                                                             |
-| `src/tests/new-mechanics.test.ts` | **New** — 47 tests for all 6 mechanics                                                                                               |
-| `src/tests/mock-data.ts`          | Added `stealth`, `cruiser` units; `airport`, `port`, `forest` terrain                                                                |
-| `src/tests/apply-command.test.ts` | Updated 2 healing tests (healing now costs funds)                                                                                    |
+| File                             | Change                                                                                                                               |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/game/types.ts`              | Added `is_hidden` to `UnitState`; `MERGE`, `HIDE`, `UNHIDE` to `CommandType`; 3 new command interfaces                               |
+| `src/game/commands.ts`           | Added 3 new cases to `commandFromDict`                                                                                               |
+| `src/game/economy.ts`            | Added `calculateHealCost()`, `calculateMergeRefund()`                                                                                |
+| `src/game/combat.ts`             | Exported `getCounterWeaponIndex`; ammo check in `canCounterattack` + `getCounterWeaponIndex`; submerged/hidden targeting restriction |
+| `src/game/validators.ts`         | Added `validateMerge`, `validateHide`, `validateUnhide`                                                                              |
+| `src/game/applyCommand.ts`       | Added MERGE/HIDE/UNHIDE handlers; counter-attack ammo fix; END_TURN overhaul (domain-aware healing + auto-resupply)                  |
+| `src/game/visibility.ts`         | Hidden stealth post-processing in fog                                                                                                |
+| `src/components/ActionMenu.tsx`  | Merge, Hide, Unhide, Submerge, Surface buttons                                                                                       |
+| `src/store/gameStore.ts`         | MERGE skip-MOVE logic; new command types in `clearTypes`                                                                             |
+| `src/tests/newMechanics.test.ts` | **New** — 47 tests for all 6 mechanics                                                                                               |
+| `src/tests/mockData.ts`          | Added `stealth`, `cruiser` units; `airport`, `port`, `forest` terrain                                                                |
+| `src/tests/applyCommand.test.ts` | Updated 2 healing tests (healing now costs funds)                                                                                    |
 
 ---
 
@@ -382,7 +382,7 @@ Full UX redesign pass inspired by Lovable mockups. Migrated the entire app from 
 
 **Canvas background**
 
-- Pixi `backgroundColor` changed from `0x1a1a2e` (dark navy) to `0xf0ece0` (parchment) in `src/rendering/pixi-app.ts` — area outside the map tiles now matches the theme
+- Pixi `backgroundColor` changed from `0x1a1a2e` (dark navy) to `0xf0ece0` (parchment) in `src/rendering/pixiApp.ts` — area outside the map tiles now matches the theme
 - Outer game wrapper changed from `bg-gray-900` to `style={{ background: "#f0ece0" }}`
 - Concave corner piece updated to use parchment fill
 
@@ -393,7 +393,7 @@ Full UX redesign pass inspired by Lovable mockups. Migrated the entire app from 
 The indirect fire mechanic is fully implemented (session unknown, recording here for completeness):
 
 - Units with `min_range > 1` (artillery, rocket, missile, etc.) cannot attack after moving — enforced in `src/game/validators.ts`
-- Attack range overlay shows correctly for indirect units from their current position without requiring a move — handled in `src/store/game-store.ts`
+- Attack range overlay shows correctly for indirect units from their current position without requiring a move — handled in `src/store/gameStore.ts`
 - No counterattack triggered when an indirect unit is the attacker — enforced in `src/game/combat.ts`
 - ActionMenu hides the Attack option for indirect units that have already moved — `src/components/ActionMenu.tsx`
 - TileInfoPanel and BuyMenu display `min_range–max_range` for weapons with indirect range
@@ -408,7 +408,7 @@ The indirect fire mechanic is fully implemented (session unknown, recording here
 | `src/components/MatchSetup.tsx` | Full redesign — breadcrumb header, tab map selector, larger text, bold review values, removed test scenario |
 | `src/App.tsx`                   | Game view wrapper to parchment, concave corner fix, bottom terrain bar added                                |
 | `src/components/InfoPanel.tsx`  | Added Income/Units/Cities stat strip to player card                                                         |
-| `src/rendering/pixi-app.ts`     | `backgroundColor` changed from `0x1a1a2e` to `0xf0ece0`                                                     |
+| `src/rendering/pixiApp.ts`      | `backgroundColor` changed from `0x1a1a2e` to `0xf0ece0`                                                     |
 | `src/styles/globals.css`        | Added `button { cursor: pointer; }` globally                                                                |
 
 ---
@@ -463,7 +463,7 @@ Large UI and game mechanic session covering: blank canvas fix, main menu, HUD cl
 
 ### Bug Fixes
 
-1. **Blank canvas with fog of war on new game** — React StrictMode called `initPixiApp` twice concurrently, creating two WebGL contexts on the same canvas, causing shader compilation failure. Fixed with a sequential `_currentInit` promise chain in `pixi-app.ts` so the second call waits for the first to settle before starting.
+1. **Blank canvas with fog of war on new game** — React StrictMode called `initPixiApp` twice concurrently, creating two WebGL contexts on the same canvas, causing shader compilation failure. Fixed with a sequential `_currentInit` promise chain in `pixiApp.ts` so the second call waits for the first to settle before starting.
 
 2. **Enemy HQ not visible in fog** — The neutral spritesheet has no HQ frame, so `drawBuildingSprite` fell through to `drawBuildingFallback`, which had a pre-existing bug (missing `this.container.addChild(g)`). Fixed both: the building ownership masking (`effectiveOwner = fogged ? -1 : tile.owner_id`) and the missing `addChild`.
 
@@ -489,17 +489,17 @@ Large UI and game mechanic session covering: blank canvas fix, main menu, HUD cl
 
 6. **Sidebar moved to right** — Sidebar changed from left (`border-r`) to right (`border-l`) side. Font sizes increased throughout InfoPanel.
 
-7. **Log cleanup** — Removed all debug `console.log` calls from `pixi-app.ts` and `terrain-renderer.ts`; kept `console.error` for genuine failures.
+7. **Log cleanup** — Removed all debug `console.log` calls from `pixiApp.ts` and `terrainRenderer.ts`; kept `console.error` for genuine failures.
 
 ### Files Changed
 
 | File                                       | Change                                                                   |
 | ------------------------------------------ | ------------------------------------------------------------------------ |
-| `src/rendering/pixi-app.ts`                | Sequential `_currentInit` promise chain; removed debug logs              |
-| `src/rendering/terrain-renderer.ts`        | Fog building ownership masking; fixed missing `addChild` in fallback     |
-| `src/game/apply-command.ts`                | Unit healing on allied buildings in `END_TURN`                           |
+| `src/rendering/pixiApp.ts`                 | Sequential `_currentInit` promise chain; removed debug logs              |
+| `src/rendering/terrainRenderer.ts`         | Fog building ownership masking; fixed missing `addChild` in fallback     |
+| `src/game/applyCommand.ts`                 | Unit healing on allied buildings in `END_TURN`                           |
 | `src/game/types.ts`                        | Added `turn_time_limit: number` to `GameState`                           |
-| `src/game/game-state.ts`                   | Default `turn_time_limit: 0` in `createGameState` and `stateFromDict`    |
+| `src/game/gameState.ts`                    | Default `turn_time_limit: 0` in `createGameState` and `stateFromDict`    |
 | `src/types.ts`                             | New file — shared `SavedGameMeta` interface                              |
 | `src/components/MainMenu.tsx`              | New file — main menu screen                                              |
 | `src/components/TurnTransitionOverlay.tsx` | New file — turn transition overlay                                       |
@@ -537,7 +537,7 @@ Implemented Electron Phase 2: local game save/load to JSON files, encrypted API 
    - "Stored encrypted on device" label when running in Electron
    - Accessible from both the main menu header and the in-game sidebar
 
-4. **Config Store Update** — `config-store.ts` now:
+4. **Config Store Update** — `configStore.ts` now:
    - Excludes API keys from `localStorage` persist (keys live in Electron secure storage only)
    - `syncFromElectron()` loads decrypted keys from Electron on app startup
    - `setAnthropicApiKey`/`setOpenaiApiKey` auto-save encrypted to Electron when running in Electron
@@ -556,7 +556,7 @@ Implemented Electron Phase 2: local game save/load to JSON files, encrypted API 
 - `window.electronAPI` is now **optional** (`?`) — enables safe feature detection in renderer
 - Removed old `encryptString`/`decryptString` raw methods (replaced by `saveApiKey`/`loadApiKey`)
 
-#### `src/store/config-store.ts`
+#### `src/store/configStore.ts`
 
 - API keys excluded from `localStorage` persist via `partialize`
 - Added `syncFromElectron()` — async, loads decrypted keys on startup
@@ -629,13 +629,13 @@ Added automated testing pipeline for AI agents to verify Electron app changes:
 
 - `e2e/playwright.config.ts` — Playwright configuration
 - `e2e/electron.test.ts` — Full test suite
-- `e2e/quick-check.ts` — Fast verification script
+- `e2e/quickCheck.ts` — Fast verification script
 
 **Output:**
 
-- `e2e/results/quick-check.png` — Screenshot of app
-- `e2e/results/quick-check-result.json` — Test results
-- `e2e/results/quick-check-text.txt` — Page text content
+- `e2e/results/quickCheck.png` — Screenshot of app
+- `e2e/results/quickCheck-result.json` — Test results
+- `e2e/results/quickCheck-text.txt` — Page text content
 
 This allows AI agents to verify changes by running tests and viewing screenshots!
 
@@ -683,7 +683,7 @@ If buildings render wrong (e.g., port instead of HQ), check which tile ID range 
 
 ### Changes
 
-#### `src/game/awbw-import.ts`
+#### `src/game/awbwImport.ts`
 
 - Added comprehensive documentation comment block explaining AWBW quirks
 - All AWBW armies now remap sequentially to players 0-3
@@ -691,7 +691,7 @@ If buildings render wrong (e.g., port instead of HQ), check which tile ID range 
 - Added validation: throws error if map has more than 4 factions
 - Building order for 149+ range: `["airport", "city", "factory", "port", "hq"]`
 
-#### `src/rendering/pixi-app.ts`
+#### `src/rendering/pixiApp.ts`
 
 - Added `roundPixels: true` to `app.init()` to prevent sub-pixel rendering artifacts
 
@@ -742,7 +742,7 @@ Added unit movement animations that play when a move action is confirmed. Units 
 
 ### Changes
 
-#### New File: `src/rendering/movement-animator.ts`
+#### New File: `src/rendering/movementAnimator.ts`
 
 - `MovementAnimator` class with Pixi.js Container
 - `animate(unitType, ownerId, path, onComplete)` — starts animation
@@ -751,7 +751,7 @@ Added unit movement animations that play when a move action is confirmed. Units 
 - Uses `AnimatedSprite` with directional movement frames
 - **Fixed:** Animation synced to movement (no skating effect)
 
-#### `src/store/game-store.ts`
+#### `src/store/gameStore.ts`
 
 - Added `isAnimating: boolean` state
 - Added `pendingAction: GameCommand | null` state
@@ -782,7 +782,7 @@ Added unit movement animations that play when a move action is confirmed. Units 
 - Changed handlers to call `startMoveAnimation()` instead of `confirmMoveAndAction()`
 - Hidden during animation (`isAnimating` check)
 
-#### `src/rendering/unit-renderer.ts`
+#### `src/rendering/unitRenderer.ts`
 
 - Added `animatingUnitId` parameter to `render()`
 - Skips rendering the unit being animated
@@ -840,7 +840,7 @@ The path arrow was rendering behind mountains, buildings, and other tall terrain
 
 ### Changes
 
-#### `game-store.ts`
+#### `gameStore.ts`
 
 - Added `hoverPath: Vec2[]` — path preview while hovering (before click)
 - Added `pendingPath: Vec2[]` — confirmed path (after click)
@@ -861,12 +861,12 @@ The path arrow was rendering behind mountains, buildings, and other tall terrain
 - Uses `confirmMoveAndAction()` to apply move + action together
 - Cancel calls `cancelPendingMove()` to restore selection
 
-#### `highlight-renderer.ts`
+#### `highlightRenderer.ts`
 
 - Added `drawPath(path: Vec2[])` — draws yellow arrow with corners
 - Added `drawPendingDest(pos)` — green highlight on pending destination
 
-#### `unit-renderer.ts`
+#### `unitRenderer.ts`
 
 - Ghost preview only shows after clicking destination (pendingMove set)
 
@@ -898,7 +898,7 @@ Fixed several visual and gameplay issues with path arrows and unit rendering.
 
 ### Changes
 
-#### `highlight-renderer.ts`
+#### `highlightRenderer.ts`
 
 - Completely rewrote `drawPath()` to use `Graphics.lineTo()` for smooth connected lines
 - Path starts from SECOND tile in path (edge of unit's tile), not covering the unit
@@ -906,13 +906,13 @@ Fixed several visual and gameplay issues with path arrows and unit rendering.
 - Simplified arrowhead drawing
 - Uses rounded caps and joins for cleaner appearance
 
-#### `unit-renderer.ts`
+#### `unitRenderer.ts`
 
 - Added `currentPlayerId` tracking
 - Units only fade if: `unit.owner_id === currentPlayerId && unit.has_acted`
 - Enemy units always render at full opacity
 
-#### `game-store.ts`
+#### `gameStore.ts`
 
 - `selectUnit()` no longer shows attack tiles immediately
 - `cancelPendingMove()` no longer shows attack tiles
@@ -939,14 +939,14 @@ Multiple visual improvements to match AWBW appearance.
 
 ### Changes
 
-#### `unit-renderer.ts`
+#### `unitRenderer.ts`
 
 - Added `ACTED_TINT = 0x666666` constant for darkening acted units
 - Uses `sprite.tint` instead of `sprite.alpha` for acted units (darker shade, not transparent)
 - Added `TEAM_COLORS_ACTED` for fallback rendering
 - Units only darken if: owned by current player AND have acted
 
-#### `highlight-renderer.ts`
+#### `highlightRenderer.ts`
 
 - `drawReachable()` now uses brighter blue (0x88ccff, alpha 0.55)
 - Replaced `drawPendingDest()` with AWBW-style dashed cursor
@@ -954,7 +954,7 @@ Multiple visual improvements to match AWBW appearance.
 - Arrowhead no longer has a stroke (cleaner connection to path)
 - Path automatically draws cursor at destination
 
-#### `game-store.ts`
+#### `gameStore.ts`
 
 - `setPendingMove()` now filters attack tiles to only include tiles with enemy units
 - No attack range shown when there are no enemies to attack
@@ -984,7 +984,7 @@ Fine-tuned path arrow and targeting cursor to match AWBW appearance.
 
 ### Changes
 
-#### `highlight-renderer.ts`
+#### `highlightRenderer.ts`
 
 - Renamed `drawCursor()` to `drawTargetCursor()` — AWBW-style corner brackets (4 L-shaped yellow corners)
 - `drawPath()` uses `cap: "butt"` and `join: "miter"` for straight lines
@@ -1017,13 +1017,13 @@ Fixed path arrow overlap issues and removed ghost unit preview.
 
 ### Changes
 
-#### `highlight-renderer.ts`
+#### `highlightRenderer.ts`
 
 - Path now ends at EDGE of destination tile (not center)
 - Prevents arrow from overlapping the unit at destination
 - Arrowhead positioned at tile edge
 
-#### `unit-renderer.ts`
+#### `unitRenderer.ts`
 
 - Removed ghost/pending move preview entirely
 - Units always render at their current game state position
@@ -1070,13 +1070,13 @@ Added idle animations to all 19 units using WarsWorld's AnimatedSprite frames.
 
 ### Changes
 
-#### `sprite-mapping.ts`
+#### `spriteMapping.ts`
 
 - Added `UNIT_ANIMATIONS` — maps unit type IDs to WarsWorld animation names
 - Added `UNIT_MOVE_DIRECTIONS` — movement direction suffixes for future use
 - Added `UNIT_ANIMATION_SPEED = 0.08` — slightly faster than buildings
 
-#### `unit-renderer.ts`
+#### `unitRenderer.ts`
 
 - Updated to use `AnimatedSprite` instead of static `Sprite`
 - Uses `getAnimation(sheetKey, animationName)` for frame arrays
@@ -1118,10 +1118,10 @@ These can be activated when implementing unit movement visualization.
 
 ### Files Changed
 
-| File                              | Change                                                                  |
-| --------------------------------- | ----------------------------------------------------------------------- |
-| `src/rendering/sprite-mapping.ts` | Added `UNIT_ANIMATIONS`, `UNIT_MOVE_DIRECTIONS`, `UNIT_ANIMATION_SPEED` |
-| `src/rendering/unit-renderer.ts`  | Use `AnimatedSprite` for units                                          |
+| File                             | Change                                                                  |
+| -------------------------------- | ----------------------------------------------------------------------- |
+| `src/rendering/spriteMapping.ts` | Added `UNIT_ANIMATIONS`, `UNIT_MOVE_DIRECTIONS`, `UNIT_ANIMATION_SPEED` |
+| `src/rendering/unitRenderer.ts`  | Use `AnimatedSprite` for units                                          |
 
 ---
 
@@ -1136,11 +1136,11 @@ Imported AWBW maps had **neutral buildings rendering as plains** and some terrai
 
 ### Root Cause
 
-Our `awbw-import.ts` had incorrect tile ID mappings. The mapping was based on speculation rather than AWBW's actual tile ID system.
+Our `awbwImport.ts` had incorrect tile ID mappings. The mapping was based on speculation rather than AWBW's actual tile ID system.
 
 ### Fix
 
-Rewrote `awbw-import.ts` using WarsWorld's official AWBW tile ID mapping from:
+Rewrote `awbwImport.ts` using WarsWorld's official AWBW tile ID mapping from:
 `https://github.com/WarsWorld/WarsWorld/blob/main/src/server/tools/map-importer-utilities.ts`
 
 ### Key Corrections
@@ -1165,9 +1165,9 @@ Rewrote `awbw-import.ts` using WarsWorld's official AWBW tile ID mapping from:
 
 ### Files Changed
 
-| File                      | Change                                 |
-| ------------------------- | -------------------------------------- |
-| `src/game/awbw-import.ts` | Rewritten with correct tile ID mapping |
+| File                     | Change                                 |
+| ------------------------ | -------------------------------------- |
+| `src/game/awbwImport.ts` | Rewritten with correct tile ID mapping |
 
 ---
 
@@ -1197,14 +1197,14 @@ Replaced custom sprites with WarsWorld's official AWBW-style sprites. WarsWorld 
 
 #### New/Updated Files
 
-**`src/rendering/pixi-app.ts`** — Rewrote sprite loading
+**`src/rendering/pixiApp.ts`** — Rewrote sprite loading
 
 - Added `loadSpritesheets()` — loads all WarsWorld JSON+PNG pairs
 - Added `getSprite(sheetKey, frameName)` — retrieves textures from spritesheets
 - Added `getSpritesheet(key)` — returns full spritesheet object
 - Kept legacy `createSubTexture` for backwards compatibility (unused)
 
-**`src/rendering/sprite-mapping.ts`** — NEW FILE
+**`src/rendering/spriteMapping.ts`** — NEW FILE
 
 - `PLAYER_TO_ARMY` — maps player IDs (0-3) to spritesheet keys
 - `TERRAIN_SPRITES` — maps terrain types to frame names
@@ -1213,14 +1213,14 @@ Replaced custom sprites with WarsWorld's official AWBW-style sprites. WarsWorld 
 - `UNIT_SPRITES` — maps unit types to frame names
 - `FALLBACK_COLORS` — fallback when sprites unavailable
 
-**`src/rendering/terrain-renderer.ts`** — Rewrote to use WarsWorld sprites
+**`src/rendering/terrainRenderer.ts`** — Rewrote to use WarsWorld sprites
 
 - Uses `getSprite("neutral", frameName)` for terrain
 - Uses `getSprite(armySheet, frameName)` for colored buildings
-- Roads/rivers use bitmask auto-tiling from sprite-mapping
+- Roads/rivers use bitmask auto-tiling from spriteMapping
 - Falls back to colored rectangles when sprites missing
 
-**`src/rendering/unit-renderer.ts`** — Updated to use WarsWorld sprites
+**`src/rendering/unitRenderer.ts`** — Updated to use WarsWorld sprites
 
 - Uses `getSprite(armySheet, unitFrameName)` for units
 - Falls back to colored rounded rectangles when sprites missing
@@ -1246,14 +1246,14 @@ Moved these files to prevent confusion:
 
 ### Files Changed
 
-| File                                | Change                              |
-| ----------------------------------- | ----------------------------------- |
-| `src/rendering/pixi-app.ts`         | Rewrote — Spritesheet loading       |
-| `src/rendering/sprite-mapping.ts`   | New file — sprite name mappings     |
-| `src/rendering/terrain-renderer.ts` | Rewrote — WarsWorld terrain sprites |
-| `src/rendering/unit-renderer.ts`    | Updated — WarsWorld unit sprites    |
-| `public/sprites/warsworld/*`        | New — WarsWorld sprite sheets       |
-| `public/sprites/deprecated/*`       | Moved — old custom sprites          |
+| File                               | Change                              |
+| ---------------------------------- | ----------------------------------- |
+| `src/rendering/pixiApp.ts`         | Rewrote — Spritesheet loading       |
+| `src/rendering/spriteMapping.ts`   | New file — sprite name mappings     |
+| `src/rendering/terrainRenderer.ts` | Rewrote — WarsWorld terrain sprites |
+| `src/rendering/unitRenderer.ts`    | Updated — WarsWorld unit sprites    |
+| `public/sprites/warsworld/*`       | New — WarsWorld sprite sheets       |
+| `public/sprites/deprecated/*`      | Moved — old custom sprites          |
 
 ### Verification
 
@@ -1275,9 +1275,9 @@ Added idle animations to buildings using WarsWorld's AnimatedSprite frames.
 
 #### Added Animation Support
 
-- **`pixi-app.ts`:** Added `getAnimation(sheetKey, animationName)` function to retrieve animation frame arrays from spritesheets
-- **`sprite-mapping.ts`:** Added `BUILDING_ANIMATIONS` map and `BUILDING_ANIMATION_SPEED` constant
-- **`terrain-renderer.ts`:** Updated `drawBuildingSprite()` to use `AnimatedSprite` instead of static `Sprite`
+- **`pixiApp.ts`:** Added `getAnimation(sheetKey, animationName)` function to retrieve animation frame arrays from spritesheets
+- **`spriteMapping.ts`:** Added `BUILDING_ANIMATIONS` map and `BUILDING_ANIMATION_SPEED` constant
+- **`terrainRenderer.ts`:** Updated `drawBuildingSprite()` to use `AnimatedSprite` instead of static `Sprite`
 
 #### Animation Details
 
@@ -1293,11 +1293,11 @@ Animation speed: 0.04 (same as WarsWorld)
 
 ### Files Changed
 
-| File                                | Change                                                  |
-| ----------------------------------- | ------------------------------------------------------- |
-| `src/rendering/pixi-app.ts`         | Added `getAnimation()` function                         |
-| `src/rendering/sprite-mapping.ts`   | Added `BUILDING_ANIMATIONS`, `BUILDING_ANIMATION_SPEED` |
-| `src/rendering/terrain-renderer.ts` | Use `AnimatedSprite` for buildings                      |
+| File                               | Change                                                  |
+| ---------------------------------- | ------------------------------------------------------- |
+| `src/rendering/pixiApp.ts`         | Added `getAnimation()` function                         |
+| `src/rendering/spriteMapping.ts`   | Added `BUILDING_ANIMATIONS`, `BUILDING_ANIMATION_SPEED` |
+| `src/rendering/terrainRenderer.ts` | Use `AnimatedSprite` for buildings                      |
 
 ### Future: Unit Animations
 
@@ -1347,7 +1347,7 @@ Removed from `public/data/`:
 
 ### Code Cleaned
 
-#### `pixi-app.ts`
+#### `pixiApp.ts`
 
 Removed legacy texture system:
 
@@ -1410,11 +1410,11 @@ docs/              24K
 
 ### Files Changed
 
-| File                        | Change                      |
-| --------------------------- | --------------------------- |
-| `src/rendering/pixi-app.ts` | Removed legacy texture code |
-| `CLAUDE.md`                 | Updated sprite system docs  |
-| Multiple files              | Deleted (see above)         |
+| File                       | Change                      |
+| -------------------------- | --------------------------- |
+| `src/rendering/pixiApp.ts` | Removed legacy texture code |
+| `CLAUDE.md`                | Updated sprite system docs  |
+| Multiple files             | Deleted (see above)         |
 
 ---
 
@@ -1451,9 +1451,9 @@ WarsWorld's sprite sheet only has a single `shoal.png` without directional varia
 
 ### Files Changed
 
-| File                                | Change                                                              |
-| ----------------------------------- | ------------------------------------------------------------------- |
-| `src/rendering/terrain-renderer.ts` | Added base layer for mountains/forests, added `drawOverlaySprite()` |
+| File                               | Change                                                              |
+| ---------------------------------- | ------------------------------------------------------------------- |
+| `src/rendering/terrainRenderer.ts` | Added base layer for mountains/forests, added `drawOverlaySprite()` |
 
 ---
 
@@ -1494,25 +1494,25 @@ Simplified the game scope. The goal is NOT a 1:1 AWBW clone, but to use AWBW's b
 **Air (5):** t_copter, b_copter, fighter, bomber, stealth
 **Sea (4):** lander, cruiser, submarine, carrier
 
-#### terrain-renderer.ts
+#### terrainRenderer.ts
 
 - Removed fallback colors for: pipe, pipe_seam, com_tower, lab, missile_silo, missile_silo_empty
 - Removed from TERRAIN_TO_BUILDING map: com_tower, lab
 - Removed getTerrainKey cases for removed terrain types
 
-#### awbw-import.ts
+#### awbwImport.ts
 
 - Updated to convert removed AWBW terrain to plains/city (pipes→plains, com_tower/lab→city)
 - Updated AWBW_UNIT_MAP to skip excluded units during import
 
 ### Files Changed
 
-| File                                | Change                                      |
-| ----------------------------------- | ------------------------------------------- |
-| `public/data/terrain.json`          | Simplified — 15 terrain types               |
-| `public/data/units.json`            | Simplified — 19 units                       |
-| `src/rendering/terrain-renderer.ts` | Cleanup — removed unused fallbacks          |
-| `src/game/awbw-import.ts`           | Updated — maps removed items to equivalents |
+| File                               | Change                                      |
+| ---------------------------------- | ------------------------------------------- |
+| `public/data/terrain.json`         | Simplified — 15 terrain types               |
+| `public/data/units.json`           | Simplified — 19 units                       |
+| `src/rendering/terrainRenderer.ts` | Cleanup — removed unused fallbacks          |
+| `src/game/awbwImport.ts`           | Updated — maps removed items to equivalents |
 
 ---
 
@@ -1548,14 +1548,14 @@ Ported game data to match AWBW (Advance Wars By Web) canonical standards and add
 
 #### Phase 3: AWBW Map Import ✅
 
-- **Created** `src/game/awbw-import.ts` with:
+- **Created** `src/game/awbwImport.ts` with:
   - `parseAwbwMapText()` — parses CSV tile ID data
   - `importAwbwMap()` — converts AWBW tile IDs to GameState
   - Full AWBW tile ID mapping (terrain 1-164, units 500+)
   - Support for 16 AWBW armies (Orange Star through White Nova)
   - Pre-deployed unit placement
 
-#### Phase 4: terrain-renderer.ts — Fallback Colors ✅
+#### Phase 4: terrainRenderer.ts — Fallback Colors ✅
 
 - **Added** fallback colors: pipe (0x666666), pipe_seam (0x888888), com_tower (0xFFAA00), lab (0xCC00CC), missile_silo (0xCC3333), missile_silo_empty (0x993333)
 - **Updated** `TERRAIN_TO_BUILDING` to include com_tower and lab
@@ -1571,17 +1571,17 @@ Ported game data to match AWBW (Advance Wars By Web) canonical standards and add
 
 - **Added** textarea for pasting AWBW map CSV data
 - **Added** "Import & Start" button with error handling
-- **Integrated** awbw-import functions
+- **Integrated** awbwImport functions
 
 ### Files Changed
 
-| File                                | Change                                    |
-| ----------------------------------- | ----------------------------------------- |
-| `public/data/units.json`            | Rewrite — 26 AWBW units                   |
-| `public/data/terrain.json`          | Major edit — 6 new terrains, 8 move types |
-| `src/game/awbw-import.ts`           | New file — AWBW map importer              |
-| `src/rendering/terrain-renderer.ts` | Edit — fallback colors, building map      |
-| `src/components/MatchSetup.tsx`     | Edit — AWBW import UI                     |
+| File                               | Change                                    |
+| ---------------------------------- | ----------------------------------------- |
+| `public/data/units.json`           | Rewrite — 26 AWBW units                   |
+| `public/data/terrain.json`         | Major edit — 6 new terrains, 8 move types |
+| `src/game/awbwImport.ts`           | New file — AWBW map importer              |
+| `src/rendering/terrainRenderer.ts` | Edit — fallback colors, building map      |
+| `src/components/MatchSetup.tsx`    | Edit — AWBW import UI                     |
 
 ### Verification Completed
 
@@ -1651,8 +1651,8 @@ Each custom unit needs:
 ### Key Architecture Points
 
 1. **Immutable state** — All game state mutations return new objects, never mutate in place
-2. **Data-driven** — Units/terrain are defined in JSON, game logic reads from data-loader
-3. **Server/client split** — Use `server-data-loader.ts` in API routes, `data-loader.ts` on client
+2. **Data-driven** — Units/terrain are defined in JSON, game logic reads from dataLoader
+3. **Server/client split** — Use `serverDataLoader.ts` in API routes, `dataLoader.ts` on client
 4. **Pixi.js client-only** — Never import Pixi at top level of server-compatible files
 
 ### Common Gotchas

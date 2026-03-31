@@ -1,5 +1,5 @@
 /**
- * Root **application shell**: view routing (menu, setup, match, editor, settings), loads {@link ./game/data-loader},
+ * Root **application shell**: view routing (menu, setup, match, editor, agent configuration), loads {@link ./game/dataLoader},
  * wires keyboard/timer/autosave, and hosts the Pixi {@link ./components/match/GameCanvas} match view.
  */
 
@@ -23,19 +23,19 @@ import TileInfoPanel from "./components/match/TileInfoPanel";
 import ActionMenu from "./components/match/ActionMenu";
 import BuyMenu from "./components/match/BuyMenu";
 import ActionLog from "./components/match/ActionLog";
-import SettingsModal from "./components/settings/SettingsModal";
-import SettingsPage from "./components/settings/SettingsPage";
+import AgentConfigurationAndAnalyticsModal from "./components/agentConfigurationAndAnalytics/AgentConfigurationAndAnalyticsModal";
+import AgentConfigurationAndAnalyticsPage from "./components/agentConfigurationAndAnalytics/AgentConfigurationAndAnalyticsPage";
 import MainMenu from "./components/menu/MainMenu";
 import TurnTransitionOverlay from "./components/match/TurnTransitionOverlay";
 import type { SavedGameMeta } from "./types";
-import { useGameStore } from "./store/game-store";
+import { useGameStore } from "./store/gameStore";
 import { useGame } from "./hooks/useGame";
-import { useConfigStore } from "./store/config-store";
-import { useUsageStore } from "./store/usage-store";
-import { loadGameData, getTerrainData } from "./game/data-loader";
-import { getTile } from "./game/game-state";
+import { useConfigStore } from "./store/configStore";
+import { useUsageStore } from "./store/usageStore";
+import { loadGameData, getTerrainData } from "./game/dataLoader";
+import { getTile } from "./game/gameState";
 import type { GameState } from "./game/types";
-import { TEAM_COLORS } from "./lib/team-colors";
+import { TEAM_COLORS } from "./lib/teamColors";
 import ConfirmDialog from "./components/shared/ConfirmDialog";
 import { useTurnTimer } from "./hooks/useTurnTimer";
 import { useGameKeyboard } from "./hooks/useGameKeyboard";
@@ -43,7 +43,7 @@ import { useAutoSave, type SavedGameFile } from "./hooks/useAutoSave";
 
 // AI turn runners
 import { runHeuristicTurn } from "./ai/heuristic";
-import { runLLMTurn } from "./ai/llm-turn-runner";
+import { runLLMTurn } from "./ai/llmTurnRunner";
 import {
   zoomIn,
   zoomOut,
@@ -52,7 +52,7 @@ import {
   getMinZoom,
   MAX_ZOOM,
   setZoomChangeCallback,
-} from "./rendering/pixi-app";
+} from "./rendering/pixiApp";
 
 // Error boundary to catch render errors
 class ErrorBoundary extends Component<
@@ -92,7 +92,7 @@ class ErrorBoundary extends Component<
   }
 }
 
-type AppView = "menu" | "setup" | "game" | "editor" | "settings";
+type AppView = "menu" | "setup" | "game" | "editor" | "agentConfiguration";
 
 // Derived team color lookups from shared constants
 const TEAM_TEXT: Record<number, string> = Object.fromEntries(
@@ -113,7 +113,7 @@ function AppContent() {
   const [zoomLevel, setZoomLevel] = useState(1.0);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [showResignConfirm, setShowResignConfirm] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  const [showAgentConfigurationModal, setShowAgentConfigurationModal] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -412,27 +412,23 @@ function AppContent() {
         onNewGame={() => setView("setup")}
         onContinue={handleLoadGame}
         onMapEditor={() => setView("editor")}
-        onSettings={() => setView("settings")}
+        onAgentConfigurationAndAnalytics={() => setView("agentConfiguration")}
         onDeleteSave={handleDeleteSave}
         saves={gameSaves}
       />
     );
   }
 
-  // ── Settings view (full-page) ─────────────────────────────────────────
-  if (view === "settings") {
-    return <SettingsPage onBack={() => setView("menu")} />;
+  // ── Agent configuration & analytics (full-page) ───────────────────────
+  if (view === "agentConfiguration") {
+    return <AgentConfigurationAndAnalyticsPage onBack={() => setView("menu")} />;
   }
 
   // ── Setup view ─────────────────────────────────────────────────────────
   if (view === "setup") {
     return (
       <>
-        <MatchSetup
-          onMatchStart={handleMatchStart}
-          onOpenSettings={() => setView("settings")}
-          onExit={() => setView("menu")}
-        />
+        <MatchSetup onMatchStart={handleMatchStart} onExit={() => setView("menu")} />
       </>
     );
   }
@@ -558,11 +554,11 @@ function AppContent() {
                 <button
                   onClick={() => {
                     setMenuOpen(false);
-                    setShowSettings(true);
+                    setShowAgentConfigurationModal(true);
                   }}
                   className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                 >
-                  Settings ⚙
+                  Agent config ⚙
                 </button>
                 {window.electronAPI && (
                   <button
@@ -725,8 +721,12 @@ function AppContent() {
         <BuyMenu facilityX={buyMenuTile.x} facilityY={buyMenuTile.y} onClose={handleCloseBuyMenu} />
       )}
 
-      {/* Settings modal */}
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {/* Agent configuration & analytics (compact modal) */}
+      {showAgentConfigurationModal && (
+        <AgentConfigurationAndAnalyticsModal
+          onClose={() => setShowAgentConfigurationModal(false)}
+        />
+      )}
 
       {/* Exit confirmation modal */}
       {showExitConfirm && (

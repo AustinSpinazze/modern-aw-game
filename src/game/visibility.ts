@@ -10,7 +10,7 @@
  */
 
 import type { GameState } from "./types";
-import { getUnitData } from "./data-loader";
+import { getUnitData } from "./dataLoader";
 
 /** Returns a [height][width] boolean grid: true = tile is visible to playerId.
  *  Returns null when fog is disabled — callers treat null as all-visible. */
