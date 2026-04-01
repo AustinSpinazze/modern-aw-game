@@ -83,7 +83,8 @@ export function calculateDamage(
   return { damage: finalDamage, luckRoll };
 }
 
-function canCounterattack(defender: UnitState, attacker: UnitState): boolean {
+/** Whether the defender could counter-attack the attacker at current positions (range, ammo, damage > 0). */
+export function canCounterattack(defender: UnitState, attacker: UnitState): boolean {
   const defenderData = getUnitData(defender.unit_type);
   if (!defenderData || defenderData.weapons.length === 0) return false;
 

@@ -113,7 +113,7 @@ export function UsageAnalyticsTab({
         <SummaryCard
           label="Games Played"
           value={String(stats.sessions.length)}
-          sub="LLM sessions"
+          sub={`${stats.sessions.filter((s) => s.gameResult).length} completed`}
         />
         <SummaryCard
           label="Avg Tokens / Game"

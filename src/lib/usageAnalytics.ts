@@ -20,6 +20,10 @@ export interface GameSession {
   totalTokens: number;
   /** Distinct model identifiers used in this session. */
   models: string[];
+  /** The match_id that groups these entries (undefined for legacy gap-heuristic sessions). */
+  matchId?: string;
+  /** Game result if stamped (from any entry in the session). */
+  gameResult?: "win" | "loss";
 }
 
 // ── Date range options ───────────────────────────────────────────────────────
@@ -93,11 +97,15 @@ export function filterEntriesByDateRange(entries: UsageEntry[], range: DateRange
  * @returns Populated session object.
  */
 export function buildSession(id: number, entries: UsageEntry[]): GameSession {
+  const gameResult = entries.find((e) => e.gameResult)?.gameResult;
+  const matchId = entries.find((e) => e.matchId)?.matchId;
   return {
     id,
     entries,
     totalTokens: entries.reduce((s, e) => s + e.inputTokens + e.outputTokens, 0),
     models: [...new Set(entries.map((e) => e.model))],
+    matchId,
+    gameResult,
   };
 }
 

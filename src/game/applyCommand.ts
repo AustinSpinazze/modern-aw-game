@@ -27,6 +27,15 @@ import { applyIncome, calculateHealCost, calculateMergeRefund } from "./economy"
 import { FOB_COST } from "./economy";
 import { findPath } from "./pathfinding";
 
+/** Reset capture progress on the tile a unit occupied when it's destroyed. */
+function resetCaptureOnDeath(state: GameState, unitX: number, unitY: number): GameState {
+  const tile = getTile(state, unitX, unitY);
+  if (tile && tile.capture_points < 20) {
+    return updateTile(state, unitX, unitY, { capture_points: 20 });
+  }
+  return state;
+}
+
 export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
   let state = stateIn;
 
@@ -72,6 +81,7 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
 
       // Update attacker
       if (result.attacker_destroyed) {
+        state = resetCaptureOnDeath(state, attacker.x, attacker.y);
         state = removeUnit(state, attacker.id);
       } else {
         state = updateUnit(state, attacker.id, {
@@ -83,6 +93,7 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
 
       // Update defender
       if (result.defender_destroyed) {
+        state = resetCaptureOnDeath(state, defender.x, defender.y);
         state = removeUnit(state, defender.id);
       } else {
         state = updateUnit(state, defender.id, { hp: newDefender.hp });
@@ -191,9 +202,9 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
 
     case "LOAD": {
       const transport = getUnit(state, cmd.transport_id)!;
+      // Loading does NOT consume the transport's action — it can still move and unload
       state = updateUnit(state, cmd.transport_id, {
         cargo: [...transport.cargo, cmd.unit_id],
-        has_acted: true,
       });
       state = updateUnit(state, cmd.unit_id, {
         is_loaded: true,
@@ -248,10 +259,12 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
       const { damage, state: newState } = executeSelfDestruct(uav, target, state);
       state = newState;
 
+      state = resetCaptureOnDeath(state, uav.x, uav.y);
       state = removeUnit(state, uav.id);
 
       const newHp = Math.max(0, target.hp - damage);
       if (newHp <= 0) {
+        state = resetCaptureOnDeath(state, target.x, target.y);
         state = removeUnit(state, target.id);
       } else {
         state = updateUnit(state, target.id, { hp: newHp });

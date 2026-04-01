@@ -12,8 +12,8 @@ import { AnalyticsChartCard } from "./AnalyticsChartCard";
 import { AnalyticsEmptyState } from "./AnalyticsEmptyState";
 
 /**
- * Per-game analytics tab: groups API calls into sessions (10-minute idle gaps),
- * bar chart of tokens per game, and a summary table with models used.
+ * Per-game analytics tab: groups API calls into sessions by match_id,
+ * bar chart of tokens per game, and a summary table with models, result, and turn count.
  */
 export function PerGameAnalyticsTab({
   modelFilter,
@@ -64,9 +64,8 @@ export function PerGameAnalyticsTab({
   return (
     <div className="space-y-6">
       <p className="text-sm text-gray-600 leading-relaxed max-w-3xl">
-        Each bar is one game session: we group{" "}
-        <span className="font-medium text-gray-800">game-turn</span> API calls, and start a new
-        session after about 10 minutes idle.
+        Each bar is one game, grouped by match ID. Save and resume a game, and token usage
+        continues tracking under the same game.
       </p>
       <AnalyticsChartCard title="Token Usage Per Game" subtitle={`Last ${sessions.length} games`}>
         <ResponsiveContainer width="100%" height={300}>
@@ -98,6 +97,12 @@ export function PerGameAnalyticsTab({
                 <th className="text-left font-bold text-gray-500 uppercase tracking-wider text-xs px-4 py-3">
                   Game
                 </th>
+                <th className="text-center font-bold text-gray-500 uppercase tracking-wider text-xs px-4 py-3">
+                  Result
+                </th>
+                <th className="text-right font-bold text-gray-500 uppercase tracking-wider text-xs px-4 py-3">
+                  API Calls
+                </th>
                 <th className="text-right font-bold text-gray-500 uppercase tracking-wider text-xs px-4 py-3">
                   Tokens
                 </th>
@@ -113,6 +118,18 @@ export function PerGameAnalyticsTab({
                   className="border-t border-gray-100 hover:bg-gray-50/50 transition-colors"
                 >
                   <td className="px-4 py-3 font-semibold text-gray-800">Game #{session.id}</td>
+                  <td className="px-4 py-3 text-center">
+                    {session.gameResult === "win" ? (
+                      <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">AI Won</span>
+                    ) : session.gameResult === "loss" ? (
+                      <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">You Won</span>
+                    ) : (
+                      <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">In Progress</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right text-gray-600 font-mono">
+                    {session.entries.length}
+                  </td>
                   <td className="px-4 py-3 text-right text-gray-600 font-mono">
                     {formatTokens(session.totalTokens)}
                   </td>

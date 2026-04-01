@@ -20,6 +20,10 @@ export function getUnitData(unitType: string): UnitData | null {
   return unitsCache?.[unitType] ?? null;
 }
 
+export function getAllUnitData(): Record<string, UnitData> {
+  return unitsCache ?? {};
+}
+
 export function isDataLoaded(): boolean {
   return terrainCache !== null && unitsCache !== null;
 }

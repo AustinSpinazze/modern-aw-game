@@ -18,6 +18,16 @@ import { canAttack, calculateDamage } from "../game/combat";
 import { applyCommand } from "../game/applyCommand";
 import { validateCommand } from "../game/validators";
 
+// ── Team helpers ─────────────────────────────────────────────────────────────
+
+function isAllyOrSelf(state: GameState, playerId: number, otherId: number): boolean {
+  if (playerId === otherId) return true;
+  const p = state.players.find((pl) => pl.id === playerId);
+  const o = state.players.find((pl) => pl.id === otherId);
+  if (!p || !o) return false;
+  return p.team === o.team;
+}
+
 // ── Tile evaluation ──────────────────────────────────────────────────────────
 
 function evaluateTile(
@@ -25,7 +35,8 @@ function evaluateTile(
   y: number,
   state: GameState,
   playerId: number,
-  canCapture: boolean
+  canCapture: boolean,
+  vis: boolean[][] | null = null
 ): number {
   const tile = getTile(state, x, y);
   if (!tile) return 0;
@@ -33,17 +44,19 @@ function evaluateTile(
   let score = (terrainData?.defense_stars ?? 0) * 5;
 
   if (canCapture && terrainData?.can_capture) {
-    if (tile.owner_id !== playerId && tile.owner_id !== -1) score += 50;
-    if (tile.terrain_type === "hq") score += 200;
+    // Allied properties are not capture targets
+    if (tile.owner_id !== -1 && !isAllyOrSelf(state, playerId, tile.owner_id)) score += 50;
+    if (tile.terrain_type === "hq" && !isAllyOrSelf(state, playerId, tile.owner_id)) score += 200;
     else if (tile.owner_id === -1) score += 30;
   }
 
+  // Only consider enemies we can actually see (fog-aware)
   let nearestEnemyDist = 999;
   for (const u of Object.values(state.units)) {
-    if (u.owner_id !== playerId && !u.is_loaded) {
-      const d = manhattanDistance(x, y, u.x, u.y);
-      if (d < nearestEnemyDist) nearestEnemyDist = d;
-    }
+    if (isAllyOrSelf(state, playerId, u.owner_id) || u.is_loaded) continue;
+    if (vis && !(vis[u.y]?.[u.x] ?? false)) continue;
+    const d = manhattanDistance(x, y, u.x, u.y);
+    if (d < nearestEnemyDist) nearestEnemyDist = d;
   }
 
   if (!canCapture) score += (20 - nearestEnemyDist) * 2;
@@ -54,7 +67,8 @@ function evaluateTile(
       for (let px = 0; px < state.map_width; px++) {
         const t = getTile(state, px, py);
         const td = t ? getTerrainData(t.terrain_type) : null;
-        if (td?.can_capture && t?.owner_id !== playerId) {
+        // Don't target allied or own properties for capture
+        if (td?.can_capture && t && !isAllyOrSelf(state, playerId, t.owner_id)) {
           const d = manhattanDistance(x, y, px, py);
           if (d < nearestPropDist) nearestPropDist = d;
         }
@@ -80,7 +94,7 @@ function findBestAttack(unit: UnitState, state: GameState, playerId: number): Ga
     const attackable = getAttackableTiles(state, unit, unit.x, unit.y, wi);
     for (const pos of attackable) {
       const target = getUnitAt(state, pos.x, pos.y);
-      if (!target || target.owner_id === playerId) continue;
+      if (!target || isAllyOrSelf(state, playerId, target.owner_id)) continue;
       if (!canAttack(unit, target, state, wi)) continue;
 
       const { damage } = calculateDamage(unit, target, state, wi, false);
@@ -116,7 +130,8 @@ function findBestMove(
   unit: UnitState,
   state: GameState,
   playerId: number,
-  unitData: ReturnType<typeof getUnitData>
+  unitData: ReturnType<typeof getUnitData>,
+  vis: boolean[][] | null = null
 ): GameCommand | null {
   const reachable = getReachableTiles(state, unit);
   if (reachable.length === 0) return null;
@@ -127,7 +142,7 @@ function findBestMove(
 
   for (const pos of reachable) {
     if (getUnitAt(state, pos.x, pos.y)) continue;
-    const score = evaluateTile(pos.x, pos.y, state, playerId, cap);
+    const score = evaluateTile(pos.x, pos.y, state, playerId, cap, vis);
     if (score > bestScore) {
       bestScore = score;
       bestTile = pos;
@@ -146,6 +161,67 @@ function findBestMove(
   return null;
 }
 
+export interface HeuristicHint {
+  dest_x: number;
+  dest_y: number;
+  followUp: "CAPTURE" | "ATTACK" | "WAIT";
+  followUpDetail?: string; // e.g. "target_id=5 weapon_index=0"
+}
+
+/**
+ * Single-step MOVE + follow-up action the offline AI would pick for this unit.
+ * Use in LLM prompts so models get concrete, expansion-oriented destinations
+ * AND know what to do after moving. Pass `vis` for fog-fair scoring.
+ */
+export function getHeuristicMoveSuggestion(
+  unit: UnitState,
+  state: GameState,
+  vis: boolean[][] | null = null
+): HeuristicHint | null {
+  if (unit.has_moved || unit.has_acted || unit.is_loaded) return null;
+  const unitData = getUnitData(unit.unit_type);
+  if (!unitData) return null;
+  const moveCmd = findBestMove(unit, state, unit.owner_id, unitData, vis);
+  if (!moveCmd || moveCmd.type !== "MOVE") return null;
+
+  const hint: HeuristicHint = {
+    dest_x: moveCmd.dest_x,
+    dest_y: moveCmd.dest_y,
+    followUp: "WAIT",
+  };
+
+  // Simulate the move and determine what the unit should do after
+  try {
+    const stateAfterMove = applyCommand(state, moveCmd);
+    const movedUnit = getUnit(stateAfterMove, unit.id);
+    if (!movedUnit) return hint;
+
+    // Check for attack opportunity after move
+    if (unitData.weapons.length > 0) {
+      const attack = findBestAttack(movedUnit, stateAfterMove, unit.owner_id);
+      if (attack && attack.type === "ATTACK") {
+        hint.followUp = "ATTACK";
+        hint.followUpDetail = `target_id=${attack.target_id} weapon_index=${attack.weapon_index}`;
+        return hint;
+      }
+    }
+
+    // Check for capture opportunity after move
+    if (unitData.can_capture) {
+      const tile = getTile(stateAfterMove, movedUnit.x, movedUnit.y);
+      const td = tile ? getTerrainData(tile.terrain_type) : null;
+      if (td?.can_capture && tile && !isAllyOrSelf(stateAfterMove, unit.owner_id, tile.owner_id)) {
+        hint.followUp = "CAPTURE";
+        return hint;
+      }
+    }
+  } catch {
+    // If simulation fails, still return the move with WAIT
+  }
+
+  return hint;
+}
+
 // ── Per-unit decision ────────────────────────────────────────────────────────
 
 function decideUnitActions(unit: UnitState, state: GameState, playerId: number): GameCommand[] {
@@ -161,11 +237,11 @@ function decideUnitActions(unit: UnitState, state: GameState, playerId: number):
     if (attack) return [attack];
   }
 
-  // 2. Capture if on property
+  // 2. Capture if on property (not allied)
   if (cap && !unit.has_acted) {
     const tile = getTile(state, unit.x, unit.y);
     const terrainData = tile ? getTerrainData(tile.terrain_type) : null;
-    if (terrainData?.can_capture && tile?.owner_id !== playerId) {
+    if (terrainData?.can_capture && tile && !isAllyOrSelf(state, playerId, tile.owner_id)) {
       return [{ type: "CAPTURE", player_id: playerId, unit_id: unit.id }];
     }
   }
@@ -191,7 +267,7 @@ function decideUnitActions(unit: UnitState, state: GameState, playerId: number):
       if (cap) {
         const tile = getTile(stateAfterMove, movedUnit.x, movedUnit.y);
         const terrainData = tile ? getTerrainData(tile.terrain_type) : null;
-        if (terrainData?.can_capture && tile?.owner_id !== playerId) {
+        if (terrainData?.can_capture && tile && !isAllyOrSelf(state, playerId, tile.owner_id)) {
           cmds.push({ type: "CAPTURE", player_id: playerId, unit_id: unit.id });
           return cmds;
         }
@@ -205,7 +281,7 @@ function decideUnitActions(unit: UnitState, state: GameState, playerId: number):
     const terrainData = tile ? getTerrainData(tile.terrain_type) : null;
     if (terrainData?.can_build_trench && !tile?.has_trench && !tile?.has_fob) {
       for (const u of Object.values(state.units)) {
-        if (u.owner_id !== playerId && !u.is_loaded) {
+        if (!isAllyOrSelf(state, playerId, u.owner_id) && !u.is_loaded) {
           if (manhattanDistance(unit.x, unit.y, u.x, u.y) <= 5) {
             return [
               ...cmds,
@@ -240,6 +316,54 @@ function decidePurchases(state: GameState, playerId: number): GameCommand[] {
 
   let funds = player.funds;
 
+  // Count own infantry vs combat units to decide build mix
+  const ownUnits = Object.values(state.units).filter((u) => u.owner_id === playerId && !u.is_loaded);
+  const infantryCount = ownUnits.filter((u) => u.unit_type === "infantry" || u.unit_type === "mech").length;
+  const combatCount = ownUnits.filter((u) => u.unit_type !== "infantry" && u.unit_type !== "mech" && u.unit_type !== "apc" && u.unit_type !== "t_copter").length;
+
+  // Count uncaptured properties to decide if we need more capturers
+  let uncapturedProps = 0;
+  for (let py = 0; py < state.map_height; py++) {
+    for (let px = 0; px < state.map_width; px++) {
+      const t = getTile(state, px, py);
+      if (!t) continue;
+      const td = getTerrainData(t.terrain_type);
+      if (td?.can_capture && !isAllyOrSelf(state, playerId, t.owner_id)) uncapturedProps++;
+    }
+  }
+
+  const needCapturers = uncapturedProps > infantryCount * 2;
+
+  // Priority list depends on situation
+  function getPriorityList(canProduce: string[]): { type: string; cost: number }[] {
+    const ud = (t: string) => getUnitData(t);
+    const available = (t: string) => canProduce.includes(t) && ud(t) !== null;
+
+    if (funds >= 7000 && combatCount < infantryCount && !needCapturers) {
+      // Build combat units when we have enough infantry
+      return [
+        available("tank") ? { type: "tank", cost: ud("tank")!.cost } : null,
+        available("md_tank") && funds >= 16000 ? { type: "md_tank", cost: ud("md_tank")!.cost } : null,
+        available("artillery") ? { type: "artillery", cost: ud("artillery")!.cost } : null,
+        available("anti_air") ? { type: "anti_air", cost: ud("anti_air")!.cost } : null,
+        available("recon") ? { type: "recon", cost: ud("recon")!.cost } : null,
+        available("b_copter") ? { type: "b_copter", cost: ud("b_copter")!.cost } : null,
+        available("mech") ? { type: "mech", cost: ud("mech")!.cost } : null,
+        available("infantry") ? { type: "infantry", cost: ud("infantry")!.cost } : null,
+      ].filter((p): p is { type: string; cost: number } => p !== null);
+    }
+
+    // Default: capturers first, then combat
+    return [
+      available("infantry") ? { type: "infantry", cost: ud("infantry")!.cost } : null,
+      available("mech") ? { type: "mech", cost: ud("mech")!.cost } : null,
+      available("tank") ? { type: "tank", cost: ud("tank")!.cost } : null,
+      available("recon") ? { type: "recon", cost: ud("recon")!.cost } : null,
+      available("b_copter") ? { type: "b_copter", cost: ud("b_copter")!.cost } : null,
+      available("artillery") ? { type: "artillery", cost: ud("artillery")!.cost } : null,
+    ].filter((p): p is { type: string; cost: number } => p !== null);
+  }
+
   outer: for (let y = 0; y < state.map_height; y++) {
     for (let x = 0; x < state.map_width; x++) {
       if (funds < 1000) break outer;
@@ -250,17 +374,9 @@ function decidePurchases(state: GameState, playerId: number): GameCommand[] {
       if (canProduce.length === 0) continue;
       if (getUnitAt(state, x, y)) continue;
 
-      const picks = [
-        { type: "infantry", cost: 1000 },
-        { type: "mech", cost: 3000 },
-        { type: "tank", cost: 7000 },
-        { type: "recon", cost: 4000 },
-        { type: "fighter", cost: 20000 },
-        { type: "b_copter", cost: 9000 },
-      ];
-
+      const picks = getPriorityList(canProduce);
       for (const pick of picks) {
-        if (canProduce.includes(pick.type) && funds >= pick.cost) {
+        if (funds >= pick.cost) {
           commands.push({
             type: "BUY_UNIT",
             player_id: playerId,
