@@ -254,6 +254,18 @@ export function applyPlanWeights(
     }
   }
 
+  for (const bundle of adjusted) {
+    if (
+      bundle.tags.includes("dominant") ||
+      (bundle.tags.includes("combat") && bundle.score >= 80)
+    ) {
+      const originalBundle = bundles.find((b) => b.id === bundle.id);
+      if (originalBundle && bundle.score < originalBundle.score * 0.7) {
+        bundle.score = originalBundle.score * 0.7;
+      }
+    }
+  }
+
   // Sort by adjusted score descending
   return adjusted.sort((a, b) => b.score - a.score);
 }

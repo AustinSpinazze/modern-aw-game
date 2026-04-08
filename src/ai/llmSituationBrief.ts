@@ -51,6 +51,11 @@ export function buildSituationBrief(
       `*** OUTNUMBERED by ${analysis.productionNeeds.armyDeficit} units — prioritize production ***`
     );
   }
+  if (analysis.productionNeeds.enemyHeavyArmorCount > 0) {
+    gameStateParts.push(
+      `Enemy heavy armor: ${analysis.productionNeeds.enemyHeavyArmorCount} (md_tank/neo_tank/mega_tank)`
+    );
+  }
   sections.push("=== GAME STATE ===\n" + gameStateParts.join("\n"));
 
   // Section 2: Fronts
@@ -82,6 +87,14 @@ export function buildSituationBrief(
   for (const ur of analysis.unitsAtRisk.slice(0, 4)) {
     threatLines.push(
       `AT RISK: Unit ${ur.unitId} — potential damage ${ur.potentialDamage}%, recommended: ${ur.recommendedAction}`
+    );
+  }
+  const criticallyDamaged = Object.values(state.units).filter(
+    (u) => u.owner_id === playerId && !u.is_loaded && u.hp <= 6 && u.hp > 0
+  );
+  if (criticallyDamaged.length > 0) {
+    threatLines.push(
+      `DAMAGED UNITS: ${criticallyDamaged.length} unit(s) at 6HP or below — ineffective in combat, consider retreat to city for repair`
     );
   }
   for (const cd of analysis.captureDenialOpportunities.slice(0, 3)) {

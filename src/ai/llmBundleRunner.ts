@@ -133,6 +133,7 @@ function buildSelectionPrompt(
   }
   lines.push("");
   lines.push("Choose exactly one bundle_id from this legal action menu:");
+  lines.push("Prefer attacking high-value targets over low-value ones when both are available.");
   for (const bundle of bundles) {
     lines.push(
       `- ${bundle.id} score=${Math.round(bundle.score)} tags=${bundle.tags.join(",")}: ${bundle.label}`

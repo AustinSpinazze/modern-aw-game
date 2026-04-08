@@ -39,6 +39,17 @@ function estimateUnitValue(unit: UnitState): number {
   return Math.round(((data?.cost ?? 0) * unit.hp) / 10);
 }
 
+function isPositiveValueTrade(
+  damage: number,
+  counterDamage: number,
+  attackerValue: number,
+  targetValue: number
+): boolean {
+  const damageValue = (damage / 10) * targetValue;
+  const counterValue = (counterDamage / 10) * attackerValue;
+  return damageValue > counterValue * 1.2;
+}
+
 function validateCommandList(state: GameState, commands: GameCommand[]): GameState | null {
   let simulated = state;
   for (const command of commands) {
@@ -123,6 +134,23 @@ function nearbyThreatCounterScore(unitType: string, threats: UnitState[]): numbe
         if (threat.unit_type === "anti_air") score -= 8;
         if (threat.unit_type === "tank") score -= 1;
         break;
+      case "md_tank":
+      case "neo_tank":
+        if (
+          [
+            "anti_air",
+            "recon",
+            "artillery",
+            "tank",
+            "md_tank",
+            "neo_tank",
+            "infantry",
+            "mech",
+          ].includes(threat.unit_type)
+        )
+          score += 5;
+        if (threat.unit_type === "b_copter") score -= 1;
+        break;
       case "infantry":
         if (["anti_air", "tank", "md_tank", "artillery", "b_copter"].includes(threat.unit_type))
           score -= 4;
@@ -206,7 +234,13 @@ function applyBuildOrderTemplate(bundles: ActionBundle[], analysis: TacticalAnal
   if (buyBundles.length === 0) return;
 
   const infantryBuys = buyBundles.filter((b) => b.label.includes("BUY infantry"));
-  const tankBuys = buyBundles.filter((b) => b.label.includes("BUY tank"));
+  const tankBuys = buyBundles.filter(
+    (b) =>
+      b.label.includes("BUY tank") &&
+      !b.label.includes("BUY md_tank") &&
+      !b.label.includes("BUY neo_tank") &&
+      !b.label.includes("BUY mega_tank")
+  );
 
   if (infantryBuys.length > 0) {
     infantryBuys[0].score += 30;
@@ -216,6 +250,21 @@ function applyBuildOrderTemplate(bundles: ActionBundle[], analysis: TacticalAnal
   if (income >= 7000 && tankBuys.length > 0) {
     tankBuys[0].score += 25;
     tankBuys[0].tags.push("template_tank");
+  }
+
+  if (income >= 16000 && analysis.productionNeeds.techUpAllowed) {
+    const mdTankBuys = buyBundles.filter((b) => b.label.includes("BUY md_tank"));
+    if (mdTankBuys.length > 0) {
+      mdTankBuys[0].score += 20;
+      mdTankBuys[0].tags.push("template_tech_up");
+    }
+  }
+  if (income >= 22000 && analysis.productionNeeds.enemyHeavyArmorCount >= 2) {
+    const neoTankBuys = buyBundles.filter((b) => b.label.includes("BUY neo_tank"));
+    if (neoTankBuys.length > 0) {
+      neoTankBuys[0].score += 25;
+      neoTankBuys[0].tags.push("template_tech_up");
+    }
   }
 
   if (income >= 9000 && factoryCount >= 2 && infantryBuys.length >= 2) {
@@ -302,8 +351,29 @@ function addBuyBundles(
       if (localGroundPressure && terrain.can_produce.includes("tank")) picks.push("tank");
       if (localGroundPressure && terrain.can_produce.includes("artillery")) picks.push("artillery");
       if (terrain.can_produce.includes("tank")) picks.push("tank");
+      if (
+        analysis.productionNeeds.techUpAllowed &&
+        terrain.can_produce.includes("md_tank") &&
+        player.funds >= 16000
+      ) {
+        picks.push("md_tank");
+      }
+      if (
+        analysis.productionNeeds.techUpAllowed &&
+        terrain.can_produce.includes("neo_tank") &&
+        player.funds >= 22000 &&
+        analysis.productionNeeds.enemyHeavyArmorCount >= 2
+      ) {
+        picks.push("neo_tank");
+      }
       if (terrain.can_produce.includes("artillery")) picks.push("artillery");
-      if (terrain.can_produce.includes("b_copter")) picks.push("b_copter");
+      if (
+        terrain.can_produce.includes("b_copter") &&
+        analysis.productionNeeds.ownBCopterCount < 3 &&
+        analysis.productionNeeds.enemyAntiAirCount < 2
+      ) {
+        picks.push("b_copter");
+      }
       if (picks.length === 0) {
         const fallback = affordable.find((data) => {
           if (
@@ -320,12 +390,19 @@ function addBuyBundles(
           ) {
             return false;
           }
+          if (
+            data.id === "b_copter" &&
+            (analysis.productionNeeds.ownBCopterCount >= 3 ||
+              analysis.productionNeeds.enemyAntiAirCount >= 2)
+          ) {
+            return false;
+          }
           return true;
         });
         if (fallback) picks.push(fallback.id);
       }
 
-      for (const unitType of [...new Set(picks)].slice(0, 2)) {
+      for (const unitType of [...new Set(picks)].slice(0, 3)) {
         const data = getUnitData(unitType);
         if (!data || data.cost > player.funds) continue;
         if (
@@ -375,6 +452,17 @@ function addBuyBundles(
         ) {
           tags.push("response");
           score += 24;
+        }
+        if (unitType === "md_tank" && analysis.productionNeeds.techUpAllowed) {
+          tags.push("tech_up");
+          score += 20;
+          if (analysis.productionNeeds.enemyHeavyArmorCount > 0) {
+            score += 10;
+          }
+        }
+        if (unitType === "neo_tank" && analysis.productionNeeds.enemyHeavyArmorCount >= 2) {
+          tags.push("tech_up", "counter");
+          score += 30;
         }
         if (enemyInfantryMass >= 3 && ["tank", "artillery", "b_copter"].includes(unitType)) {
           tags.push("response");
@@ -669,9 +757,18 @@ function moveTagsForUnit(
     }
   }
 
-  if (getTile(state, destX, destY) && analysis.enemyThreatTiles[`${destX},${destY}`] === 0) {
+  const threatAtDest = analysis.enemyThreatTiles[`${destX},${destY}`] ?? 0;
+  if (getTile(state, destX, destY) && threatAtDest === 0) {
     tags.push("safe");
     score += 8;
+  } else if (threatAtDest > 0 && !purposefulAdvance) {
+    tags.push("entering_threat");
+    score -= Math.min(40, threatAtDest * 8);
+  }
+
+  if (threatAtDest > 0 && !purposefulAdvance && estimateUnitValue(unit) >= 6000) {
+    tags.push("expensive_in_threat");
+    score -= 20;
   }
 
   const adjacentEnemies = countAdjacentEnemies(state, playerId, analysis, destX, destY);
@@ -769,6 +866,25 @@ function scoreAttackBundle(params: {
   const supported = hasSupportedAttack(analysis, unit.id, enemy.id, fromX, fromY);
   const freeHit = counterDamage === 0;
 
+  const dominantMatchup =
+    damage >= 5 && counterDamage <= 2 && estimateUnitValue(enemy) >= estimateUnitValue(unit) * 0.8;
+
+  if (dominantMatchup) {
+    tags.push("dominant");
+    score += 15;
+  }
+
+  if (damage >= 8 && counterDamage <= 1) {
+    score += 20;
+    tags.push("hard_counter");
+  }
+
+  const valueDiff = estimateUnitValue(enemy) - estimateUnitValue(unit);
+  if (valueDiff > 0) {
+    score += Math.round(valueDiff / 500);
+    tags.push("value_target");
+  }
+
   const unsupportedFrontlineTrade =
     !supported &&
     !freeHit &&
@@ -791,12 +907,38 @@ function scoreAttackBundle(params: {
   if (unitData?.can_capture && estimateUnitValue(enemy) >= 6000 && !finishOff && !denial) {
     return { score, tags, skip: true };
   }
-  if (unsupportedMirrorArmorTrade) return { score, tags, skip: true };
-  if (unsupportedFrontlineTrade) return { score, tags, skip: true };
+  if (
+    unsupportedMirrorArmorTrade &&
+    !dominantMatchup &&
+    !isPositiveValueTrade(damage, counterDamage, estimateUnitValue(unit), estimateUnitValue(enemy))
+  ) {
+    return { score, tags, skip: true };
+  }
+  if (
+    unsupportedFrontlineTrade &&
+    !dominantMatchup &&
+    !isPositiveValueTrade(damage, counterDamage, estimateUnitValue(unit), estimateUnitValue(enemy))
+  ) {
+    return { score, tags, skip: true };
+  }
   if (!supported && !freeHit && !finishOff && !denial) {
-    if (counterDamage > 0 && estimateUnitValue(unit) >= 6000) return { score, tags, skip: true };
-    score -= 45;
-    tags.push("unsupported");
+    if (counterDamage > 0 && estimateUnitValue(unit) >= 6000 && !dominantMatchup) {
+      if (
+        !isPositiveValueTrade(
+          damage,
+          counterDamage,
+          estimateUnitValue(unit),
+          estimateUnitValue(enemy)
+        )
+      ) {
+        return { score, tags, skip: true };
+      }
+      score -= 30;
+      tags.push("unsupported_but_positive");
+    } else if (!dominantMatchup) {
+      score -= 45;
+      tags.push("unsupported");
+    }
   }
   if (denial) {
     tags.push("emergency");
@@ -871,7 +1013,7 @@ export function buildActionBundleCatalog(
 
     for (const enemy of Object.values(state.units)) {
       if (enemy.owner_id === playerId || enemy.is_loaded) continue;
-      if (!canAttack(unit, enemy, state)) continue;
+      if (!unitData.weapons.some((_, wi) => canAttack(unit, enemy, state, wi))) continue;
       for (let weaponIndex = 0; weaponIndex < unitData.weapons.length; weaponIndex++) {
         const damage = calculateDamage(unit, enemy, state, weaponIndex).damage;
         if (damage <= 0) continue;
@@ -956,7 +1098,8 @@ export function buildActionBundleCatalog(
 
         for (const enemy of Object.values(movedState.units)) {
           if (enemy.owner_id === playerId || enemy.is_loaded) continue;
-          if (!canAttack(movedUnit, enemy, movedState)) continue;
+          if (!unitData.weapons.some((_, wi) => canAttack(movedUnit, enemy, movedState, wi)))
+            continue;
           for (let weaponIndex = 0; weaponIndex < unitData.weapons.length; weaponIndex++) {
             const damage = calculateDamage(movedUnit, enemy, movedState, weaponIndex).damage;
             if (damage <= 0) continue;
@@ -999,6 +1142,28 @@ export function buildActionBundleCatalog(
               dest.dest_y
             );
             const freeHit = counterDamage === 0;
+
+            const dominantMatchup =
+              damage >= 5 &&
+              counterDamage <= 2 &&
+              estimateUnitValue(enemy) >= estimateUnitValue(unit) * 0.8;
+
+            if (dominantMatchup) {
+              tags.push("dominant");
+              score += 15;
+            }
+
+            if (damage >= 8 && counterDamage <= 1) {
+              score += 20;
+              tags.push("hard_counter");
+            }
+
+            const valueDiff = estimateUnitValue(enemy) - estimateUnitValue(unit);
+            if (valueDiff > 0) {
+              score += Math.round(valueDiff / 500);
+              tags.push("value_target");
+            }
+
             const unsupportedFrontlineTrade =
               !supported &&
               !freeHit &&
@@ -1020,12 +1185,45 @@ export function buildActionBundleCatalog(
             if (unitData.can_capture && estimateUnitValue(enemy) >= 6000 && !finishOff && !denial) {
               continue;
             }
-            if (unsupportedMirrorArmorTrade) continue;
-            if (unsupportedFrontlineTrade) continue;
+            if (
+              unsupportedMirrorArmorTrade &&
+              !dominantMatchup &&
+              !isPositiveValueTrade(
+                damage,
+                counterDamage,
+                estimateUnitValue(unit),
+                estimateUnitValue(enemy)
+              )
+            )
+              continue;
+            if (
+              unsupportedFrontlineTrade &&
+              !dominantMatchup &&
+              !isPositiveValueTrade(
+                damage,
+                counterDamage,
+                estimateUnitValue(unit),
+                estimateUnitValue(enemy)
+              )
+            )
+              continue;
             if (!supported && !freeHit && !finishOff && !denial) {
-              if (counterDamage > 0 && estimateUnitValue(unit) >= 6000) continue;
-              score -= 45;
-              tags.push("unsupported");
+              if (counterDamage > 0 && estimateUnitValue(unit) >= 6000 && !dominantMatchup) {
+                if (
+                  !isPositiveValueTrade(
+                    damage,
+                    counterDamage,
+                    estimateUnitValue(unit),
+                    estimateUnitValue(enemy)
+                  )
+                )
+                  continue;
+                score -= 30;
+                tags.push("unsupported_but_positive");
+              } else if (!dominantMatchup) {
+                score -= 45;
+                tags.push("unsupported");
+              }
             }
             if (denial) {
               tags.push("emergency");
@@ -1249,6 +1447,26 @@ export function buildActionBundleCatalog(
           commands: [waitCommand],
           unitId: fallbackUnit.id,
         });
+      }
+    }
+  }
+
+  const unitIds = new Set(readyUnits.map((u) => u.id));
+  for (const unitId of unitIds) {
+    const unitBundles = bundles.filter((b) => b.unitId === unitId);
+    const attackBundles = unitBundles.filter(
+      (b) =>
+        (b.kind === "attack" || b.kind === "move_attack") &&
+        !b.tags.includes("bad_trade") &&
+        b.score >= 40
+    );
+    if (attackBundles.length > 0) {
+      const bestAttackScore = Math.max(...attackBundles.map((b) => b.score));
+      for (const b of unitBundles) {
+        if (b.tags.includes("retreat")) {
+          b.score = Math.min(b.score - 30, bestAttackScore - 5);
+          b.tags.push("retreat_suppressed");
+        }
       }
     }
   }

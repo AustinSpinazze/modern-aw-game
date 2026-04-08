@@ -81,6 +81,11 @@ export interface ProductionNeeds {
   visibleEnemyAirCount: number;
   incomeEstimate: number;
   factoryCount: number;
+  ownTankCount: number;
+  ownHeavyArmorCount: number;
+  enemyHeavyArmorCount: number;
+  ownBCopterCount: number;
+  enemyAntiAirCount: number;
   priorities: string[];
 }
 
@@ -1440,7 +1445,11 @@ export function analyzeTacticalState(
       reachableOwnPorts <= 1 &&
       coastalProps.neutralPorts <= 1 &&
       !portEmergency,
-    techUpAllowed: (player?.funds ?? 0) >= 16000 || frontBalance.some((f) => f.status === "strong"),
+    techUpAllowed:
+      ((player?.funds ?? 0) >= 16000 || frontBalance.some((f) => f.status === "strong")) &&
+      ownProductionTiles.filter((t) => t.terrainType === "factory").length >= 2 &&
+      ownUnits.filter((u) => u.unit_type === "tank").length >= 3 &&
+      !frontBalance.some((f) => f.status === "weak"),
     preserveUnits: preserving,
     factorySpendOpportunities,
     blockedProductionTiles,
@@ -1449,6 +1458,17 @@ export function analyzeTacticalState(
     visibleEnemyAirCount: enemyAirThreat,
     incomeEstimate: ownPropertyCount * 1000,
     factoryCount: ownProductionTiles.filter((t) => t.terrainType === "factory").length,
+    ownTankCount: ownUnits.filter((u) => u.unit_type === "tank").length,
+    ownHeavyArmorCount: ownUnits.filter((u) =>
+      ["md_tank", "neo_tank", "mega_tank"].includes(u.unit_type)
+    ).length,
+    enemyHeavyArmorCount: visibleEnemies.filter((u) =>
+      ["md_tank", "neo_tank", "mega_tank"].includes(u.unit_type)
+    ).length,
+    ownBCopterCount: ownUnits.filter((u) => u.unit_type === "b_copter").length,
+    enemyAntiAirCount: visibleEnemies.filter((u) =>
+      ["anti_air", "missile", "fighter"].includes(u.unit_type)
+    ).length,
     priorities: [],
   };
   if (productionNeeds.factorySpendOpportunities > 0) {
@@ -1537,6 +1557,11 @@ export function analyzeTacticalState(
   }
   if (productionNeeds.techUpAllowed)
     productionNeeds.priorities.push("You can tech up instead of floating funds on cheap units.");
+  if (productionNeeds.techUpAllowed && productionNeeds.enemyHeavyArmorCount >= 2) {
+    productionNeeds.priorities.push(
+      "Enemy has heavy armor — consider neo_tank to counter their md_tanks (6 movement gives first-strike advantage)."
+    );
+  }
   if (productionNeeds.preserveUnits)
     productionNeeds.priorities.push("Retreat or merge units that are likely to be overwhelmed.");
 
