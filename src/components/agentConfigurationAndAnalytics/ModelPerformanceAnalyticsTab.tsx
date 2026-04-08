@@ -145,7 +145,7 @@ export function ModelPerformanceAnalyticsTab({
 
         <AnalyticsChartCard title="Usage by Model" subtitle="Tokens per game session">
           <div className="space-y-3 py-2 max-h-[300px] overflow-y-auto">
-            {stats.modelStats
+            {[...stats.modelStats]
               .sort((a, b) => b.totalTokens - a.totalTokens)
               .map((m) => (
                 <div

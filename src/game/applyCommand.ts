@@ -23,7 +23,7 @@ import {
 } from "./gameState";
 import { getUnitData } from "./dataLoader";
 import { executeCombat, executeSelfDestruct, getCounterWeaponIndex } from "./combat";
-import { applyIncome, calculateHealCost, calculateMergeRefund } from "./economy";
+import { applyIncome, calculateHealCost, calculateMergeRefund, deductFunds } from "./economy";
 import { FOB_COST } from "./economy";
 import { findPath } from "./pathfinding";
 
@@ -56,10 +56,14 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
         y: cmd.dest_y,
         has_moved: true,
       };
-      if (unit.fuel !== undefined && getUnitData(unit.unit_type)?.fuel !== undefined) {
-        const path = findPath(state, unit, cmd.dest_x, cmd.dest_y);
-        const tilesTraversed = Math.max(0, path.length - 1);
-        movePatch.fuel = Math.max(0, unit.fuel - tilesTraversed);
+      {
+        const ud = getUnitData(unit.unit_type);
+        if (ud?.fuel !== undefined) {
+          const currentFuel = unit.fuel ?? ud.fuel;
+          const path = findPath(state, unit, cmd.dest_x, cmd.dest_y);
+          const tilesTraversed = Math.max(0, path.length - 1);
+          movePatch.fuel = Math.max(0, currentFuel - tilesTraversed);
+        }
       }
 
       state = updateUnit(state, cmd.unit_id, movePatch);
@@ -362,21 +366,28 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
     }
 
     case "RESUPPLY": {
-      const target = getUnit(state, cmd.target_id);
-      if (target) {
-        const targetData = getUnitData(target.unit_type);
-        if (targetData) {
-          const fullAmmo: Record<string, number> = {};
-          for (const w of targetData.weapons) {
-            if (w.ammo > 0) fullAmmo[w.id] = w.ammo;
-          }
-          const patch: Partial<typeof target> = { ammo: fullAmmo };
-          // Restore fuel if the unit tracks it
-          if (target.fuel !== undefined && targetData.fuel !== undefined) {
-            patch.fuel = targetData.fuel;
-          }
-          state = updateUnit(state, cmd.target_id, patch);
+      const support = getUnit(state, cmd.unit_id)!;
+      const target = getUnit(state, cmd.target_id)!;
+      const targetData = getUnitData(target.unit_type);
+
+      if (support.unit_type === "black_boat") {
+        if (!targetData || targetData.domain !== "sea" || target.hp >= 10) break;
+        const cost = calculateHealCost(target.unit_type, 1);
+        const afterPay = deductFunds(state, cmd.player_id, cost);
+        if (!afterPay) break;
+        state = afterPay;
+        state = updateUnit(state, cmd.target_id, { hp: Math.min(10, target.hp + 1) });
+      } else {
+        if (!targetData || targetData.domain === "air" || targetData.domain === "sea") break;
+        const fullAmmo: Record<string, number> = {};
+        for (const w of targetData.weapons) {
+          if (w.ammo > 0) fullAmmo[w.id] = w.ammo;
         }
+        const patch: Partial<typeof target> = { ammo: fullAmmo };
+        if (target.fuel !== undefined && targetData.fuel !== undefined) {
+          patch.fuel = targetData.fuel;
+        }
+        state = updateUnit(state, cmd.target_id, patch);
       }
       state = updateUnit(state, cmd.unit_id, { has_acted: true, has_moved: true });
       break;
@@ -488,12 +499,9 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
             if (totalFuelCost > 0) {
               const newFuel = Math.max(0, resupplyFuel - totalFuelCost);
               fuelUpdate.fuel = newFuel;
-              if (newFuel === 0 && resupplyFuel > 0) {
-                // Air units crash and are destroyed when out of fuel
-                // Submerged submarines also crash (can't surface without fuel)
-                if (domain === "air" || unit.is_submerged) {
-                  crashed = true;
-                }
+              // Air / submerged subs crash at 0 fuel (including already-empty + drain)
+              if (newFuel === 0 && (domain === "air" || unit.is_submerged)) {
+                crashed = true;
               }
             }
           } else if (unit.fuel !== undefined) {
@@ -501,10 +509,8 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
             if (fuelPerTurn > 0) {
               const newFuel = Math.max(0, unit.fuel - fuelPerTurn);
               fuelUpdate.fuel = newFuel;
-              if (newFuel === 0 && unit.fuel > 0) {
-                if (domain === "air" || unit.is_submerged) {
-                  crashed = true;
-                }
+              if (newFuel === 0 && (domain === "air" || unit.is_submerged)) {
+                crashed = true;
               }
             }
           }
@@ -518,7 +524,9 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
               has_moved: false,
               has_acted: false,
               ammo: resupplyAmmo,
-              ...(resupplyFuel !== undefined && !fuelUpdate.fuel ? { fuel: resupplyFuel } : {}),
+              ...(resupplyFuel !== undefined && fuelUpdate.fuel === undefined
+                ? { fuel: resupplyFuel }
+                : {}),
               ...fuelUpdate,
             };
           }

@@ -38,7 +38,12 @@
             "cruiser": 0,
             "submarine": 0,
             "battleship": 0,
-            "carrier": 0
+            "carrier": 0,
+            "neo_tank": 1,
+            "mega_tank": 1,
+            "pipe_runner": 15,
+            "black_boat": 0,
+            "black_bomb": 0
           }
         }
       ],
@@ -83,7 +88,12 @@
             "cruiser": 0,
             "submarine": 0,
             "battleship": 0,
-            "carrier": 0
+            "carrier": 0,
+            "neo_tank": 25,
+            "mega_tank": 15,
+            "pipe_runner": 70,
+            "black_boat": 0,
+            "black_bomb": 0
           }
         },
         {
@@ -112,7 +122,12 @@
             "cruiser": 0,
             "submarine": 0,
             "battleship": 0,
-            "carrier": 0
+            "carrier": 0,
+            "neo_tank": 1,
+            "mega_tank": 1,
+            "pipe_runner": 35,
+            "black_boat": 0,
+            "black_bomb": 0
           }
         }
       ],
@@ -157,12 +172,19 @@
             "cruiser": 0,
             "submarine": 0,
             "battleship": 0,
-            "carrier": 0
+            "carrier": 0,
+            "neo_tank": 1,
+            "mega_tank": 1,
+            "pipe_runner": 45,
+            "black_boat": 0,
+            "black_bomb": 0
           }
         }
       ],
       "transport": null,
-      "special_actions": []
+      "special_actions": [],
+      "fuel": 80,
+      "fuel_per_turn": 1
     },
     {
       "id": "apc",
@@ -222,7 +244,12 @@
             "cruiser": 5,
             "submarine": 1,
             "battleship": 1,
-            "carrier": 1
+            "carrier": 1,
+            "neo_tank": 55,
+            "mega_tank": 35,
+            "pipe_runner": 70,
+            "black_boat": 10,
+            "black_bomb": 0
           }
         },
         {
@@ -251,12 +278,19 @@
             "cruiser": 0,
             "submarine": 0,
             "battleship": 0,
-            "carrier": 0
+            "carrier": 0,
+            "neo_tank": 6,
+            "mega_tank": 1,
+            "pipe_runner": 45,
+            "black_boat": 0,
+            "black_bomb": 0
           }
         }
       ],
       "transport": null,
-      "special_actions": []
+      "special_actions": [],
+      "fuel": 70,
+      "fuel_per_turn": 1
     },
     {
       "id": "md_tank",
@@ -269,6 +303,8 @@
       "hp": 10,
       "can_capture": false,
       "tags": ["heavy_vehicle"],
+      "fuel": 50,
+      "fuel_per_turn": 1,
       "weapons": [
         {
           "id": "cannon",
@@ -296,7 +332,12 @@
             "cruiser": 30,
             "submarine": 10,
             "battleship": 10,
-            "carrier": 10
+            "carrier": 10,
+            "neo_tank": 85,
+            "mega_tank": 55,
+            "pipe_runner": 105,
+            "black_boat": 35,
+            "black_bomb": 0
           }
         },
         {
@@ -325,7 +366,184 @@
             "cruiser": 0,
             "submarine": 0,
             "battleship": 0,
-            "carrier": 0
+            "carrier": 0,
+            "neo_tank": 8,
+            "mega_tank": 1,
+            "pipe_runner": 45,
+            "black_boat": 0,
+            "black_bomb": 0
+          }
+        }
+      ],
+      "transport": null,
+      "special_actions": []
+    },
+    {
+      "id": "neo_tank",
+      "name": "Neotank",
+      "domain": "ground",
+      "move_type": "tread",
+      "move_points": 6,
+      "vision": 1,
+      "cost": 22000,
+      "hp": 10,
+      "can_capture": false,
+      "tags": ["heavy_vehicle"],
+      "fuel": 99,
+      "fuel_per_turn": 1,
+      "weapons": [
+        {
+          "id": "cannon",
+          "min_range": 1,
+          "max_range": 1,
+          "can_counterattack": true,
+          "ammo": 9,
+          "damage_table": {
+            "infantry": 0,
+            "mech": 0,
+            "recon": 105,
+            "apc": 105,
+            "tank": 85,
+            "md_tank": 55,
+            "neo_tank": 55,
+            "mega_tank": 45,
+            "artillery": 105,
+            "rocket": 105,
+            "anti_air": 105,
+            "missile": 105,
+            "t_copter": 0,
+            "b_copter": 0,
+            "fighter": 0,
+            "bomber": 0,
+            "stealth": 0,
+            "lander": 35,
+            "cruiser": 30,
+            "submarine": 10,
+            "battleship": 10,
+            "carrier": 10,
+            "pipe_runner": 105,
+            "black_boat": 35,
+            "black_bomb": 0
+          }
+        },
+        {
+          "id": "machine_gun",
+          "min_range": 1,
+          "max_range": 1,
+          "can_counterattack": true,
+          "ammo": -1,
+          "damage_table": {
+            "infantry": 115,
+            "mech": 105,
+            "recon": 50,
+            "apc": 50,
+            "tank": 10,
+            "md_tank": 8,
+            "neo_tank": 1,
+            "mega_tank": 1,
+            "artillery": 50,
+            "rocket": 55,
+            "anti_air": 8,
+            "missile": 35,
+            "t_copter": 50,
+            "b_copter": 15,
+            "fighter": 0,
+            "bomber": 0,
+            "stealth": 0,
+            "lander": 0,
+            "cruiser": 0,
+            "submarine": 0,
+            "battleship": 0,
+            "carrier": 0,
+            "pipe_runner": 35,
+            "black_boat": 0,
+            "black_bomb": 65
+          }
+        }
+      ],
+      "transport": null,
+      "special_actions": []
+    },
+    {
+      "id": "mega_tank",
+      "name": "Megatank",
+      "domain": "ground",
+      "move_type": "tread",
+      "move_points": 5,
+      "vision": 1,
+      "cost": 28000,
+      "hp": 10,
+      "can_capture": false,
+      "tags": ["heavy_vehicle"],
+      "fuel": 99,
+      "fuel_per_turn": 1,
+      "weapons": [
+        {
+          "id": "mega_cannon",
+          "min_range": 1,
+          "max_range": 1,
+          "can_counterattack": true,
+          "ammo": 5,
+          "damage_table": {
+            "infantry": 0,
+            "mech": 0,
+            "recon": 125,
+            "apc": 125,
+            "tank": 135,
+            "md_tank": 115,
+            "neo_tank": 95,
+            "mega_tank": 75,
+            "artillery": 125,
+            "rocket": 125,
+            "anti_air": 125,
+            "missile": 125,
+            "t_copter": 0,
+            "b_copter": 0,
+            "fighter": 0,
+            "bomber": 0,
+            "stealth": 0,
+            "lander": 55,
+            "cruiser": 50,
+            "submarine": 35,
+            "battleship": 35,
+            "carrier": 35,
+            "pipe_runner": 125,
+            "black_boat": 55,
+            "black_bomb": 0
+          }
+        },
+        {
+          "id": "machine_gun",
+          "min_range": 1,
+          "max_range": 1,
+          "can_counterattack": true,
+          "ammo": -1,
+          "damage_table": {
+            "infantry": 135,
+            "mech": 125,
+            "recon": 65,
+            "apc": 65,
+            "tank": 25,
+            "md_tank": 15,
+            "neo_tank": 10,
+            "mega_tank": 1,
+            "artillery": 65,
+            "rocket": 75,
+            "anti_air": 20,
+            "missile": 75,
+            "t_copter": 65,
+            "b_copter": 25,
+            "fighter": 0,
+            "bomber": 0,
+            "stealth": 0,
+            "lander": 0,
+            "cruiser": 0,
+            "submarine": 0,
+            "battleship": 0,
+            "carrier": 0,
+            "pipe_runner": 45,
+            "black_boat": 0,
+            "black_bomb": 75
           }
         }
       ],
@@ -341,6 +559,8 @@
       "vision": 1,
       "cost": 6000,
       "hp": 10,
+      "fuel": 70,
+      "fuel_per_turn": 1,
       "can_capture": false,
       "tags": ["indirect"],
       "weapons": [
@@ -370,7 +590,12 @@
             "cruiser": 65,
             "submarine": 60,
             "battleship": 45,
-            "carrier": 45
+            "carrier": 45,
+            "neo_tank": 45,
+            "mega_tank": 45,
+            "pipe_runner": 75,
+            "black_boat": 55,
+            "black_bomb": 0
           }
         }
       ],
@@ -386,6 +611,8 @@
       "vision": 1,
       "cost": 15000,
       "hp": 10,
+      "fuel": 80,
+      "fuel_per_turn": 1,
       "can_capture": false,
       "tags": ["indirect"],
       "weapons": [
@@ -415,7 +642,12 @@
             "cruiser": 85,
             "submarine": 85,
             "battleship": 60,
-            "carrier": 60
+            "carrier": 60,
+            "neo_tank": 55,
+            "mega_tank": 55,
+            "pipe_runner": 80,
+            "black_boat": 60,
+            "black_bomb": 0
           }
         }
       ],
@@ -431,6 +663,8 @@
       "vision": 2,
       "cost": 8000,
       "hp": 10,
+      "fuel": 70,
+      "fuel_per_turn": 1,
       "can_capture": false,
       "tags": ["anti_air"],
       "weapons": [
@@ -460,7 +694,12 @@
             "cruiser": 0,
             "submarine": 0,
             "battleship": 0,
-            "carrier": 0
+            "carrier": 0,
+            "neo_tank": 10,
+            "mega_tank": 8,
+            "pipe_runner": 25,
+            "black_boat": 0,
+            "black_bomb": 120
           }
         }
       ],
@@ -476,6 +715,8 @@
       "vision": 5,
       "cost": 12000,
       "hp": 10,
+      "fuel": 80,
+      "fuel_per_turn": 1,
       "can_capture": false,
       "tags": ["indirect", "anti_air"],
       "weapons": [
@@ -505,7 +746,64 @@
             "cruiser": 0,
             "submarine": 0,
             "battleship": 0,
-            "carrier": 0
+            "carrier": 0,
+            "neo_tank": 0,
+            "mega_tank": 0,
+            "pipe_runner": 0,
+            "black_boat": 0,
+            "black_bomb": 100
+          }
+        }
+      ],
+      "transport": null,
+      "special_actions": []
+    },
+    {
+      "id": "pipe_runner",
+      "name": "Piperunner",
+      "domain": "ground",
+      "move_type": "pipe",
+      "move_points": 6,
+      "vision": 1,
+      "cost": 20000,
+      "hp": 10,
+      "can_capture": false,
+      "tags": ["indirect"],
+      "fuel": 99,
+      "fuel_per_turn": 1,
+      "weapons": [
+        {
+          "id": "cannon",
+          "min_range": 2,
+          "max_range": 5,
+          "can_counterattack": false,
+          "ammo": 9,
+          "damage_table": {
+            "infantry": 95,
+            "mech": 90,
+            "recon": 90,
+            "apc": 80,
+            "tank": 80,
+            "md_tank": 55,
+            "neo_tank": 55,
+            "mega_tank": 55,
+            "artillery": 80,
+            "rocket": 85,
+            "anti_air": 85,
+            "missile": 90,
+            "t_copter": 0,
+            "b_copter": 0,
+            "fighter": 0,
+            "bomber": 0,
+            "stealth": 0,
+            "lander": 60,
+            "cruiser": 85,
+            "submarine": 85,
+            "battleship": 60,
+            "carrier": 60,
+            "pipe_runner": 85,
+            "black_boat": 60,
+            "black_bomb": 0
           }
         }
       ],
@@ -514,7 +812,7 @@
     },
     {
       "id": "t_copter",
-      "name": "Chinook",
+      "name": "T-Copter",
       "domain": "air",
       "move_type": "air",
       "move_points": 6,
@@ -534,7 +832,7 @@
     },
     {
       "id": "b_copter",
-      "name": "Apache",
+      "name": "B-Copter",
       "domain": "air",
       "move_type": "air",
       "move_points": 6,
@@ -572,7 +870,12 @@
             "cruiser": 25,
             "submarine": 25,
             "battleship": 25,
-            "carrier": 25
+            "carrier": 25,
+            "neo_tank": 25,
+            "mega_tank": 25,
+            "pipe_runner": 65,
+            "black_boat": 25,
+            "black_bomb": 0
           }
         },
         {
@@ -601,7 +904,12 @@
             "cruiser": 0,
             "submarine": 0,
             "battleship": 0,
-            "carrier": 0
+            "carrier": 0,
+            "neo_tank": 6,
+            "mega_tank": 1,
+            "pipe_runner": 25,
+            "black_boat": 0,
+            "black_bomb": 0
           }
         }
       ],
@@ -648,7 +956,12 @@
             "cruiser": 0,
             "submarine": 0,
             "battleship": 0,
-            "carrier": 0
+            "carrier": 0,
+            "neo_tank": 0,
+            "mega_tank": 0,
+            "pipe_runner": 0,
+            "black_boat": 0,
+            "black_bomb": 100
           }
         }
       ],
@@ -695,7 +1008,12 @@
             "cruiser": 50,
             "submarine": 95,
             "battleship": 75,
-            "carrier": 75
+            "carrier": 75,
+            "neo_tank": 95,
+            "mega_tank": 95,
+            "pipe_runner": 105,
+            "black_boat": 95,
+            "black_bomb": 0
           }
         }
       ],
@@ -742,12 +1060,35 @@
             "cruiser": 35,
             "submarine": 55,
             "battleship": 35,
-            "carrier": 45
+            "carrier": 45,
+            "neo_tank": 70,
+            "mega_tank": 70,
+            "pipe_runner": 85,
+            "black_boat": 65,
+            "black_bomb": 70
           }
         }
       ],
       "transport": null,
       "special_actions": ["hide", "unhide"]
+    },
+    {
+      "id": "black_bomb",
+      "name": "Black Bomb",
+      "domain": "air",
+      "move_type": "air",
+      "move_points": 6,
+      "vision": 1,
+      "cost": 25000,
+      "hp": 10,
+      "can_capture": false,
+      "fuel": 99,
+      "fuel_per_turn": 5,
+      "tags": ["plane"],
+      "weapons": [],
+      "transport": null,
+      "special_actions": ["self_destruct"],
+      "self_destruct_damage": 200
     },
     {
       "id": "lander",
@@ -768,6 +1109,26 @@
         "allowed_tags": ["infantry_class", "light_vehicle", "heavy_vehicle", "indirect", "anti_air"]
       },
       "special_actions": []
+    },
+    {
+      "id": "black_boat",
+      "name": "Black Boat",
+      "domain": "sea",
+      "move_type": "trans",
+      "move_points": 7,
+      "vision": 1,
+      "cost": 7500,
+      "hp": 10,
+      "can_capture": false,
+      "fuel": 60,
+      "fuel_per_turn": 1,
+      "tags": ["ship", "transport"],
+      "weapons": [],
+      "transport": {
+        "capacity": 2,
+        "allowed_tags": ["infantry_class"]
+      },
+      "special_actions": ["resupply"]
     },
     {
       "id": "cruiser",
@@ -809,7 +1170,12 @@
             "cruiser": 0,
             "submarine": 0,
             "battleship": 0,
-            "carrier": 0
+            "carrier": 0,
+            "neo_tank": 0,
+            "mega_tank": 0,
+            "pipe_runner": 0,
+            "black_boat": 0,
+            "black_bomb": 100
           }
         },
         {
@@ -838,7 +1204,12 @@
             "cruiser": 0,
             "submarine": 90,
             "battleship": 0,
-            "carrier": 0
+            "carrier": 0,
+            "neo_tank": 0,
+            "mega_tank": 0,
+            "pipe_runner": 0,
+            "black_boat": 0,
+            "black_bomb": 0
           }
         }
       ],
@@ -888,7 +1259,12 @@
             "cruiser": 25,
             "submarine": 55,
             "battleship": 55,
-            "carrier": 55
+            "carrier": 55,
+            "neo_tank": 0,
+            "mega_tank": 0,
+            "pipe_runner": 0,
+            "black_boat": 95,
+            "black_bomb": 0
           }
         }
       ],
@@ -935,7 +1311,12 @@
             "cruiser": 65,
             "submarine": 85,
             "battleship": 50,
-            "carrier": 60
+            "carrier": 60,
+            "neo_tank": 55,
+            "mega_tank": 55,
+            "pipe_runner": 45,
+            "black_boat": 85,
+            "black_bomb": 0
           }
         }
       ],
@@ -982,7 +1363,12 @@
             "cruiser": 0,
             "submarine": 0,
             "battleship": 0,
-            "carrier": 0
+            "carrier": 0,
+            "neo_tank": 0,
+            "mega_tank": 0,
+            "pipe_runner": 0,
+            "black_boat": 0,
+            "black_bomb": 100
           }
         }
       ],

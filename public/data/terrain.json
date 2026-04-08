@@ -104,10 +104,13 @@
         "apc",
         "tank",
         "md_tank",
+        "neo_tank",
+        "mega_tank",
         "artillery",
         "rocket",
         "anti_air",
-        "missile"
+        "missile",
+        "pipe_runner"
       ],
       "movement_costs": {
         "foot": 1,
@@ -126,7 +129,7 @@
       "is_property": true,
       "can_capture": true,
       "income": 1000,
-      "can_produce": ["t_copter", "b_copter", "fighter", "bomber", "stealth"],
+      "can_produce": ["t_copter", "b_copter", "fighter", "bomber", "stealth", "black_bomb"],
       "movement_costs": {
         "foot": 1,
         "mech": 1,
@@ -216,7 +219,7 @@
       "is_property": true,
       "can_capture": true,
       "income": 1000,
-      "can_produce": ["lander", "cruiser", "submarine", "battleship", "carrier"],
+      "can_produce": ["lander", "black_boat", "cruiser", "submarine", "battleship", "carrier"],
       "movement_costs": {
         "foot": 1,
         "mech": 1,
@@ -261,6 +264,44 @@
         "air": 1,
         "ship": 2,
         "trans": 2
+      }
+    },
+    {
+      "id": "pipe",
+      "name": "Pipe",
+      "defense_stars": 0,
+      "is_property": false,
+      "can_capture": false,
+      "income": 0,
+      "can_produce": [],
+      "movement_costs": {
+        "foot": -1,
+        "mech": -1,
+        "tires": -1,
+        "tread": -1,
+        "air": 1,
+        "ship": -1,
+        "trans": -1,
+        "pipe": 1
+      }
+    },
+    {
+      "id": "pipe_seam",
+      "name": "Pipe Seam",
+      "defense_stars": 0,
+      "is_property": false,
+      "can_capture": false,
+      "income": 0,
+      "can_produce": [],
+      "movement_costs": {
+        "foot": -1,
+        "mech": -1,
+        "tires": -1,
+        "tread": -1,
+        "air": 1,
+        "ship": -1,
+        "trans": -1,
+        "pipe": 1
       }
     },
     {

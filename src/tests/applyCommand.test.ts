@@ -345,6 +345,26 @@ describe("RESUPPLY command", () => {
     s = applyCommand(s, { type: "RESUPPLY", player_id: 0, unit_id: 1, target_id: 3 });
     expect(getUnit(s, 3)!.fuel).toBe(70);
   });
+
+  it("does not apply APC resupply to naval units (invalid combo)", () => {
+    let s = makeState(5, 5);
+    s = addTestUnit(s, { id: 1, unit_type: "apc", owner_id: 0, x: 0, y: 0 });
+    s = addTestUnit(s, { id: 2, unit_type: "lander", owner_id: 0, x: 1, y: 0 });
+    s = applyCommand(s, { type: "RESUPPLY", player_id: 0, unit_id: 1, target_id: 2 });
+    expect(getUnit(s, 1)!.has_acted).toBe(false);
+  });
+
+  it("Black Boat repairs adjacent naval for 10% of target unit cost per HP", () => {
+    let s = deterministicState(5, 5);
+    s = updatePlayer(s, 0, { funds: 50000 });
+    s = addTestUnit(s, { id: 1, unit_type: "black_boat", owner_id: 0, x: 0, y: 0 });
+    s = addTestUnit(s, { id: 2, unit_type: "lander", owner_id: 0, x: 1, y: 0, hp: 5 });
+    const before = getPlayer(s, 0)!.funds;
+    s = applyCommand(s, { type: "RESUPPLY", player_id: 0, unit_id: 1, target_id: 2 });
+    expect(getUnit(s, 2)!.hp).toBe(6);
+    expect(getPlayer(s, 0)!.funds).toBe(before - 1200);
+    expect(getUnit(s, 1)!.has_acted).toBe(true);
+  });
 });
 
 // ─── SUBMERGE / SURFACE ──────────────────────────────────────────────────────

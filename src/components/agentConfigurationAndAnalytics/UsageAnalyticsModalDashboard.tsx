@@ -76,7 +76,7 @@ export function UsageAnalyticsModalDashboard() {
 
     let sessions = 0;
     let lastTs = 0;
-    for (const e of gameTurnEntries.sort((a, b) => a.timestamp - b.timestamp)) {
+    for (const e of [...gameTurnEntries].sort((a, b) => a.timestamp - b.timestamp)) {
       if (e.timestamp - lastTs > 10 * 60 * 1000) sessions++;
       lastTs = e.timestamp;
     }

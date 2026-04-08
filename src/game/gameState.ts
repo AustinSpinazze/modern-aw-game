@@ -6,6 +6,7 @@
  */
 
 import type { GameState, PlayerState, UnitState, TileState } from "./types";
+import { getUnitData } from "./dataLoader";
 
 // ---- Factories ----
 
@@ -23,6 +24,8 @@ export function createPlayer(partial: Partial<PlayerState> & { id: number }): Pl
 export function createUnit(
   partial: Partial<UnitState> & { id: number; unit_type: string; owner_id: number }
 ): UnitState {
+  const ud = getUnitData(partial.unit_type);
+  const defaultFuel = ud?.fuel !== undefined && partial.fuel === undefined ? { fuel: ud.fuel } : {};
   return {
     x: 0,
     y: 0,
@@ -32,6 +35,7 @@ export function createUnit(
     ammo: {},
     cargo: [],
     is_loaded: false,
+    ...defaultFuel,
     ...partial,
   };
 }
@@ -46,6 +50,27 @@ export function createTile(partial?: Partial<TileState>): TileState {
     fob_hp: 0,
     ...partial,
   };
+}
+
+/** Options for {@link ensureMatchId} when loading a save. */
+export interface EnsureMatchIdOptions {
+  /** Save slot name (e.g. quicksave) — used for a stable match_id if state is missing one. */
+  saveSlotName?: string;
+}
+
+/**
+ * Ensures non-empty `match_id` so LLM usage analytics and logs group continued games correctly.
+ * Old saves or edge cases may omit it; loaded games use a stable id per save slot.
+ */
+export function ensureMatchId(state: GameState, options?: EnsureMatchIdOptions): GameState {
+  const mid = typeof state.match_id === "string" ? state.match_id.trim() : "";
+  if (mid.length > 0) return state;
+  const raw = options?.saveSlotName?.trim() || "unknown";
+  const safe = raw
+    .replace(/[^a-zA-Z0-9_-]/g, "_")
+    .replace(/_+/g, "_")
+    .slice(0, 96);
+  return { ...state, match_id: `match_save_${safe}` };
 }
 
 export function createGameState(partial?: Partial<GameState>): GameState {

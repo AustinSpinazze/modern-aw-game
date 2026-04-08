@@ -31,6 +31,8 @@ export default function AgentConfigurationAndAnalyticsModal({
   const [anthropicModel, setAnthropicModel] = useState(store.anthropicModel);
   const [openaiModel, setOpenaiModel] = useState(store.openaiModel);
   const [geminiModel, setGeminiModel] = useState(store.geminiModel);
+  const [llmHarnessMode, setLlmHarnessMode] = useState(store.llmHarnessMode);
+  const [llmFailurePolicy, setLlmFailurePolicy] = useState(store.llmFailurePolicy);
 
   const [showAnthropicKey, setShowAnthropicKey] = useState(false);
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
@@ -56,6 +58,8 @@ export default function AgentConfigurationAndAnalyticsModal({
     store.setAnthropicModel(anthropicModel);
     store.setOpenaiModel(openaiModel);
     store.setGeminiModel(geminiModel);
+    store.setLlmHarnessMode(llmHarnessMode);
+    store.setLlmFailurePolicy(llmFailurePolicy);
 
     setSaved(true);
     setTimeout(() => {
@@ -72,6 +76,8 @@ export default function AgentConfigurationAndAnalyticsModal({
     anthropicModel,
     openaiModel,
     geminiModel,
+    llmHarnessMode,
+    llmFailurePolicy,
     store,
     onClose,
   ]);
@@ -150,6 +156,10 @@ export default function AgentConfigurationAndAnalyticsModal({
               setLocalHttpUrl={setLocalHttpUrl}
               localModel={localModel}
               setLocalModel={setLocalModel}
+              llmHarnessMode={llmHarnessMode}
+              setLlmHarnessMode={setLlmHarnessMode}
+              llmFailurePolicy={llmFailurePolicy}
+              setLlmFailurePolicy={setLlmFailurePolicy}
             />
           ) : (
             <UsageAnalyticsModalDashboard />

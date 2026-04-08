@@ -27,6 +27,10 @@ export function AgentConfigurationModalPanel({
   setLocalHttpUrl,
   localModel,
   setLocalModel,
+  llmHarnessMode,
+  setLlmHarnessMode,
+  llmFailurePolicy,
+  setLlmFailurePolicy,
 }: {
   anthropicKey: string;
   setAnthropicKey: (v: string) => void;
@@ -52,6 +56,10 @@ export function AgentConfigurationModalPanel({
   setLocalHttpUrl: (v: string) => void;
   localModel: string;
   setLocalModel: (v: string) => void;
+  llmHarnessMode: "llm_only" | "llm_scaffolded" | "hybrid";
+  setLlmHarnessMode: (v: "llm_only" | "llm_scaffolded" | "hybrid") => void;
+  llmFailurePolicy: "pause_on_failure" | "heuristic_fallback";
+  setLlmFailurePolicy: (v: "pause_on_failure" | "heuristic_fallback") => void;
 }) {
   const isElectron = !!window.electronAPI;
 
@@ -98,6 +106,42 @@ export function AgentConfigurationModalPanel({
       />
 
       <section className="border-t border-gray-100 pt-5">
+        <div className="mb-3">
+          <label className="text-xs text-gray-500 block mb-1">LLM harness mode</label>
+          <select
+            value={llmHarnessMode}
+            onChange={(e) =>
+              setLlmHarnessMode(e.target.value as "llm_only" | "llm_scaffolded" | "hybrid")
+            }
+            className="w-full bg-white border border-gray-300 focus:border-red-500 focus:outline-none rounded-lg px-3 py-2 text-sm text-gray-900"
+          >
+            <option value="hybrid">Hybrid (strongest bot)</option>
+            <option value="llm_scaffolded">LLM scaffolded</option>
+            <option value="llm_only">LLM only</option>
+          </select>
+          <p className="text-[11px] text-gray-400 mt-1">
+            Hybrid adds heuristic supplementation; scaffolded keeps tactical analysis but no
+            heuristic override.
+          </p>
+        </div>
+
+        <div className="mb-3">
+          <label className="text-xs text-gray-500 block mb-1">LLM failure policy</label>
+          <select
+            value={llmFailurePolicy}
+            onChange={(e) =>
+              setLlmFailurePolicy(e.target.value as "pause_on_failure" | "heuristic_fallback")
+            }
+            className="w-full bg-white border border-gray-300 focus:border-red-500 focus:outline-none rounded-lg px-3 py-2 text-sm text-gray-900"
+          >
+            <option value="pause_on_failure">Pause game on failure</option>
+            <option value="heuristic_fallback">Finish with heuristic fallback</option>
+          </select>
+          <p className="text-[11px] text-gray-400 mt-1">
+            Pause to preserve premium-model runs, or allow a heuristic bot to finish a failed turn.
+          </p>
+        </div>
+
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-gray-400" />

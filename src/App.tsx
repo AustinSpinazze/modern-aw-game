@@ -33,7 +33,7 @@ import { useGame } from "./hooks/useGame";
 import { useConfigStore } from "./store/configStore";
 import { useUsageStore } from "./store/usageStore";
 import { loadGameData, getTerrainData } from "./game/dataLoader";
-import { getTile } from "./game/gameState";
+import { ensureMatchId, getTile } from "./game/gameState";
 import type { GameState } from "./game/types";
 import { TEAM_COLORS } from "./lib/teamColors";
 import ConfirmDialog from "./components/shared/ConfirmDialog";
@@ -112,6 +112,10 @@ function AppContent() {
   // Saved games list (for main menu)
   const [gameSaves, setGameSaves] = useState<SavedGameMeta[]>([]);
 
+  /** Increment whenever we navigate to the match view so GameCanvas remounts with a fresh canvas element.
+   * Reusing the same canvas after Pixi teardown can leave Electron/Chromium with a bad GPU mailbox (map blank). */
+  const [gameCanvasKey, setGameCanvasKey] = useState(0);
+
   // Load saves list for main menu
   useEffect(() => {
     if (window.electronAPI?.listSaves) {
@@ -143,6 +147,8 @@ function AppContent() {
   const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { gameState, currentPlayer, queueCommands, processingQueue } = useGame();
+  const aiTurnFailure = useGameStore((s) => s.aiTurnFailure);
+  const clearAiTurnFailure = useGameStore((s) => s.clearAiTurnFailure);
   const hoveredTile = useGameStore((s) => s.hoveredTile);
 
   const prevPlayerIndexRef = useRef<number>(-1);
@@ -249,6 +255,13 @@ function AppContent() {
     if (!currentPlayer) return;
     if (currentPlayer.controller_type === "human") return;
     if (processingQueue) return;
+    if (
+      aiTurnFailure &&
+      aiTurnFailure.matchId === gameState.match_id &&
+      aiTurnFailure.playerId === currentPlayer.id
+    ) {
+      return;
+    }
 
     const timer = setTimeout(async () => {
       if (currentPlayer.controller_type === "heuristic") {
@@ -278,7 +291,7 @@ function AppContent() {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [gameState, currentPlayer, processingQueue, queueCommands]);
+  }, [gameState, currentPlayer, processingQueue, queueCommands, aiTurnFailure]);
 
   // Snapshot the game state at match start so Rematch can restore it
   const initialGameStateRef = useRef<GameState | null>(null);
@@ -288,6 +301,7 @@ function AppContent() {
     prevPhaseRef.current = "";
     resetTurnTracking();
     initialGameStateRef.current = useGameStore.getState().gameState;
+    setGameCanvasKey((k) => k + 1);
     setView("game");
   }, [resetTurnTracking]);
 
@@ -298,6 +312,7 @@ function AppContent() {
     prevPhaseRef.current = "";
     resetTurnTracking();
     resetTimerState();
+    setGameCanvasKey((k) => k + 1);
     setView("game");
   }, [resetTimerState, resetTurnTracking]);
 
@@ -327,11 +342,13 @@ function AppContent() {
         await loadGameData();
         const raw = (await window.electronAPI!.loadGame(name)) as { state?: GameState } | null;
         if (!raw?.state) return;
-        useGameStore.getState().setGameState(raw.state);
+        const state = ensureMatchId(raw.state, { saveSlotName: name });
+        useGameStore.getState().setGameState(state);
         prevPlayerIndexRef.current = -1;
         prevPhaseRef.current = "";
         resetTurnTracking();
         resetTimerState();
+        setGameCanvasKey((k) => k + 1);
         setView("game");
       } catch (e) {
         console.error("Failed to load save:", e);
@@ -442,9 +459,32 @@ function AppContent() {
   }
 
   const isAiTurn = currentPlayer?.controller_type !== "human";
-  const isAiProcessing = processingQueue || (isAiTurn && gameState?.phase === "action");
+  const isCurrentAiFailure =
+    !!aiTurnFailure &&
+    !!gameState &&
+    aiTurnFailure.matchId === gameState.match_id &&
+    aiTurnFailure.playerId === currentPlayer?.id;
+  const isAiProcessing =
+    processingQueue ||
+    ((isAiTurn && gameState?.phase === "action" && !isCurrentAiFailure) ?? false);
   const isHumanTurn = currentPlayer?.controller_type === "human" && gameState?.phase === "action";
   const isAnimating = useGameStore.getState().isAnimating;
+  const aiFailureHelpText = (() => {
+    const message = aiTurnFailure?.message ?? "";
+    if (message.includes("budget") || message.includes("quota") || message.includes("429")) {
+      return "Increase budget/quota or wait for usage to reset, then retry the turn.";
+    }
+    if (message.includes("Provider call failed")) {
+      return "Check provider access, API key, network availability, or model settings, then retry the turn.";
+    }
+    if (message.includes("parsed as a JSON")) {
+      return "The model replied, but not in valid command JSON. Retrying may work, or switch models if it repeats.";
+    }
+    if (message.includes("low-purpose turns")) {
+      return "The model kept replying, but the turns were too weak or incomplete. Review the debug logs or try another model.";
+    }
+    return "Review the console/debug logs, then retry the turn or adjust model/provider settings.";
+  })();
 
   // Bottom bar — hovered tile info
   const hoveredTileData =
@@ -598,8 +638,41 @@ function AppContent() {
           >
             <div className="w-full h-full rounded-tr-2xl" style={{ background: "#f0ece0" }} />
           </div>
-          <GameCanvas onFacilityClick={handleFacilityClick} />
+          <GameCanvas key={gameCanvasKey} onFacilityClick={handleFacilityClick} />
           <ActionMenu />
+
+          {isCurrentAiFailure && aiTurnFailure && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 w-full max-w-2xl px-4">
+              <div className="bg-white/95 border border-red-200 rounded-2xl shadow-lg backdrop-blur-sm p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-sm font-semibold text-red-500">AI turn paused</div>
+                    <div className="text-sm text-gray-700 mt-1">
+                      Player {aiTurnFailure.playerId + 1} could not complete its LLM turn.
+                    </div>
+                    <div className="text-xs text-gray-500 mt-2 break-words">
+                      {aiTurnFailure.message}
+                    </div>
+                    <div className="text-xs text-gray-400 mt-2">{aiFailureHelpText}</div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => setShowAgentConfigurationModal(true)}
+                      className="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Agent config
+                    </button>
+                    <button
+                      onClick={() => clearAiTurnFailure()}
+                      className="px-3 py-2 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-400 transition-colors"
+                    >
+                      Retry turn
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* AI thinking overlay */}
           {isAiProcessing && (

@@ -5,6 +5,9 @@
  */
 
 import { create } from "zustand";
+import { clearLlmDebugLogs } from "../ai/llmDebugLog";
+import type { LlmTurnMemoryState } from "../ai/llmTurnMemory";
+import type { ExecutionReport } from "../ai/llmTurnPlan";
 import type { GameState, GameCommand, UnitState, Vec2 } from "../game/types";
 import { getUnit, getUnitAt } from "../game/gameState";
 import { validateCommand } from "../game/validators";
@@ -35,6 +38,24 @@ export interface QueuedCommand {
   path?: Vec2[];
 }
 
+export interface QueueExecutionFailure {
+  command: GameCommand;
+  error: string;
+}
+
+export interface QueueExecutionRecord {
+  requested: GameCommand[];
+  applied: GameCommand[];
+  failed?: QueueExecutionFailure;
+}
+
+export interface AiTurnFailure {
+  matchId: string;
+  playerId: number;
+  message: string;
+  timestamp: number;
+}
+
 interface GameStore {
   // State
   gameState: GameState | null;
@@ -63,6 +84,19 @@ interface GameStore {
   // Command queue for external commands (AI/enemy)
   commandQueue: QueuedCommand[];
   processingQueue: boolean;
+  currentQueueExecution: QueueExecutionRecord | null;
+  lastQueueExecution: QueueExecutionRecord | null;
+  aiTurnFailure: AiTurnFailure | null;
+
+  /** Key `${matchId}:${playerId}` → last executed command summary for LLM continuity */
+  llmAiTurnMemory: Record<string, LlmTurnMemoryState>;
+  setLlmAiTurnMemory: (matchId: string, playerId: number, summary: LlmTurnMemoryState) => void;
+  getLlmAiTurnMemory: (matchId: string, playerId: number) => LlmTurnMemoryState | null;
+
+  /** Key `${matchId}_${playerId}` → last strategic planner execution report */
+  llmPlanMemory: Record<string, ExecutionReport>;
+  setLlmPlanMemory: (matchId: string, playerId: number, report: ExecutionReport) => void;
+  getLlmPlanMemory: (matchId: string, playerId: number) => ExecutionReport | null;
 
   // Actions
   setGameState: (state: GameState) => void;
@@ -86,6 +120,9 @@ interface GameStore {
   queueCommands: (commands: GameCommand[]) => void;
   processNextCommand: () => QueuedCommand | null;
   onQueuedAnimationComplete: () => void;
+  clearLastQueueExecution: () => void;
+  setAiTurnFailure: (failure: AiTurnFailure) => void;
+  clearAiTurnFailure: () => void;
 
   // Clears movement-animation state after move completes but before combat animation starts.
   // Sets gameState to post-move, clears all selection/overlay fields.
@@ -113,6 +150,31 @@ export const useGameStore = create<GameStore>((set, get) => ({
   previewAttackableTiles: [],
   commandQueue: [],
   processingQueue: false,
+  currentQueueExecution: null,
+  lastQueueExecution: null,
+  aiTurnFailure: null,
+
+  llmAiTurnMemory: {},
+  setLlmAiTurnMemory: (matchId, playerId, summary) => {
+    const key = `${matchId}:${playerId}`;
+    set((s) => ({ llmAiTurnMemory: { ...s.llmAiTurnMemory, [key]: summary } }));
+  },
+  getLlmAiTurnMemory: (matchId, playerId) => {
+    const key = `${matchId}:${playerId}`;
+    return get().llmAiTurnMemory[key] ?? null;
+  },
+
+  llmPlanMemory: {},
+  setLlmPlanMemory: (matchId, playerId, report) => {
+    const key = `${matchId}:${playerId}`;
+    set((s) => ({
+      llmPlanMemory: { ...s.llmPlanMemory, [key]: report },
+    }));
+  },
+  getLlmPlanMemory: (matchId, playerId) => {
+    const key = `${matchId}:${playerId}`;
+    return get().llmPlanMemory[key] ?? null;
+  },
 
   recomputeVisibility: () => {
     const { gameState } = get();
@@ -129,7 +191,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const visibilityMap = state.fog_of_war
       ? computeVisibility(state, getViewingPlayerId(state))
       : null;
-    set({ gameState: state, visibilityMap });
+    set((prev) => ({
+      gameState: state,
+      visibilityMap,
+      aiTurnFailure:
+        prev.aiTurnFailure &&
+        (prev.aiTurnFailure.matchId !== state.match_id ||
+          prev.aiTurnFailure.playerId !== state.players[state.current_player_index]?.id)
+          ? null
+          : prev.aiTurnFailure,
+    }));
   },
 
   clearGameState: () => {
@@ -154,7 +225,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
       previewAttackableTiles: [],
       commandQueue: [],
       processingQueue: false,
+      currentQueueExecution: null,
+      lastQueueExecution: null,
+      aiTurnFailure: null,
+      llmAiTurnMemory: {},
+      llmPlanMemory: {},
     });
+    clearLlmDebugLogs();
   },
 
   selectUnit: (unit) => {
@@ -382,7 +459,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!gameState) return { success: false, error: "No game state" };
 
     const result = validateCommand(cmd, gameState);
-    if (!result.valid) return { success: false, error: result.error };
+    if (!result.valid) {
+      if (get().processingQueue) {
+        set((s) => ({
+          processingQueue: false,
+          commandQueue: [],
+          currentQueueExecution: null,
+          lastQueueExecution: s.currentQueueExecution
+            ? {
+                ...s.currentQueueExecution,
+                failed: { command: cmd, error: result.error || "Command validation failed" },
+              }
+            : {
+                requested: [cmd],
+                applied: [],
+                failed: { command: cmd, error: result.error || "Command validation failed" },
+              },
+        }));
+      }
+      return { success: false, error: result.error };
+    }
 
     const newState = applyCommand(gameState, cmd);
     // Use setGameState so visibility is recomputed automatically
@@ -417,6 +513,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
         unloadTiles: [],
         unloadingCargoIndex: null,
       });
+    }
+
+    if (get().processingQueue) {
+      set((s) => ({
+        currentQueueExecution: s.currentQueueExecution
+          ? {
+              ...s.currentQueueExecution,
+              applied: [...s.currentQueueExecution.applied, cmd],
+            }
+          : { requested: [cmd], applied: [cmd] },
+      }));
     }
 
     return { success: true };
@@ -507,7 +614,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // Queue commands from AI/external sources for animated playback
   queueCommands: (commands) => {
     const { gameState } = get();
-    if (!gameState) return;
+    if (!gameState || commands.length === 0) return;
 
     const queued: QueuedCommand[] = commands.map((cmd) => {
       if (cmd.type === "MOVE") {
@@ -519,14 +626,34 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return { command: cmd };
     });
 
-    set({ commandQueue: queued, processingQueue: true });
+    set((s) => ({
+      commandQueue: s.processingQueue ? [...s.commandQueue, ...queued] : queued,
+      processingQueue: true,
+      currentQueueExecution:
+        s.processingQueue && s.currentQueueExecution
+          ? {
+              ...s.currentQueueExecution,
+              requested: [...s.currentQueueExecution.requested, ...commands],
+            }
+          : { requested: [...commands], applied: [] },
+      lastQueueExecution: s.processingQueue ? s.lastQueueExecution : null,
+    }));
   },
 
   // Get the next command to process (called by GameCanvas animation system)
   processNextCommand: () => {
     const { commandQueue, processingQueue, gameState } = get();
     if (!processingQueue || commandQueue.length === 0 || !gameState) {
-      set({ processingQueue: false, commandQueue: [], isAnimating: false });
+      set((s) => ({
+        processingQueue: false,
+        commandQueue: [],
+        isAnimating: false,
+        lastQueueExecution:
+          s.currentQueueExecution && !s.currentQueueExecution.failed
+            ? s.currentQueueExecution
+            : s.lastQueueExecution,
+        currentQueueExecution: s.currentQueueExecution?.failed ? null : s.currentQueueExecution,
+      }));
       return null;
     }
 
@@ -583,9 +710,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { commandQueue } = get();
     // Check if there are more commands - if not, also stop processing
     if (commandQueue.length === 0) {
-      set({ isAnimating: false, processingQueue: false });
+      set((s) => ({
+        isAnimating: false,
+        processingQueue: false,
+        lastQueueExecution: s.currentQueueExecution ?? s.lastQueueExecution,
+        currentQueueExecution: null,
+      }));
     } else {
       set({ isAnimating: false });
     }
   },
+
+  clearLastQueueExecution: () => set({ lastQueueExecution: null }),
+  setAiTurnFailure: (failure) => set({ aiTurnFailure: failure }),
+  clearAiTurnFailure: () => set({ aiTurnFailure: null }),
 }));

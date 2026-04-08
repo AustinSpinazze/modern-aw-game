@@ -147,255 +147,266 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     let mounted = true;
 
     const canvas = canvasRef.current;
-    initPixiApp(canvas)
-      .then((app) => {
-        if (!mounted) return;
-        resetPanZoom();
-        enablePanZoom(canvas);
 
-        const terrain = new TerrainRenderer();
-        const units = new UnitRenderer();
-        const highlights = new HighlightRenderer();
-        const pathOverlay = new HighlightRenderer(); // For path arrows
-        const cursorOverlay = new HighlightRenderer(); // For targeting cursor
-        const movementAnimator = new MovementAnimator();
-        const combatAnimator = new CombatAnimator();
-        const particleSystem = new ParticleSystem();
-        const fogRenderer = new FogRenderer();
+    // Defer init until after layout: on a cold remount (e.g. Continue from menu) parent size can be
+    // 0×0 for one frame; initializing too early also races Electron's compositor after GPU teardown.
+    const start = async () => {
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+      if (!mounted || canvasRef.current !== canvas) return;
 
-        // Render order:
-        //   terrain → highlights (reachable/attack tiles) → units → fog → capture overlay
-        //   → movement anim → combat effects → path overlay → cursor (on top)
-        // Fog sits above units so enemy units on fogged tiles are hidden.
-        // Highlights and cursor are above fog so the player can still interact.
-        app.stage.addChild(terrain.getContainer());
-        app.stage.addChild(highlights.getContainer());
-        app.stage.addChild(units.getContainer());
-        app.stage.addChild(fogRenderer.getContainer()); // Fog above units, below overlays
-        app.stage.addChild(terrain.getCaptureOverlay()); // Capture indicators above fog
-        app.stage.addChild(movementAnimator.getContainer()); // Moving unit on top
-        app.stage.addChild(combatAnimator.getContainer()); // Combat flash/destruction effects
-        app.stage.addChild(particleSystem.getContainer()); // Combat VFX particles
-        app.stage.addChild(pathOverlay.getContainer());
-        app.stage.addChild(cursorOverlay.getContainer()); // Cursor always on very top
+      initPixiApp(canvas)
+        .then((app) => {
+          if (!mounted) return;
+          resetPanZoom();
+          enablePanZoom(canvas);
 
-        terrainRendererRef.current = terrain;
-        unitRendererRef.current = units;
-        highlightRendererRef.current = highlights;
-        pathOverlayRef.current = pathOverlay;
-        cursorOverlayRef.current = cursorOverlay;
-        movementAnimatorRef.current = movementAnimator;
-        combatAnimatorRef.current = combatAnimator;
-        particleSystemRef.current = particleSystem;
-        fogRendererRef.current = fogRenderer;
+          const terrain = new TerrainRenderer();
+          const units = new UnitRenderer();
+          const highlights = new HighlightRenderer();
+          const pathOverlay = new HighlightRenderer(); // For path arrows
+          const cursorOverlay = new HighlightRenderer(); // For targeting cursor
+          const movementAnimator = new MovementAnimator();
+          const combatAnimator = new CombatAnimator();
+          const particleSystem = new ParticleSystem();
+          const fogRenderer = new FogRenderer();
 
-        // Wire input
-        const handleTileClick = (pos: Vec2) => {
-          const state = useGameStore.getState().gameState;
-          if (!state) return;
+          // Render order:
+          //   terrain → highlights (reachable/attack tiles) → units → fog → capture overlay
+          //   → movement anim → combat effects → path overlay → cursor (on top)
+          // Fog sits above units so enemy units on fogged tiles are hidden.
+          // Highlights and cursor are above fog so the player can still interact.
+          app.stage.addChild(terrain.getContainer());
+          app.stage.addChild(highlights.getContainer());
+          app.stage.addChild(units.getContainer());
+          app.stage.addChild(fogRenderer.getContainer()); // Fog above units, below overlays
+          app.stage.addChild(terrain.getCaptureOverlay()); // Capture indicators above fog
+          app.stage.addChild(movementAnimator.getContainer()); // Moving unit on top
+          app.stage.addChild(combatAnimator.getContainer()); // Combat flash/destruction effects
+          app.stage.addChild(particleSystem.getContainer()); // Combat VFX particles
+          app.stage.addChild(pathOverlay.getContainer());
+          app.stage.addChild(cursorOverlay.getContainer()); // Cursor always on very top
 
-          // Block clicks while preview animation is playing
-          if (useGameStore.getState().previewAnimating) return;
+          terrainRendererRef.current = terrain;
+          unitRendererRef.current = units;
+          highlightRendererRef.current = highlights;
+          pathOverlayRef.current = pathOverlay;
+          cursorOverlayRef.current = cursorOverlay;
+          movementAnimatorRef.current = movementAnimator;
+          combatAnimatorRef.current = combatAnimator;
+          particleSystemRef.current = particleSystem;
+          fogRendererRef.current = fogRenderer;
 
-          const {
-            selectedUnit: selUnit,
-            reachableTiles,
-            attackableTiles,
-            pendingMove,
-            setPendingMove,
-            confirmMoveAndAction,
-            selectUnit,
-            resetSelection,
-            cancelPendingMove,
-          } = useGameStore.getState();
+          // Wire input
+          const handleTileClick = (pos: Vec2) => {
+            const state = useGameStore.getState().gameState;
+            if (!state) return;
 
-          const currentPlayer = state.players[state.current_player_index];
-          if (!currentPlayer) return;
+            // Block clicks while preview animation is playing
+            if (useGameStore.getState().previewAnimating) return;
 
-          const clickedUnit = getUnitAt(state, pos.x, pos.y);
+            const {
+              selectedUnit: selUnit,
+              reachableTiles,
+              attackableTiles,
+              pendingMove,
+              setPendingMove,
+              confirmMoveAndAction,
+              selectUnit,
+              resetSelection,
+              cancelPendingMove,
+            } = useGameStore.getState();
 
-          if (selUnit) {
-            // If we have a pending move, check for attack at pending position
-            if (pendingMove) {
-              const isAttackable = attackableTiles.some((t) => t.x === pos.x && t.y === pos.y);
-              if (isAttackable && clickedUnit && clickedUnit.owner_id !== currentPlayer.id) {
-                // Shortcut: click enemy directly while pendingMove is set.
-                // Apply MOVE instantly (no movement anim), then run combat animation.
-                const attackCmd = {
-                  type: "ATTACK" as const,
-                  player_id: currentPlayer.id,
-                  attacker_id: selUnit.id,
-                  target_id: clickedUnit.id,
-                  weapon_index: 0,
-                };
-                const cAnim = combatAnimatorRef.current;
-                if (cAnim && !cAnim.isAnimating()) {
-                  // Pre-apply MOVE to get attacker at destination
-                  const isInPlace = pendingMove.x === selUnit.x && pendingMove.y === selUnit.y;
-                  let movedState = state;
-                  if (!selUnit.has_moved && !isInPlace) {
-                    const moveCmd = {
-                      type: "MOVE" as const,
-                      player_id: currentPlayer.id,
-                      unit_id: selUnit.id,
-                      dest_x: pendingMove.x,
-                      dest_y: pendingMove.y,
-                    };
-                    if (validateCommand(moveCmd, state).valid) {
-                      movedState = applyCommand(state, moveCmd);
+            const currentPlayer = state.players[state.current_player_index];
+            if (!currentPlayer) return;
+
+            const clickedUnit = getUnitAt(state, pos.x, pos.y);
+
+            if (selUnit) {
+              // If we have a pending move, check for attack at pending position
+              if (pendingMove) {
+                const isAttackable = attackableTiles.some((t) => t.x === pos.x && t.y === pos.y);
+                if (isAttackable && clickedUnit && clickedUnit.owner_id !== currentPlayer.id) {
+                  // Shortcut: click enemy directly while pendingMove is set.
+                  // Apply MOVE instantly (no movement anim), then run combat animation.
+                  const attackCmd = {
+                    type: "ATTACK" as const,
+                    player_id: currentPlayer.id,
+                    attacker_id: selUnit.id,
+                    target_id: clickedUnit.id,
+                    weapon_index: 0,
+                  };
+                  const cAnim = combatAnimatorRef.current;
+                  if (cAnim && !cAnim.isAnimating()) {
+                    // Pre-apply MOVE to get attacker at destination
+                    const isInPlace = pendingMove.x === selUnit.x && pendingMove.y === selUnit.y;
+                    let movedState = state;
+                    if (!selUnit.has_moved && !isInPlace) {
+                      const moveCmd = {
+                        type: "MOVE" as const,
+                        player_id: currentPlayer.id,
+                        unit_id: selUnit.id,
+                        dest_x: pendingMove.x,
+                        dest_y: pendingMove.y,
+                      };
+                      if (validateCommand(moveCmd, state).valid) {
+                        movedState = applyCommand(state, moveCmd);
+                      }
                     }
+                    // Apply moved state immediately (unit jumps, selection clears)
+                    useGameStore.getState().applyPostMoveState(movedState);
+                    const ok = runCombatAnimation(
+                      cAnim,
+                      movedState,
+                      attackCmd,
+                      (postState) => {
+                        useGameStore.getState().setGameState(postState);
+                      },
+                      particleSystemRef.current
+                    );
+                    if (ok) return;
                   }
-                  // Apply moved state immediately (unit jumps, selection clears)
-                  useGameStore.getState().applyPostMoveState(movedState);
-                  const ok = runCombatAnimation(
-                    cAnim,
-                    movedState,
-                    attackCmd,
-                    (postState) => {
-                      useGameStore.getState().setGameState(postState);
-                    },
-                    particleSystemRef.current
-                  );
-                  if (ok) return;
+                  // Fallback: no combat animator available
+                  confirmMoveAndAction(attackCmd);
+                  return;
                 }
-                // Fallback: no combat animator available
-                confirmMoveAndAction(attackCmd);
-                return;
-              }
-              // Check if clicking an unload tile
-              const { unloadTiles: uTiles, unloadingCargoIndex: uIdx } = useGameStore.getState();
-              if (uIdx !== null && uTiles.some((t) => t.x === pos.x && t.y === pos.y)) {
-                const startMoveAnim = useGameStore.getState().startMoveAnimation;
-                startMoveAnim({
-                  type: "UNLOAD",
-                  player_id: currentPlayer.id,
-                  transport_id: selUnit.id,
-                  unit_index: uIdx,
-                  dest_x: pos.x,
-                  dest_y: pos.y,
-                });
+                // Check if clicking an unload tile
+                const { unloadTiles: uTiles, unloadingCargoIndex: uIdx } = useGameStore.getState();
+                if (uIdx !== null && uTiles.some((t) => t.x === pos.x && t.y === pos.y)) {
+                  const startMoveAnim = useGameStore.getState().startMoveAnimation;
+                  startMoveAnim({
+                    type: "UNLOAD",
+                    player_id: currentPlayer.id,
+                    transport_id: selUnit.id,
+                    unit_index: uIdx,
+                    dest_x: pos.x,
+                    dest_y: pos.y,
+                  });
+                  return;
+                }
+
+                // Clicking elsewhere cancels pending move and deselects
+                cancelPendingMove();
+                resetSelection();
+                if (
+                  clickedUnit &&
+                  clickedUnit.owner_id === currentPlayer.id &&
+                  !clickedUnit.is_loaded
+                ) {
+                  selectUnit(clickedUnit);
+                }
                 return;
               }
 
-              // Clicking elsewhere cancels pending move and deselects
-              cancelPendingMove();
+              // No pending move yet - check if clicking on a reachable tile OR the unit's own tile
+              const isReachable = reachableTiles.some((t) => t.x === pos.x && t.y === pos.y);
+              const isUnitTile = pos.x === selUnit.x && pos.y === selUnit.y;
+              if ((isReachable || isUnitTile) && !selUnit.has_moved) {
+                // Set pending move instead of immediately moving
+                setPendingMove(pos);
+                return;
+              }
+              // Unit already moved — clicking its current tile opens the action menu
+              if (isUnitTile && selUnit.has_moved && !selUnit.has_acted) {
+                setPendingMove(pos);
+                return;
+              }
+
+              // Check if the clicked enemy is in attack range from the current position.
+              // If so, open the ActionMenu (via setPendingMove on the unit's own tile) rather
+              // than attacking immediately — lets the player confirm or cancel in case of misclick.
+              // attackableTiles in the store is empty until setPendingMove fires, so we compute
+              // range on the fly here.
+              if (clickedUnit && clickedUnit.owner_id !== currentPlayer.id && !selUnit.has_acted) {
+                const unitDat = getUnitData(selUnit.unit_type);
+                let isInRange = false;
+                for (let wi = 0; wi < (unitDat?.weapons.length ?? 0); wi++) {
+                  const rangeTiles = getAttackableTiles(state, selUnit, selUnit.x, selUnit.y, wi);
+                  if (
+                    rangeTiles.some((t) => t.x === pos.x && t.y === pos.y) &&
+                    canAttack(selUnit, clickedUnit, state, wi)
+                  ) {
+                    isInRange = true;
+                    break;
+                  }
+                }
+                if (isInRange) {
+                  // Set pendingMove to the unit's current tile — this surfaces the ActionMenu
+                  // showing the attackable enemies (and a Cancel button), same as clicking your
+                  // own tile. The player then confirms the attack from the menu.
+                  setPendingMove({ x: selUnit.x, y: selUnit.y });
+                  return;
+                }
+              }
+
               resetSelection();
               if (
                 clickedUnit &&
+                currentPlayer &&
                 clickedUnit.owner_id === currentPlayer.id &&
                 !clickedUnit.is_loaded
               ) {
                 selectUnit(clickedUnit);
               }
-              return;
-            }
-
-            // No pending move yet - check if clicking on a reachable tile OR the unit's own tile
-            const isReachable = reachableTiles.some((t) => t.x === pos.x && t.y === pos.y);
-            const isUnitTile = pos.x === selUnit.x && pos.y === selUnit.y;
-            if ((isReachable || isUnitTile) && !selUnit.has_moved) {
-              // Set pending move instead of immediately moving
-              setPendingMove(pos);
-              return;
-            }
-            // Unit already moved — clicking its current tile opens the action menu
-            if (isUnitTile && selUnit.has_moved && !selUnit.has_acted) {
-              setPendingMove(pos);
-              return;
-            }
-
-            // Check if the clicked enemy is in attack range from the current position.
-            // If so, open the ActionMenu (via setPendingMove on the unit's own tile) rather
-            // than attacking immediately — lets the player confirm or cancel in case of misclick.
-            // attackableTiles in the store is empty until setPendingMove fires, so we compute
-            // range on the fly here.
-            if (clickedUnit && clickedUnit.owner_id !== currentPlayer.id && !selUnit.has_acted) {
-              const unitDat = getUnitData(selUnit.unit_type);
-              let isInRange = false;
-              for (let wi = 0; wi < (unitDat?.weapons.length ?? 0); wi++) {
-                const rangeTiles = getAttackableTiles(state, selUnit, selUnit.x, selUnit.y, wi);
-                if (
-                  rangeTiles.some((t) => t.x === pos.x && t.y === pos.y) &&
-                  canAttack(selUnit, clickedUnit, state, wi)
-                ) {
-                  isInRange = true;
-                  break;
-                }
-              }
-              if (isInRange) {
-                // Set pendingMove to the unit's current tile — this surfaces the ActionMenu
-                // showing the attackable enemies (and a Cancel button), same as clicking your
-                // own tile. The player then confirms the attack from the menu.
-                setPendingMove({ x: selUnit.x, y: selUnit.y });
-                return;
-              }
-            }
-
-            resetSelection();
-            if (
-              clickedUnit &&
-              currentPlayer &&
-              clickedUnit.owner_id === currentPlayer.id &&
-              !clickedUnit.is_loaded
-            ) {
-              selectUnit(clickedUnit);
-            }
-          } else {
-            if (
-              clickedUnit &&
-              currentPlayer &&
-              clickedUnit.owner_id === currentPlayer.id &&
-              !clickedUnit.is_loaded
-            ) {
-              selectUnit(clickedUnit);
-            } else if (!clickedUnit && currentPlayer) {
-              // Check if clicking on an owned facility to open buy menu
-              const tile = getTile(state, pos.x, pos.y);
-              if (tile && tile.owner_id === currentPlayer.id) {
-                const terrainData = getTerrainData(tile.terrain_type);
-                if (terrainData?.can_produce && terrainData.can_produce.length > 0) {
-                  onFacilityClickRef.current?.(pos.x, pos.y);
+            } else {
+              if (
+                clickedUnit &&
+                currentPlayer &&
+                clickedUnit.owner_id === currentPlayer.id &&
+                !clickedUnit.is_loaded
+              ) {
+                selectUnit(clickedUnit);
+              } else if (!clickedUnit && currentPlayer) {
+                // Check if clicking on an owned facility to open buy menu
+                const tile = getTile(state, pos.x, pos.y);
+                if (tile && tile.owner_id === currentPlayer.id) {
+                  const terrainData = getTerrainData(tile.terrain_type);
+                  if (terrainData?.can_produce && terrainData.can_produce.length > 0) {
+                    onFacilityClickRef.current?.(pos.x, pos.y);
+                  }
                 }
               }
             }
-          }
-        };
+          };
 
-        const handleTileHover = (pos: Vec2) => {
-          useGameStore.getState().setHoveredTile(pos);
-        };
+          const handleTileHover = (pos: Vec2) => {
+            useGameStore.getState().setHoveredTile(pos);
+          };
 
-        const handleTileRightClick = (pos: Vec2 | null) => {
-          if (!pos) {
-            // Right mouse button released — clear preview
-            useGameStore.getState().setPreviewUnit(null);
-            return;
-          }
-          const state = useGameStore.getState().gameState;
-          if (!state) return;
-          const unit = getUnitAt(state, pos.x, pos.y);
-          // Only preview units that are visible (respect fog)
-          const vis = useGameStore.getState().visibilityMap;
-          const isVisible = !vis || vis[pos.y]?.[pos.x] === true;
-          useGameStore.getState().setPreviewUnit(unit && isVisible ? unit : null);
-        };
+          const handleTileRightClick = (pos: Vec2 | null) => {
+            if (!pos) {
+              // Right mouse button released — clear preview
+              useGameStore.getState().setPreviewUnit(null);
+              return;
+            }
+            const state = useGameStore.getState().gameState;
+            if (!state) return;
+            const unit = getUnitAt(state, pos.x, pos.y);
+            // Only preview units that are visible (respect fog)
+            const vis = useGameStore.getState().visibilityMap;
+            const isVisible = !vis || vis[pos.y]?.[pos.x] === true;
+            useGameStore.getState().setPreviewUnit(unit && isVisible ? unit : null);
+          };
 
-        inputHandlerRef.current = new InputHandler(
-          app,
-          handleTileClick,
-          handleTileHover,
-          handleTileRightClick
-        );
+          inputHandlerRef.current = new InputHandler(
+            app,
+            handleTileClick,
+            handleTileHover,
+            handleTileRightClick
+          );
 
-        // Signal that Pixi is ready — this triggers the render effect below
-        // with the current gameState (which is already set by the time we get here)
-        setPixiReady(true);
-      })
-      .catch(() => {
-        // Swallow: only fires if the init was aborted (e.g. Pixi internal error
-        // mid-init). The sequential chain in pixiApp.ts ensures the next call
-        // will still run cleanly.
-      });
+          // Signal that Pixi is ready — this triggers the render effect below
+          // with the current gameState (which is already set by the time we get here)
+          setPixiReady(true);
+        })
+        .catch(() => {
+          // Swallow: only fires if the init was aborted (e.g. Pixi internal error
+          // mid-init). The sequential chain in pixiApp.ts ensures the next call
+          // will still run cleanly.
+        });
+    };
+
+    void start();
 
     return () => {
       mounted = false;

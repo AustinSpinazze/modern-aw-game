@@ -192,7 +192,7 @@ export function UsageAnalyticsTab({
 
         <AnalyticsChartCard title="Tokens by Provider">
           <div className="space-y-4 py-4">
-            {stats.providerData
+            {[...stats.providerData]
               .sort((a, b) => b.tokens - a.tokens)
               .map((p) => {
                 const maxT = Math.max(...stats.providerData.map((d) => d.tokens), 1);

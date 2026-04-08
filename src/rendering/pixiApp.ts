@@ -302,6 +302,8 @@ export function initPixiApp(canvas: HTMLCanvasElement): Promise<Application> {
       roundPixels: true,
       resolution: window.devicePixelRatio || 1,
       autoDensity: true,
+      // Prefer WebGL — WebGPU + Electron compositing has regressed after context teardown in some builds.
+      preference: "webgl",
     });
 
     // Keep the renderer sized to the container
@@ -637,13 +639,15 @@ export function destroyPixiApp(): void {
 
   if (app) {
     try {
-      app.destroy();
+      app.destroy({ removeView: false, releaseGlobalResources: true }, { children: true });
     } catch {
       // Swallow any teardown errors
     }
     app = null;
   }
-  // Clear spritesheet cache so tests/re-init start clean
+  // `Assets.load()` caches GPU textures; after the renderer is destroyed those handles are invalid.
+  // Without a reset, the next session can reuse dead textures → black canvas / Skia mailbox errors (Electron).
+  Assets.reset();
   for (const key of Object.keys(spritesheets)) {
     delete spritesheets[key];
   }

@@ -5,6 +5,7 @@
  */
 
 import { useConfigStore } from "../store/configStore";
+import type { LlmHarnessMode } from "../store/configStore";
 import { useUsageStore } from "../store/usageStore";
 
 export interface ChatMessage {
@@ -18,6 +19,8 @@ export interface LLMCallOptions {
   usageContext?: string;
   /** Match ID for grouping usage entries into game sessions */
   matchId?: string;
+  harnessMode?: LlmHarnessMode;
+  playerId?: number;
 }
 
 interface IPCResult {
@@ -32,7 +35,9 @@ function trackUsage(
   result: IPCResult,
   context: string,
   inputMessages?: ChatMessage[],
-  matchId?: string
+  matchId?: string,
+  harnessMode?: LlmHarnessMode,
+  playerId?: number
 ) {
   const usageModel = result.model ?? model;
   if (result.usage && (result.usage.inputTokens > 0 || result.usage.outputTokens > 0)) {
@@ -44,7 +49,8 @@ function trackUsage(
         result.usage.inputTokens,
         result.usage.outputTokens,
         context,
-        matchId
+        matchId,
+        { harnessMode, playerId }
       );
   } else {
     // Estimate tokens (~4 chars per token) when API doesn't return usage
@@ -53,7 +59,10 @@ function trackUsage(
     const estInput = Math.ceil(inputChars / 4);
     const estOutput = Math.ceil(outputChars / 4);
     if (estInput > 0 || estOutput > 0) {
-      useUsageStore.getState().record(provider, usageModel, estInput, estOutput, context, matchId);
+      useUsageStore.getState().record(provider, usageModel, estInput, estOutput, context, matchId, {
+        harnessMode,
+        playerId,
+      });
     }
   }
 }
@@ -128,7 +137,9 @@ export async function callAnthropicViaIPC(
     result,
     options?.usageContext ?? "unknown",
     messages,
-    options?.matchId
+    options?.matchId,
+    options?.harnessMode,
+    options?.playerId
   );
   return result.text;
 }
@@ -209,7 +220,9 @@ export async function callGeminiViaIPC(
     result,
     options?.usageContext ?? "unknown",
     messages,
-    options?.matchId
+    options?.matchId,
+    options?.harnessMode,
+    options?.playerId
   );
   return result.text;
 }
@@ -230,7 +243,11 @@ async function callOpenAIDirect(
       Authorization: `Bearer ${apiKey}`,
       "content-type": "application/json",
     },
-    body: JSON.stringify({ model, messages, max_tokens: options?.maxTokens ?? 1024 }),
+    body: JSON.stringify({
+      model,
+      messages,
+      max_completion_tokens: options?.maxTokens ?? 1024,
+    }),
   });
 
   if (!response.ok) {
@@ -272,7 +289,9 @@ export async function callOpenAIViaIPC(
     result,
     options?.usageContext ?? "unknown",
     messages,
-    options?.matchId
+    options?.matchId,
+    options?.harnessMode,
+    options?.playerId
   );
   return result.text;
 }
@@ -334,7 +353,8 @@ export async function callOllama(
         data.usage.prompt_tokens,
         data.usage.completion_tokens,
         options?.usageContext ?? "unknown",
-        options?.matchId
+        options?.matchId,
+        { harnessMode: options?.harnessMode, playerId: options?.playerId }
       );
   }
 

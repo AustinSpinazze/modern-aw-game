@@ -160,25 +160,25 @@ const AWBW_TILE_MAP: Record<number, TileResult> = {
   99: { terrain: "port", owner: 7 },
   100: { terrain: "hq", owner: 7 },
 
-  // Pipes (not in our simplified terrain, treat as plains)
-  101: { terrain: "plains", owner: -1 },
-  102: { terrain: "plains", owner: -1 },
-  103: { terrain: "plains", owner: -1 },
-  104: { terrain: "plains", owner: -1 },
-  105: { terrain: "plains", owner: -1 },
-  106: { terrain: "plains", owner: -1 },
-  107: { terrain: "plains", owner: -1 },
-  108: { terrain: "plains", owner: -1 },
-  109: { terrain: "plains", owner: -1 },
-  110: { terrain: "plains", owner: -1 },
+  // Pipes (AWBW 101–110) — only `pipe` move type (Piperunner) may traverse
+  101: { terrain: "pipe", owner: -1 },
+  102: { terrain: "pipe", owner: -1 },
+  103: { terrain: "pipe", owner: -1 },
+  104: { terrain: "pipe", owner: -1 },
+  105: { terrain: "pipe", owner: -1 },
+  106: { terrain: "pipe", owner: -1 },
+  107: { terrain: "pipe", owner: -1 },
+  108: { terrain: "pipe", owner: -1 },
+  109: { terrain: "pipe", owner: -1 },
+  110: { terrain: "pipe", owner: -1 },
 
-  // Silos (not in our simplified terrain, treat as plains)
+  // Silos (not modeled — neutral plains)
   111: { terrain: "plains", owner: -1 },
   112: { terrain: "plains", owner: -1 },
 
-  // Pipe seams (not in our simplified terrain, treat as plains)
-  113: { terrain: "plains", owner: -1 },
-  114: { terrain: "plains", owner: -1 },
+  // Pipe seams (113–114); broken pipes (115–116) behave as open ground in AW — use plains
+  113: { terrain: "pipe_seam", owner: -1 },
+  114: { terrain: "pipe_seam", owner: -1 },
   115: { terrain: "plains", owner: -1 },
   116: { terrain: "plains", owner: -1 },
 
@@ -270,16 +270,16 @@ const AWBW_UNIT_MAP: Record<number, string> = {
   11: "bomber",
   12: "b_copter",
   13: "t_copter",
-  // 14: "battleship" — excluded from our roster
+  14: "battleship",
   15: "cruiser",
   16: "lander",
   17: "submarine",
-  // 18: "piperunner" — excluded
-  // 19: "black_bomb" — excluded
+  18: "pipe_runner",
+  19: "black_bomb",
   20: "stealth",
   21: "carrier",
-  // 22: "neo_tank" — excluded
-  // 23: "mega_tank" — excluded
+  22: "neo_tank",
+  23: "mega_tank",
 };
 
 function mapAwbwUnit(id: number): { unitType: string; army: number } | null {

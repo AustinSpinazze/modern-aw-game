@@ -37,7 +37,7 @@ export interface UnitState {
   is_loaded: boolean; // true if inside a transport
   is_submerged?: boolean; // true when submarine is diving
   is_hidden?: boolean; // true when stealth unit is hidden
-  fuel?: number; // optional fuel tracking for air/naval units
+  fuel?: number; // optional: air/naval + ground vehicles; infantry/mech typically omit (unlimited)
 }
 
 export interface TileState {
@@ -170,8 +170,8 @@ export interface CmdEndTurn extends CmdBase {
 
 export interface CmdResupply extends CmdBase {
   type: "RESUPPLY";
-  unit_id: number; // the support unit performing resupply (air_tanker, resupply_ship, carrier)
-  target_id: number; // the unit being resupplied
+  unit_id: number; // support unit (e.g. APC = ammo/fuel; Black Boat = paid +1 HP repair on adjacent naval)
+  target_id: number;
 }
 
 export interface CmdSubmerge extends CmdBase {

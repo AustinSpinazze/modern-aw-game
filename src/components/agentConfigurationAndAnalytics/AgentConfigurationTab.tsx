@@ -19,6 +19,8 @@ export function AgentConfigurationTab() {
   const [anthropicModel, setAnthropicModel] = useState(store.anthropicModel);
   const [openaiModel, setOpenaiModel] = useState(store.openaiModel);
   const [geminiModel, setGeminiModel] = useState(store.geminiModel);
+  const [llmHarnessMode, setLlmHarnessMode] = useState(store.llmHarnessMode);
+  const [llmFailurePolicy, setLlmFailurePolicy] = useState(store.llmFailurePolicy);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -40,6 +42,8 @@ export function AgentConfigurationTab() {
     store.setAnthropicModel(anthropicModel);
     store.setOpenaiModel(openaiModel);
     store.setGeminiModel(geminiModel);
+    store.setLlmHarnessMode(llmHarnessMode);
+    store.setLlmFailurePolicy(llmFailurePolicy);
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   }, [
@@ -51,6 +55,8 @@ export function AgentConfigurationTab() {
     anthropicModel,
     openaiModel,
     geminiModel,
+    llmHarnessMode,
+    llmFailurePolicy,
     store,
   ]);
 
@@ -102,6 +108,43 @@ export function AgentConfigurationTab() {
           models={LOCAL_MODELS}
           allowCustomModel
         />
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl p-6">
+        <label className="text-[10px] text-gray-400 uppercase tracking-[0.15em] block mb-2">
+          LLM Harness Mode
+        </label>
+        <select
+          value={llmHarnessMode}
+          onChange={(e) => setLlmHarnessMode(e.target.value as typeof llmHarnessMode)}
+          className="w-full bg-gray-50 border border-gray-200 focus:border-amber-500 focus:outline-none rounded-lg px-4 py-2.5 text-sm text-gray-900 appearance-none"
+        >
+          <option value="hybrid">Hybrid (strongest bot)</option>
+          <option value="llm_scaffolded">LLM scaffolded</option>
+          <option value="llm_only">LLM only</option>
+        </select>
+        <p className="mt-2 text-xs text-gray-500">
+          `Hybrid` enables tactical scaffolding plus heuristic supplementation. `LLM scaffolded`
+          keeps tactical analysis without heuristic override. `LLM only` minimizes guidance for
+          cleaner benchmarking.
+        </p>
+
+        <label className="text-[10px] text-gray-400 uppercase tracking-[0.15em] block mb-2 mt-5">
+          LLM Failure Policy
+        </label>
+        <select
+          value={llmFailurePolicy}
+          onChange={(e) => setLlmFailurePolicy(e.target.value as typeof llmFailurePolicy)}
+          className="w-full bg-gray-50 border border-gray-200 focus:border-amber-500 focus:outline-none rounded-lg px-4 py-2.5 text-sm text-gray-900 appearance-none"
+        >
+          <option value="pause_on_failure">Pause game on failure</option>
+          <option value="heuristic_fallback">Finish with heuristic fallback</option>
+        </select>
+        <p className="mt-2 text-xs text-gray-500">
+          `Pause game on failure` stops the match and waits for you to fix budget, provider access,
+          or model settings. `Heuristic fallback` lets a non-LLM bot finish the turn if the model
+          fails completely.
+        </p>
       </div>
 
       <button

@@ -1,5 +1,6 @@
 /**
  * **Model catalog** (ids + labels) per provider for settings dropdowns; keeps API model strings consistent.
+ * Reconcile periodically with Anthropic / OpenAI / Google developer docs (model codes change with new releases).
  */
 
 /** A selectable model option for a provider dropdown. */
@@ -31,7 +32,6 @@ export const OPENAI_MODELS: ModelOption[] = [
   { id: "gpt-5.4-nano", label: "GPT-5.4 Nano (smallest)" },
   { id: "o3", label: "o3 (reasoning)" },
   { id: "o4-mini", label: "o4-mini (reasoning, fast)" },
-  { id: "o3-mini", label: "o3-mini (reasoning, budget)" },
   { id: "gpt-5", label: "GPT-5" },
   { id: "gpt-5-mini", label: "GPT-5 Mini" },
   { id: "gpt-4.1", label: "GPT-4.1" },

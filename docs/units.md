@@ -1,8 +1,8 @@
 # Unit Reference — Custom Units (Future)
 
 > **Note:** These are CUSTOM units to be added AFTER the base AWBW-style game is rendering correctly.
-> The current game uses 19 simplified AWBW units (see `public/data/units.json`).
-> Once rendering is stable, these custom units will be added with new sprites.
+> The current game uses **25** AWBW-aligned units in `public/data/units.json` (including Neotank, Megatank, Piperunner, Black Boat, Black Bomb). Helicopter display names are **T-Copter** and **B-Copter** (`t_copter` / `b_copter`).
+> Once rendering is stable, these custom units below will be added with new sprites.
 
 All 30 custom units. Cost in credits, move points, domain. Damage values are base percentages (HP is 10 for all units).
 

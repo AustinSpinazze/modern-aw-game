@@ -16,7 +16,27 @@ import {
   getCurrentPlayer,
   initializeMap,
   duplicateState,
+  ensureMatchId,
 } from "../game/gameState";
+
+describe("ensureMatchId", () => {
+  it("fills missing match_id from save slot name", () => {
+    let s = createGameState({ players: [createPlayer({ id: 0 })] });
+    s = initializeMap(s, 3, 3);
+    s = { ...s, match_id: "" };
+    const fixed = ensureMatchId(s, { saveSlotName: "quicksave" });
+    expect(fixed.match_id).toBe("match_save_quicksave");
+  });
+
+  it("preserves non-empty match_id", () => {
+    let s = createGameState({
+      match_id: "match_abc",
+      players: [createPlayer({ id: 0 })],
+    });
+    s = initializeMap(s, 3, 3);
+    expect(ensureMatchId(s, { saveSlotName: "other" }).match_id).toBe("match_abc");
+  });
+});
 
 describe("createGameState", () => {
   it("has sensible defaults", () => {

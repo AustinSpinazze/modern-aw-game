@@ -53,6 +53,22 @@ function createWindow() {
   });
 }
 
+// ─── LLM debug logs (NDJSON per match) ─────────────────────────────────────
+
+const LOGS_DIR = path.join(app.getPath("userData"), "logs");
+
+function ensureLogsDir(): void {
+  if (!fs.existsSync(LOGS_DIR)) {
+    fs.mkdirSync(LOGS_DIR, { recursive: true });
+  }
+}
+
+function sanitizeMatchIdForFile(id: unknown): string {
+  if (typeof id !== "string" || id.length === 0) return "unknown";
+  const s = id.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 96);
+  return s || "unknown";
+}
+
 // ─── Save Directory ──────────────────────────────────────────────────────────
 
 const SAVES_DIR = path.join(app.getPath("userData"), "saves");
@@ -257,6 +273,27 @@ ipcMain.handle("apikey:load", (_event, name: string): string => {
   }
 });
 
+/** Append one JSON line per LLM API round for offline analysis (matches `src/ai/llmDebugLog.ts`). */
+ipcMain.handle("llm-debug:append", (_event, entry: unknown): boolean => {
+  try {
+    ensureLogsDir();
+    const mid = sanitizeMatchIdForFile((entry as { matchId?: string })?.matchId);
+    const filePath = path.join(LOGS_DIR, `llm-${mid}.ndjson`);
+    const resolved = path.resolve(filePath);
+    if (!resolved.startsWith(path.resolve(LOGS_DIR) + path.sep)) return false;
+    fs.appendFileSync(resolved, `${JSON.stringify(entry)}\n`, "utf-8");
+    return true;
+  } catch (e) {
+    console.error("llm-debug:append failed:", e);
+    return false;
+  }
+});
+
+ipcMain.handle("llm-debug:logsDir", (): string => {
+  ensureLogsDir();
+  return LOGS_DIR;
+});
+
 // AI request handler — calls Anthropic or OpenAI REST APIs using stored encrypted keys
 ipcMain.handle(
   "ai:run",
@@ -325,13 +362,18 @@ ipcMain.handle(
         return { text, usage, model };
       } else if (provider === "openai") {
         const model = options?.model ?? "gpt-4o-mini";
+        // Newer OpenAI models (GPT-5.x, o-series, etc.) reject `max_tokens`; use `max_completion_tokens`.
         const response = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${apiKey}`,
             "content-type": "application/json",
           },
-          body: JSON.stringify({ model, messages, max_tokens: options?.maxTokens ?? 1024 }),
+          body: JSON.stringify({
+            model,
+            messages,
+            max_completion_tokens: options?.maxTokens ?? 1024,
+          }),
         });
 
         if (!response.ok) {

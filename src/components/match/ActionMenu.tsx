@@ -4,6 +4,7 @@
 
 import { useGameStore } from "../../store/gameStore";
 import { getTerrainData, getUnitData } from "../../game/dataLoader";
+import { calculateHealCost } from "../../game/economy";
 import { getTile, getUnit, getUnitAt } from "../../game/gameState";
 import { getAttackableTiles, isPassable, manhattanDistance } from "../../game/pathfinding";
 import { canAttack, calculateDamage } from "../../game/combat";
@@ -299,6 +300,42 @@ export default function ActionMenu() {
     });
   };
 
+  const resupplyTargets: Array<{ id: number; label: string }> = [];
+  if (unitData.special_actions.includes("resupply")) {
+    for (const u of Object.values(gameState.units)) {
+      if (u.owner_id !== currentPlayer.id) continue;
+      if (u.id === selectedUnit.id) continue;
+      const dist = manhattanDistance(pendingMove.x, pendingMove.y, u.x, u.y);
+      if (dist > 1) continue;
+      const tData = getUnitData(u.unit_type);
+      if (!tData) continue;
+      if (selectedUnit.unit_type === "black_boat") {
+        if (tData.domain !== "sea" || u.hp >= 10) continue;
+        const cost = calculateHealCost(u.unit_type, 1);
+        if (currentPlayer.funds < cost) continue;
+        resupplyTargets.push({
+          id: u.id,
+          label: `Repair ${tData.name} (+1 HP, −${cost}G)`,
+        });
+      } else if (selectedUnit.unit_type === "apc") {
+        if (tData.domain === "air" || tData.domain === "sea") continue;
+        resupplyTargets.push({
+          id: u.id,
+          label: `Resupply ${tData.name} (ammo + fuel)`,
+        });
+      }
+    }
+  }
+
+  const handleResupply = (targetId: number) => {
+    startMoveAnimation({
+      type: "RESUPPLY",
+      player_id: currentPlayer.id,
+      unit_id: selectedUnit.id,
+      target_id: targetId,
+    });
+  };
+
   // Position near the pending move tile, accounting for stage pan/zoom.
   const { x: stageX, y: stageY, scale } = getStageTransform();
   const tileScreenX = stageX + pendingMove.x * DISPLAY * scale;
@@ -400,6 +437,17 @@ export default function ActionMenu() {
           HP)
         </button>
       )}
+
+      {unloadingCargoIndex === null &&
+        resupplyTargets.map(({ id, label }) => (
+          <button
+            key={`resupply-${id}`}
+            onClick={() => handleResupply(id)}
+            className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors text-teal-700 border-b border-gray-100"
+          >
+            ⧉ {label}
+          </button>
+        ))}
 
       {canHide && (
         <button

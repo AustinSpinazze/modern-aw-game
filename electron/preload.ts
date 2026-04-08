@@ -35,6 +35,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
     messages: Array<{ role: string; content: string }>,
     options?: { model?: string; maxTokens?: number }
   ) => ipcRenderer.invoke("ai:run", provider, messages, options),
+
+  /** Append one NDJSON line under userData/logs/llm-{matchId}.ndjson */
+  appendLlmDebugLog: (entry: unknown) =>
+    ipcRenderer.invoke("llm-debug:append", entry) as Promise<boolean>,
+  getLlmDebugLogsDir: () => ipcRenderer.invoke("llm-debug:logsDir") as Promise<string>,
 });
 
 // TypeScript declarations for the exposed API
@@ -59,6 +64,8 @@ declare global {
         | { text: string; usage?: { inputTokens: number; outputTokens: number }; model?: string }
         | { error: string }
       >;
+      appendLlmDebugLog: (entry: unknown) => Promise<boolean>;
+      getLlmDebugLogsDir: () => Promise<string>;
     };
   }
 }

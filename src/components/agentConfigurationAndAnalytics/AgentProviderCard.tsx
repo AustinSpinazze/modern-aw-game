@@ -34,6 +34,7 @@ export function AgentProviderCard({
   isLocal?: boolean;
   localUrl?: string;
   onLocalUrlChange?: (v: string) => void;
+  /** Local only: text + datalist. Cloud always uses a fixed dropdown from {@link ../../lib/aiModels}. */
   allowCustomModel?: boolean;
 }) {
   const [showKey, setShowKey] = useState(false);

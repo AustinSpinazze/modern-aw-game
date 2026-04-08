@@ -17,6 +17,7 @@ import { getReachableTiles, getAttackableTiles, manhattanDistance } from "../gam
 import { canAttack, calculateDamage } from "../game/combat";
 import { applyCommand } from "../game/applyCommand";
 import { validateCommand } from "../game/validators";
+import { analyzeTacticalState } from "./tacticalAnalysis";
 
 // ── Team helpers ─────────────────────────────────────────────────────────────
 
@@ -30,13 +31,20 @@ function isAllyOrSelf(state: GameState, playerId: number, otherId: number): bool
 
 // ── Tile evaluation ──────────────────────────────────────────────────────────
 
-function evaluateTile(
+/** Exported for LLM harness: score a candidate MOVE destination (same scoring as offline AI). */
+export function scoreTileForAiMove(
   x: number,
   y: number,
   state: GameState,
   playerId: number,
   canCapture: boolean,
-  vis: boolean[][] | null = null
+  vis: boolean[][] | null = null,
+  options?: {
+    objectiveX?: number;
+    objectiveY?: number;
+    openingTurn?: boolean;
+    avoidOwnedProduction?: boolean;
+  }
 ): number {
   const tile = getTile(state, x, y);
   if (!tile) return 0;
@@ -75,6 +83,33 @@ function evaluateTile(
       }
     }
     score += (30 - nearestPropDist) * 3;
+  }
+
+  if (options?.objectiveX !== undefined && options.objectiveY !== undefined) {
+    const objectiveDistance = manhattanDistance(x, y, options.objectiveX, options.objectiveY);
+    score += Math.max(0, 40 - objectiveDistance) * (canCapture ? 4 : 2);
+  }
+
+  if (options?.openingTurn) {
+    if (tile.owner_id === playerId) score -= canCapture ? 18 : 10;
+    if (tile.terrain_type === "hq") score -= canCapture ? 40 : 25;
+    if (
+      tile.terrain_type === "factory" ||
+      tile.terrain_type === "airport" ||
+      tile.terrain_type === "port"
+    ) {
+      score -= canCapture ? 20 : 15;
+    }
+  }
+
+  if (
+    options?.avoidOwnedProduction &&
+    tile.owner_id === playerId &&
+    (tile.terrain_type === "factory" ||
+      tile.terrain_type === "airport" ||
+      tile.terrain_type === "port")
+  ) {
+    score -= 45;
   }
 
   return score;
@@ -131,7 +166,13 @@ function findBestMove(
   state: GameState,
   playerId: number,
   unitData: ReturnType<typeof getUnitData>,
-  vis: boolean[][] | null = null
+  vis: boolean[][] | null = null,
+  options?: {
+    objectiveX?: number;
+    objectiveY?: number;
+    openingTurn?: boolean;
+    avoidOwnedProduction?: boolean;
+  }
 ): GameCommand | null {
   const reachable = getReachableTiles(state, unit);
   if (reachable.length === 0) return null;
@@ -142,7 +183,7 @@ function findBestMove(
 
   for (const pos of reachable) {
     if (getUnitAt(state, pos.x, pos.y)) continue;
-    const score = evaluateTile(pos.x, pos.y, state, playerId, cap, vis);
+    const score = scoreTileForAiMove(pos.x, pos.y, state, playerId, cap, vis, options);
     if (score > bestScore) {
       bestScore = score;
       bestTile = pos;
@@ -176,12 +217,18 @@ export interface HeuristicHint {
 export function getHeuristicMoveSuggestion(
   unit: UnitState,
   state: GameState,
-  vis: boolean[][] | null = null
+  vis: boolean[][] | null = null,
+  options?: {
+    objectiveX?: number;
+    objectiveY?: number;
+    openingTurn?: boolean;
+    avoidOwnedProduction?: boolean;
+  }
 ): HeuristicHint | null {
   if (unit.has_moved || unit.has_acted || unit.is_loaded) return null;
   const unitData = getUnitData(unit.unit_type);
   if (!unitData) return null;
-  const moveCmd = findBestMove(unit, state, unit.owner_id, unitData, vis);
+  const moveCmd = findBestMove(unit, state, unit.owner_id, unitData, vis, options);
   if (!moveCmd || moveCmd.type !== "MOVE") return null;
 
   const hint: HeuristicHint = {
@@ -315,11 +362,22 @@ function decidePurchases(state: GameState, playerId: number): GameCommand[] {
   if (!player) return commands;
 
   let funds = player.funds;
+  const analysis = analyzeTacticalState(state, playerId);
 
   // Count own infantry vs combat units to decide build mix
-  const ownUnits = Object.values(state.units).filter((u) => u.owner_id === playerId && !u.is_loaded);
-  const infantryCount = ownUnits.filter((u) => u.unit_type === "infantry" || u.unit_type === "mech").length;
-  const combatCount = ownUnits.filter((u) => u.unit_type !== "infantry" && u.unit_type !== "mech" && u.unit_type !== "apc" && u.unit_type !== "t_copter").length;
+  const ownUnits = Object.values(state.units).filter(
+    (u) => u.owner_id === playerId && !u.is_loaded
+  );
+  const infantryCount = ownUnits.filter(
+    (u) => u.unit_type === "infantry" || u.unit_type === "mech"
+  ).length;
+  const combatCount = ownUnits.filter(
+    (u) =>
+      u.unit_type !== "infantry" &&
+      u.unit_type !== "mech" &&
+      u.unit_type !== "apc" &&
+      u.unit_type !== "t_copter"
+  ).length;
 
   // Count uncaptured properties to decide if we need more capturers
   let uncapturedProps = 0;
@@ -339,11 +397,35 @@ function decidePurchases(state: GameState, playerId: number): GameCommand[] {
     const ud = (t: string) => getUnitData(t);
     const available = (t: string) => canProduce.includes(t) && ud(t) !== null;
 
+    if (analysis.productionNeeds.needAirCounter) {
+      return [
+        available("anti_air") ? { type: "anti_air", cost: ud("anti_air")!.cost } : null,
+        available("fighter") ? { type: "fighter", cost: ud("fighter")!.cost } : null,
+        available("missile") ? { type: "missile", cost: ud("missile")!.cost } : null,
+        available("tank") ? { type: "tank", cost: ud("tank")!.cost } : null,
+        available("infantry") ? { type: "infantry", cost: ud("infantry")!.cost } : null,
+      ].filter((p): p is { type: string; cost: number } => p !== null);
+    }
+
+    if (analysis.productionNeeds.needFrontlineArmor) {
+      return [
+        available("md_tank") && funds >= (ud("md_tank")?.cost ?? Infinity)
+          ? { type: "md_tank", cost: ud("md_tank")!.cost }
+          : null,
+        available("tank") ? { type: "tank", cost: ud("tank")!.cost } : null,
+        available("artillery") ? { type: "artillery", cost: ud("artillery")!.cost } : null,
+        available("b_copter") ? { type: "b_copter", cost: ud("b_copter")!.cost } : null,
+        available("infantry") ? { type: "infantry", cost: ud("infantry")!.cost } : null,
+      ].filter((p): p is { type: string; cost: number } => p !== null);
+    }
+
     if (funds >= 7000 && combatCount < infantryCount && !needCapturers) {
       // Build combat units when we have enough infantry
       return [
         available("tank") ? { type: "tank", cost: ud("tank")!.cost } : null,
-        available("md_tank") && funds >= 16000 ? { type: "md_tank", cost: ud("md_tank")!.cost } : null,
+        available("md_tank") && funds >= 16000
+          ? { type: "md_tank", cost: ud("md_tank")!.cost }
+          : null,
         available("artillery") ? { type: "artillery", cost: ud("artillery")!.cost } : null,
         available("anti_air") ? { type: "anti_air", cost: ud("anti_air")!.cost } : null,
         available("recon") ? { type: "recon", cost: ud("recon")!.cost } : null,
@@ -373,9 +455,28 @@ function decidePurchases(state: GameState, playerId: number): GameCommand[] {
       const canProduce = terrainData?.can_produce ?? [];
       if (canProduce.length === 0) continue;
       if (getUnitAt(state, x, y)) continue;
+      if (analysis.deadProductionTraps.some((trap) => trap.x === x && trap.y === y)) continue;
 
       const picks = getPriorityList(canProduce);
-      for (const pick of picks) {
+      const filteredPicks =
+        analysis.productionNeeds.tooManyTransports ||
+        analysis.productionNeeds.avoidSpeculativeTransportBuys ||
+        analysis.productionNeeds.avoidSpeculativeNavalBuys
+          ? picks.filter(
+              (pick) =>
+                ![
+                  "apc",
+                  "t_copter",
+                  "lander",
+                  "black_boat",
+                  "submarine",
+                  "cruiser",
+                  "battleship",
+                  "carrier",
+                ].includes(pick.type)
+            )
+          : picks;
+      for (const pick of filteredPicks) {
         if (funds >= pick.cost) {
           commands.push({
             type: "BUY_UNIT",

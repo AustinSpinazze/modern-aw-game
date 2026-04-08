@@ -29,7 +29,7 @@ import { getCurrentPlayer, getUnit, getUnitAt, getPlayer, getTile } from "./game
 import { getUnitData, getTerrainData } from "./dataLoader";
 import { canAttack } from "./combat";
 import { isDestinationReachable, isPassable, manhattanDistance } from "./pathfinding";
-import { FOB_COST } from "./economy";
+import { FOB_COST, calculateHealCost } from "./economy";
 
 function ok(): ValidationResult {
   return { valid: true, error: "" };
@@ -101,10 +101,13 @@ function validateMove(cmd: CmdMove, state: GameState): ValidationResult {
     return fail("Destination occupied by friendly unit");
   }
 
-  // Fuel-using units cannot move when out of fuel
+  // Fuel-using units cannot move when out of fuel (treat missing fuel as full tank)
   const unitData = getUnitData(unit.unit_type);
-  if (unit.fuel === 0 && unitData?.fuel !== undefined) {
-    return fail("Unit is out of fuel");
+  if (unitData?.fuel !== undefined) {
+    const currentFuel = unit.fuel ?? unitData.fuel;
+    if (currentFuel === 0) {
+      return fail("Unit is out of fuel");
+    }
   }
 
   if (!isDestinationReachable(state, unit, cmd.dest_x, cmd.dest_y)) {
@@ -375,6 +378,23 @@ function validateResupply(cmd: CmdResupply, state: GameState): ValidationResult 
 
   const dist = manhattanDistance(unit.x, unit.y, target.x, target.y);
   if (dist > 1) return fail("Target not adjacent");
+
+  const targetData = getUnitData(target.unit_type);
+  if (!targetData) return fail("Invalid target");
+
+  // Black Boat (Advance Wars): pay 10% of target cost per HP repaired — adjacent naval units only.
+  if (unit.unit_type === "black_boat") {
+    if (targetData.domain !== "sea") return fail("Black Boat only repairs adjacent naval units");
+    if (target.hp >= 10) return fail("Target already at full HP");
+    const cost = calculateHealCost(target.unit_type, 1);
+    const player = getPlayer(state, cmd.player_id);
+    if (!player || player.funds < cost) return fail("Insufficient funds for repair");
+    return ok();
+  }
+
+  // APC: refill ammo/fuel for adjacent land forces only (not air or ships).
+  if (targetData.domain === "air") return fail("APC cannot resupply aircraft");
+  if (targetData.domain === "sea") return fail("APC cannot resupply naval units");
 
   return ok();
 }

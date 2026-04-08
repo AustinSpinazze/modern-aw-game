@@ -11,6 +11,28 @@ import type { UsageEntry } from "../store/usageStore";
 export type DateRange = "all" | "12m" | "6m" | "3m" | "30d";
 
 /** A contiguous group of game-turn API calls forming one play session. */
+export interface ParticipantSummary {
+  playerId?: number;
+  model: string;
+  provider: string;
+  harnessModes: string[];
+  totalTokens: number;
+  turnCount: number;
+  tacticalSummary: {
+    avgBadTradeAttacks: number;
+    avgMissedEasyCaptures: number;
+    avgPurposelessTransportActions: number;
+    avgMissedFactoryBuilds: number;
+    avgBlockedProductionTiles: number;
+    counterBuyRate: number;
+    avgFreeHitConversions: number;
+    avgUnspentFunds: number;
+    policyViolations: string[];
+    failureCount: number;
+    failureCategories: string[];
+  };
+}
+
 export interface GameSession {
   /** Sequential session number (1-based). */
   id: number;
@@ -24,6 +46,22 @@ export interface GameSession {
   matchId?: string;
   /** Game result if stamped (from any entry in the session). */
   gameResult?: "win" | "loss";
+  harnessModes: string[];
+  participants: ParticipantSummary[];
+  tacticalSummary: {
+    turnCount: number;
+    avgBadTradeAttacks: number;
+    avgMissedEasyCaptures: number;
+    avgPurposelessTransportActions: number;
+    avgMissedFactoryBuilds: number;
+    avgBlockedProductionTiles: number;
+    counterBuyRate: number;
+    avgFreeHitConversions: number;
+    avgUnspentFunds: number;
+    policyViolations: string[];
+    failureCount: number;
+    failureCategories: string[];
+  };
 }
 
 // ── Date range options ───────────────────────────────────────────────────────
@@ -99,6 +137,83 @@ export function filterEntriesByDateRange(entries: UsageEntry[], range: DateRange
 export function buildSession(id: number, entries: UsageEntry[]): GameSession {
   const gameResult = entries.find((e) => e.gameResult)?.gameResult;
   const matchId = entries.find((e) => e.matchId)?.matchId;
+  const tacticalEntries = entries.filter((e) => e.context === "game_turn" && e.tacticalMetrics);
+  const failureEntries = entries.filter((e) => e.context === "game_turn_failure");
+  const buildTacticalSummary = (subset: UsageEntry[]) => {
+    const metricEntries = subset.filter(
+      (entry) => entry.context === "game_turn" && entry.tacticalMetrics
+    );
+    const failureOnlyEntries = subset.filter((entry) => entry.context === "game_turn_failure");
+    const sumMetric = (selector: (entry: UsageEntry) => number) =>
+      metricEntries.reduce((sum, entry) => sum + selector(entry), 0);
+    const avgMetric = (selector: (entry: UsageEntry) => number) =>
+      metricEntries.length > 0 ? sumMetric(selector) / metricEntries.length : 0;
+    const counterEligible = metricEntries.filter(
+      (entry) => typeof entry.tacticalMetrics?.correctCounterBuy === "boolean"
+    );
+    const counterBuyRate =
+      counterEligible.length > 0
+        ? counterEligible.filter((entry) => entry.tacticalMetrics?.correctCounterBuy).length /
+          counterEligible.length
+        : 1;
+    return {
+      avgBadTradeAttacks: avgMetric((entry) => entry.tacticalMetrics?.badTradeAttacks ?? 0),
+      avgMissedEasyCaptures: avgMetric((entry) => entry.tacticalMetrics?.missedEasyCaptures ?? 0),
+      avgPurposelessTransportActions: avgMetric(
+        (entry) => entry.tacticalMetrics?.purposelessTransportActions ?? 0
+      ),
+      avgMissedFactoryBuilds: avgMetric((entry) => entry.tacticalMetrics?.missedFactoryBuilds ?? 0),
+      avgBlockedProductionTiles: avgMetric(
+        (entry) => entry.tacticalMetrics?.unjustifiedBlockedProductionTiles ?? 0
+      ),
+      counterBuyRate,
+      avgFreeHitConversions: avgMetric((entry) => entry.tacticalMetrics?.freeHitConversions ?? 0),
+      avgUnspentFunds: avgMetric(
+        (entry) => entry.tacticalMetrics?.averageUnspentFundsWhenProductionExists ?? 0
+      ),
+      policyViolations: [...new Set(metricEntries.flatMap((e) => e.policyViolations ?? []))],
+      failureCount: failureOnlyEntries.length,
+      failureCategories: [
+        ...new Set(
+          failureOnlyEntries
+            .map((entry) => entry.failureCategory)
+            .filter((category): category is NonNullable<typeof category> => category != null)
+            .map((category) => String(category))
+        ),
+      ],
+    };
+  };
+  const participantGroups = new Map<string, UsageEntry[]>();
+  for (const entry of tacticalEntries) {
+    const key = `${entry.playerId ?? "unknown"}::${entry.model}::${entry.provider}`;
+    const group = participantGroups.get(key);
+    if (group) group.push(entry);
+    else participantGroups.set(key, [entry]);
+  }
+  for (const entry of failureEntries) {
+    const key = `${entry.playerId ?? "unknown"}::${entry.model}::${entry.provider}`;
+    const group = participantGroups.get(key);
+    if (group) group.push(entry);
+    else participantGroups.set(key, [entry]);
+  }
+  const participants: ParticipantSummary[] = [...participantGroups.entries()]
+    .map(([, group]) => {
+      const first = group[0];
+      return {
+        playerId: first.playerId,
+        model: first.model,
+        provider: first.provider,
+        harnessModes: [
+          ...new Set(group.map((entry) => entry.harnessMode).filter(Boolean)),
+        ] as string[],
+        totalTokens: group.reduce((sum, entry) => sum + entry.inputTokens + entry.outputTokens, 0),
+        turnCount: group.filter((entry) => entry.context === "game_turn").length,
+        tacticalSummary: buildTacticalSummary(group),
+      };
+    })
+    .sort((a, b) => (a.playerId ?? 999) - (b.playerId ?? 999) || a.model.localeCompare(b.model));
+  const overallSummary = buildTacticalSummary(tacticalEntries);
+  const overallFailureSummary = buildTacticalSummary(failureEntries);
   return {
     id,
     entries,
@@ -106,6 +221,14 @@ export function buildSession(id: number, entries: UsageEntry[]): GameSession {
     models: [...new Set(entries.map((e) => e.model))],
     matchId,
     gameResult,
+    harnessModes: [...new Set(entries.map((e) => e.harnessMode).filter(Boolean))] as string[],
+    participants,
+    tacticalSummary: {
+      turnCount: tacticalEntries.length,
+      ...overallSummary,
+      failureCount: overallFailureSummary.failureCount,
+      failureCategories: overallFailureSummary.failureCategories,
+    },
   };
 }
 
@@ -120,7 +243,7 @@ export function buildSession(id: number, entries: UsageEntry[]): GameSession {
  */
 export function detectGameSessions(entries: UsageEntry[]): GameSession[] {
   const gameTurns = entries
-    .filter((e) => e.context === "game_turn")
+    .filter((e) => e.context === "game_turn" || e.context === "game_turn_failure")
     .sort((a, b) => a.timestamp - b.timestamp);
 
   if (gameTurns.length === 0) return [];
@@ -130,10 +253,11 @@ export function detectGameSessions(entries: UsageEntry[]): GameSession[] {
   const noMatchId: UsageEntry[] = [];
 
   for (const e of gameTurns) {
-    if (e.matchId) {
-      const list = byMatchId.get(e.matchId);
+    const mid = e.matchId?.trim();
+    if (mid) {
+      const list = byMatchId.get(mid);
       if (list) list.push(e);
-      else byMatchId.set(e.matchId, [e]);
+      else byMatchId.set(mid, [e]);
     } else {
       noMatchId.push(e);
     }

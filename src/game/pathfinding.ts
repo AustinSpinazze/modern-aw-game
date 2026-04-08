@@ -94,12 +94,24 @@ class MinHeap {
   }
 }
 
+/** Max tiles of movement cost allowed: min(move_points, current fuel) when the unit tracks fuel. */
+export function getEffectiveMoveBudget(state: GameState, unit: UnitState): number {
+  const unitData = getUnitData(unit.unit_type);
+  if (!unitData) return 0;
+  let budget = unitData.move_points;
+  if (unitData.fuel !== undefined) {
+    const currentFuel = unit.fuel ?? unitData.fuel;
+    budget = Math.min(budget, Math.max(0, currentFuel));
+  }
+  return budget;
+}
+
 // Find path from unit position to (destX, destY). Returns [] if unreachable.
 export function findPath(state: GameState, unit: UnitState, destX: number, destY: number): Vec2[] {
   const unitData = getUnitData(unit.unit_type);
   if (!unitData) return [];
   const moveType = unitData.move_type;
-  const movePoints = unitData.move_points;
+  const movePoints = getEffectiveMoveBudget(state, unit);
 
   const start: PathNode = {
     x: unit.x,
@@ -193,7 +205,7 @@ export function getReachableTiles(
   const unitData = getUnitData(unit.unit_type);
   if (!unitData) return [];
   const moveType = unitData.move_type;
-  const movePoints = unitData.move_points;
+  const movePoints = getEffectiveMoveBudget(state, unit);
 
   const reachable: Vec2[] = [];
   const visited = new Map<string, number>(); // key -> lowest cost
