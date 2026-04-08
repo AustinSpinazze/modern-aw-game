@@ -21,7 +21,12 @@ import { useGameStore } from "../../store/gameStore";
 import { useConfigStore } from "../../store/configStore";
 import { computeStatsFromAwbwTiles, computeStatsFromGameState } from "../../game/mapStats";
 import type { MapStats } from "../../game/mapStats";
-import { loadSavedMaps, persistSavedMaps, type SavedMap } from "../../game/savedMaps";
+import {
+  loadSavedMaps,
+  persistSavedMaps,
+  type SavedMap,
+  type PreDeployedUnit,
+} from "../../game/savedMaps";
 
 interface PlayerConfig {
   controllerType: ControllerType;
@@ -344,6 +349,7 @@ export default function MatchSetup({ onMatchStart, onExit }: MatchSetupProps) {
   }
   const [awbwError, setAwbwError] = useState("");
   const [parsedPreview, setParsedPreview] = useState<ParsedPreview | null>(null);
+  const [pendingPreDeployedUnits, setPendingPreDeployedUnits] = useState<PreDeployedUnit[]>([]);
   // Saved maps
   const [savedMaps, setSavedMaps] = useState<SavedMap[]>(() => loadSavedMaps());
   const [mapName, setMapName] = useState("");
@@ -412,8 +418,29 @@ export default function MatchSetup({ onMatchStart, onExit }: MatchSetupProps) {
       }
       state = {
         ...state,
-        players: state.players.map((p) => ({ ...p, funds: config.startingFunds })),
+        players: state.players.map((p, i) => ({
+          ...p,
+          funds: config.startingFunds,
+          controller_type: players[i]?.controllerType ?? p.controller_type,
+        })),
       };
+      // Restore pre-deployed units that were lost during CSV round-trip
+      // (units on building tiles can't be encoded in the single-ID-per-cell CSV)
+      if (pendingPreDeployedUnits.length > 0) {
+        const existingPositions = new Set(Object.values(state.units).map((u) => `${u.x},${u.y}`));
+        const playerIds = new Set(state.players.map((p) => p.id));
+        for (const pdu of pendingPreDeployedUnits) {
+          if (!playerIds.has(pdu.ownerId)) continue;
+          if (existingPositions.has(`${pdu.x},${pdu.y}`)) continue;
+          const [id, s] = getNextUnitId(state);
+          state = s;
+          state = addUnit(
+            state,
+            createUnit({ id, unit_type: pdu.unitType, owner_id: pdu.ownerId, x: pdu.x, y: pdu.y })
+          );
+          existingPositions.add(`${pdu.x},${pdu.y}`);
+        }
+      }
       state = applyConfigToState(state);
       // Apply turn-1 income to the first player (matching Advance Wars rules)
       if (state.players.length > 0) {
@@ -454,6 +481,7 @@ export default function MatchSetup({ onMatchStart, onExit }: MatchSetupProps) {
   const handleLoadSavedMap = (map: SavedMap) => {
     setAwbwText(map.csv);
     setAwbwError("");
+    setPendingPreDeployedUnits(map.preDeployedUnits ?? []);
     try {
       const mapData = parseAwbwMapText(map.csv);
       setParsedPreview(

@@ -3,6 +3,13 @@
  * the map editor via {@link loadSavedMaps} / {@link upsertSavedMap}.
  */
 
+export interface PreDeployedUnit {
+  unitType: string;
+  ownerId: number;
+  x: number;
+  y: number;
+}
+
 export interface SavedMap {
   id: string;
   name: string;
@@ -11,6 +18,9 @@ export interface SavedMap {
   width: number;
   height: number;
   savedAt: number;
+  /** Units that sit on building tiles — CSV can only encode one ID per cell,
+   *  so building IDs win and units are stored here to survive the round-trip. */
+  preDeployedUnits?: PreDeployedUnit[];
 }
 
 export const SAVED_MAPS_KEY = "modern-aw-savedMaps";

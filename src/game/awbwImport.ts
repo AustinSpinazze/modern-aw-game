@@ -39,10 +39,19 @@ import type { GameState } from "./types";
 import { createGameState, createPlayer, createUnit, createTile, addUnit } from "./gameState";
 import { generateMatchSeed } from "./rng";
 
+export interface AwbwPreDeployedUnit {
+  unitType: string;
+  ownerId: number;
+  x: number;
+  y: number;
+}
+
 export interface AwbwMapData {
   width: number;
   height: number;
   tiles: number[][]; // [row][col] of AWBW tile IDs
+  /** Units parsed from a `#UNITS:` comment line (authoritative when present). */
+  explicitUnits?: AwbwPreDeployedUnit[];
 }
 
 interface TileResult {
@@ -227,11 +236,9 @@ export function mapAwbwTile(id: number): TileResult {
   const mapped = AWBW_TILE_MAP[id];
   if (mapped) return mapped;
 
-  // Handle extended player building ranges (149+)
-  // AWBW has many custom factions with various sprite IDs
-  // Based on observed patterns: offset 1=city, 2=factory, 3=port, 4=hq
-  // Each player has 5 buildings in sequence
-  if (id >= 149) {
+  // Handle extended player building ranges (149–499)
+  // IDs >= 500 are pre-deployed units, handled by mapAwbwUnit — skip them here
+  if (id >= 149 && id < 500) {
     const offset = id - 149;
     const playerOffset = Math.floor(offset / 5); // Which extended player (0, 1, 2, ...)
     const buildingType = offset % 5; // Which building type (0-4)
@@ -301,9 +308,33 @@ export function parseAwbwMapText(text: string): AwbwMapData {
     .split("\n")
     .filter((l) => l.trim().length > 0);
   const tiles: number[][] = [];
+  let explicitUnits: AwbwPreDeployedUnit[] | undefined;
 
   for (const line of lines) {
-    const row = line
+    const trimmed = line.trim();
+    // Parse #UNITS: comment line (written by exportToAwbwCsv)
+    if (trimmed.startsWith("#UNITS:")) {
+      const payload = trimmed.slice(7);
+      if (payload.length > 0) {
+        explicitUnits = [];
+        for (const entry of payload.split(";")) {
+          const parts = entry.split(",");
+          if (parts.length >= 4) {
+            explicitUnits.push({
+              unitType: parts[0],
+              ownerId: Number(parts[1]),
+              x: Number(parts[2]),
+              y: Number(parts[3]),
+            });
+          }
+        }
+      }
+      continue;
+    }
+    // Skip other comment lines
+    if (trimmed.startsWith("#")) continue;
+
+    const row = trimmed
       .split(",")
       .map((s) => s.trim())
       .filter((s) => s.length > 0)
@@ -323,7 +354,7 @@ export function parseAwbwMapText(text: string): AwbwMapData {
     while (row.length < width) row.push(1);
   }
 
-  return { width, height, tiles };
+  return { width, height, tiles, explicitUnits };
 }
 
 // Convert AwbwMapData into a GameState
@@ -361,6 +392,13 @@ export function importAwbwMap(data: AwbwMapData): GameState {
       }
     }
     tiles.push(row);
+  }
+
+  // Include armies from explicit unit data (units on buildings are not in the grid)
+  if (data.explicitUnits) {
+    for (const eu of data.explicitUnits) {
+      armiesPresent.add(eu.ownerId);
+    }
   }
 
   // Create players for each detected army
@@ -416,10 +454,27 @@ export function importAwbwMap(data: AwbwMapData): GameState {
   );
   state = { ...state, players };
 
-  // Place pre-deployed units
-  for (const u of unitPlacements) {
-    const playerId = armyToPlayer.get(u.army);
-    if (playerId === undefined) continue;
+  // Place pre-deployed units.
+  // When the CSV includes an explicit #UNITS: line, use it as the authoritative
+  // source (it includes units on building tiles that the grid can't encode).
+  // Otherwise fall back to units decoded from in-grid IDs (>= 500).
+  const unitsToPlace: Array<{ unitType: string; ownerId: number; x: number; y: number }> =
+    data.explicitUnits && data.explicitUnits.length > 0
+      ? data.explicitUnits.map((eu) => ({
+          unitType: eu.unitType,
+          ownerId: armyToPlayer.get(eu.ownerId) ?? eu.ownerId,
+          x: eu.x,
+          y: eu.y,
+        }))
+      : unitPlacements.map((u) => ({
+          unitType: u.unitType,
+          ownerId: armyToPlayer.get(u.army) ?? u.army,
+          x: u.x,
+          y: u.y,
+        }));
+
+  for (const u of unitsToPlace) {
+    if (!state.players.some((p) => p.id === u.ownerId)) continue;
 
     const unitId = state.next_unit_id;
     state = { ...state, next_unit_id: unitId + 1 };
@@ -428,7 +483,7 @@ export function importAwbwMap(data: AwbwMapData): GameState {
       createUnit({
         id: unitId,
         unit_type: u.unitType,
-        owner_id: playerId,
+        owner_id: u.ownerId,
         x: u.x,
         y: u.y,
       })

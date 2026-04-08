@@ -106,11 +106,16 @@ function getUnitAwbwId(unitType: string, ownerId: number): number | null {
  * Convert a GameState into AWBW CSV format.
  * Each tile maps to an AWBW tile ID. Units on tiles get their own ID
  * (IDs >= 500). If a tile has both a building and a unit, the building
- * takes priority in the tile grid (AWBW stores units separately, but
- * for our simplified CSV export we output units as tile IDs when the
- * underlying terrain is non-building).
+ * takes priority in the tile grid (AWBW encodes terrain and units
+ * separately; our CSV can only hold one ID per cell).
  *
- * Output: one line per row, comma-separated tile IDs.
+ * To preserve ALL units (including those on buildings), a `#UNITS:`
+ * comment line is appended after the grid with `type,owner,x,y` entries
+ * separated by `;`. The import side parses this as the authoritative
+ * unit source when present, falling back to in-grid unit IDs otherwise.
+ *
+ * Output: one line per row (comma-separated tile IDs), then optional
+ * `#UNITS:` line.
  */
 export function exportToAwbwCsv(state: GameState): string {
   // Build a unit position lookup: (x,y) → UnitState
@@ -151,6 +156,14 @@ export function exportToAwbwCsv(state: GameState): string {
       }
     }
     rows.push(ids.join(","));
+  }
+
+  // Append all units as a comment line so they survive the round-trip
+  // even when sitting on building tiles (which the grid encodes as buildings).
+  const allUnits = Object.values(state.units).filter((u) => !u.is_loaded);
+  if (allUnits.length > 0) {
+    const entries = allUnits.map((u) => `${u.unit_type},${u.owner_id},${u.x},${u.y}`);
+    rows.push(`#UNITS:${entries.join(";")}`);
   }
 
   return rows.join("\n");

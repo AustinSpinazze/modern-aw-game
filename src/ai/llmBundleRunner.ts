@@ -458,15 +458,15 @@ export async function runStrategicPlannerTurn(
       (u) => u.owner_id === playerId && !u.is_loaded && !u.has_acted
     );
 
-    if (readyUnits.length === 0) {
+    const freshAnalysis = analyzeTacticalState(loopState, playerId);
+    const catalog = buildActionBundleCatalog(loopState, playerId, freshAnalysis);
+
+    if (readyUnits.length === 0 && !catalog.bundles.some((b) => b.kind === "buy")) {
       const endCmd: GameCommand[] = [{ type: "END_TURN", player_id: playerId }];
       useGameStore.getState().queueCommands(endCmd);
       await waitForQueueAndPossibleHandoff(playerId, endCmd);
       break;
     }
-
-    const freshAnalysis = analyzeTacticalState(loopState, playerId);
-    const catalog = buildActionBundleCatalog(loopState, playerId, freshAnalysis);
     const weighted = applyPlanWeights(catalog.bundles, plan, freshAnalysis, loopState.map_width);
 
     // Filter: remove end_turn bundles if non-end_turn non-fallback-wait bundles exist
@@ -607,7 +607,11 @@ export async function runBundleBasedLLMTurn(
     const readyUnits = Object.values(state.units).filter(
       (unit) => unit.owner_id === playerId && !unit.is_loaded && !unit.has_acted
     );
-    if (readyUnits.length === 0) {
+
+    const analysis = analyzeTacticalState(state, playerId);
+    const catalog = buildActionBundleCatalog(state, playerId, analysis);
+
+    if (readyUnits.length === 0 && !catalog.bundles.some((b) => b.kind === "buy")) {
       appendLlmDebugLog({
         matchId: state.match_id,
         playerId,
@@ -619,7 +623,7 @@ export async function runBundleBasedLLMTurn(
         assistantRaw: "",
         validCommandsJson: JSON.stringify([{ type: "END_TURN", player_id: playerId }]),
         skippedCount: 0,
-        errorSample: "No ready units; auto-ending turn before model call.",
+        errorSample: "No ready units and no buy opportunities; auto-ending turn.",
         metrics: {
           pre_model_no_ready_units: true,
           ready_unit_count: 0,
@@ -630,9 +634,6 @@ export async function runBundleBasedLLMTurn(
       await waitForQueueAndPossibleHandoff(playerId, commands);
       return;
     }
-
-    const analysis = analyzeTacticalState(state, playerId);
-    const catalog = buildActionBundleCatalog(state, playerId, analysis);
     const bundles = catalog.bundles;
     if (bundles.length === 1 && bundles[0]?.kind === "end_turn") {
       appendLlmDebugLog({

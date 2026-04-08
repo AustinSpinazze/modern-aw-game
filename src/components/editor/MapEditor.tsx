@@ -508,6 +508,9 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
     setSaveError("");
 
     const csv = exportToAwbwCsv(currentDraft);
+    const preDeployedUnits = Object.values(currentDraft.units)
+      .filter((u) => !u.is_loaded)
+      .map((u) => ({ unitType: u.unit_type, ownerId: u.owner_id, x: u.x, y: u.y }));
     const id = mapId ?? `map_${Date.now()}`;
     const saved: SavedMap = {
       id,
@@ -517,6 +520,7 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
       width: currentDraft.map_width,
       height: currentDraft.map_height,
       savedAt: Date.now(),
+      preDeployedUnits: preDeployedUnits.length > 0 ? preDeployedUnits : undefined,
     };
 
     upsertSavedMap(saved);
