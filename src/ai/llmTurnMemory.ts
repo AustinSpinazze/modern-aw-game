@@ -61,10 +61,6 @@ export function summarizeCommand(c: GameCommand): string {
       return `UNLOAD transport ${c.transport_id} cargo[${c.unit_index}] → (${c.dest_x},${c.dest_y})`;
     case "MERGE":
       return `MERGE unit ${c.unit_id} into ${c.target_id}`;
-    case "DIG_TRENCH":
-      return `DIG_TRENCH unit ${c.unit_id} @(${c.target_x},${c.target_y})`;
-    case "BUILD_FOB":
-      return `BUILD_FOB unit ${c.unit_id} @(${c.target_x},${c.target_y})`;
     case "SELF_DESTRUCT":
       return `SELF_DESTRUCT unit ${c.unit_id}`;
     case "RESUPPLY":

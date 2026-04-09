@@ -132,7 +132,7 @@ function getBridgeSprite(state: GameState, x: number, y: number): string {
 
 // ─── Building helpers ───────────────────────────────────────────────────────
 
-const BUILDING_TYPES = new Set(["hq", "city", "factory", "airport", "port"]);
+const BUILDING_TYPES = new Set(["hq", "city", "factory", "airport", "port", "comms_tower", "lab"]);
 
 function isBuilding(terrainType: string): boolean {
   return BUILDING_TYPES.has(terrainType);

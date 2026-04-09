@@ -14,8 +14,6 @@ const CATEGORY_MAP: Record<string, FilterCategory> = {
   ATTACK: "ATTACK",
   CAPTURE: "CAPTURE",
   BUY_UNIT: "BUILD",
-  BUILD_FOB: "BUILD",
-  DIG_TRENCH: "BUILD",
   END_TURN: "SYSTEM",
   SUBMERGE: "SYSTEM",
   SURFACE: "SYSTEM",
@@ -87,10 +85,6 @@ function formatEntry(cmd: CommandDict, playerName: string): string {
       return `${playerName} deployed ${unitName}`;
     case "END_TURN":
       return `${playerName} ended turn`;
-    case "BUILD_FOB":
-      return `${playerName} built FOB`;
-    case "DIG_TRENCH":
-      return `${playerName} dug trench`;
     case "RESUPPLY":
       return `${playerName} resupplied`;
     case "SUBMERGE":

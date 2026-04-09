@@ -161,10 +161,9 @@ export function findPath(state: GameState, unit: UnitState, destX: number, destY
       const tile = getTile(state, n.x, n.y);
       if (!tile) continue;
 
-      const terrainType = tile.has_fob ? "temporary_fob" : tile.terrain_type;
-      if (!isPassable(terrainType, moveType)) continue;
+      if (!isPassable(tile.terrain_type, moveType)) continue;
 
-      const moveCost = getMovementCost(terrainType, moveType);
+      const moveCost = getMovementCost(tile.terrain_type, moveType);
       const newG = current.g + moveCost;
       if (newG > movePoints) continue;
 
@@ -221,7 +220,31 @@ export function getReachableTiles(
     visited.set(key, cost);
 
     if (cx !== unit.x || cy !== unit.y) {
-      reachable.push({ x: cx, y: cy });
+      // In AW, you can pass through friendly units but NOT stop on them,
+      // unless merging (same type, target damaged) or loading into a transport.
+      const occupant = getUnitAt(state, cx, cy);
+      if (!occupant || occupant.id === unit.id) {
+        reachable.push({ x: cx, y: cy });
+      } else if (occupant.owner_id === unit.owner_id) {
+        // Merge target: same type, at least one unit damaged
+        const canMerge =
+          occupant.unit_type === unit.unit_type && (occupant.hp < 10 || unit.hp < 10);
+        // Load into transport: occupant is a transport that can carry this unit
+        const occupantData = getUnitData(occupant.unit_type);
+        const tInfo = occupantData?.transport;
+        let canLoad = false;
+        if (tInfo && occupant.cargo.length < (tInfo.capacity ?? 1)) {
+          const unitTags = unitData.tags ?? [];
+          const allowed = tInfo.allowed_tags ?? [];
+          const allowedVehicle = tInfo.allowed_vehicle_tags ?? [];
+          canLoad =
+            unitTags.some((t) => allowed.includes(t)) ||
+            unitTags.some((t) => allowedVehicle.includes(t));
+        }
+        if (canMerge || canLoad) {
+          reachable.push({ x: cx, y: cy });
+        }
+      }
     }
 
     for (const [nx, ny] of [
@@ -235,10 +258,9 @@ export function getReachableTiles(
       const tile = getTile(state, nx, ny);
       if (!tile) continue;
 
-      const terrainType = tile.has_fob ? "temporary_fob" : tile.terrain_type;
-      if (!isPassable(terrainType, moveType)) continue;
+      if (!isPassable(tile.terrain_type, moveType)) continue;
 
-      const moveCost = getMovementCost(terrainType, moveType);
+      const moveCost = getMovementCost(tile.terrain_type, moveType);
       const newCost = cost + moveCost;
       if (newCost > movePoints) continue;
 

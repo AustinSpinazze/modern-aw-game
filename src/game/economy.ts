@@ -1,5 +1,5 @@
 /**
- * Economy: property income, unit purchase prices, heal/merge costs, and FOB build cost.
+ * Economy: property income, unit purchase prices, heal/merge costs.
  * Used from {@link ./applyCommand} when resolving turns, purchases, and repairs.
  */
 
@@ -47,8 +47,6 @@ export function canAfford(state: GameState, playerId: number, unitType: string):
   if (!player) return false;
   return player.funds >= getUnitCost(unitType);
 }
-
-export const FOB_COST = 5000;
 
 /** Cost to heal a unit by the given HP amount (1/10 of unit cost per HP). */
 export function calculateHealCost(unitType: string, hpHealed: number): number {

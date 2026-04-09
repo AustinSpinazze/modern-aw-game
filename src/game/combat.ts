@@ -1,14 +1,49 @@
 /**
- * Combat: Advance Wars–style damage formula, luck rolls via {@link ./rng}, counterattacks, and
+ * Combat: AW2 / AWDS damage formula, deterministic luck via {@link ./rng}, counterattacks, and
  * execution hooks used from {@link ./applyCommand}. Pure where possible; reads terrain and unit
  * data from {@link ./dataLoader}.
  */
 
-import type { GameState, UnitState, TileState, CombatResult } from "./types";
+import type { GameState, UnitState, CombatResult } from "./types";
 import { getTile, incrementAttackCounter } from "./gameState";
 import { getUnitData, getTerrainData } from "./dataLoader";
-import { rollLuck } from "./rng";
+import { hashCombine } from "./rng";
 import { manhattanDistance } from "./pathfinding";
+
+/** Count comms towers owned by a player — each gives +10% attack. */
+function countCommsTowers(state: GameState, playerId: number): number {
+  let count = 0;
+  for (let y = 0; y < state.map_height; y++) {
+    for (let x = 0; x < state.map_width; x++) {
+      const tile = state.tiles[y]?.[x];
+      if (tile && tile.terrain_type === "comms_tower" && tile.owner_id === playerId) {
+        count++;
+      }
+    }
+  }
+  return count;
+}
+
+/**
+ * Deterministic float in [0, 1] for luck rolls.
+ * `salt` distinguishes independent rolls within the same combat.
+ */
+function deterministicRand(
+  state: GameState,
+  attackerId: number,
+  defenderId: number,
+  salt: number
+): number {
+  const h = hashCombine([
+    state.match_seed,
+    state.turn_number,
+    state.attack_counter,
+    attackerId,
+    defenderId,
+    salt,
+  ]);
+  return (h % 10001) / 10000.0;
+}
 
 export function calculateDamage(
   attacker: UnitState,
@@ -25,62 +60,59 @@ export function calculateDamage(
   const baseDamage = weapon.damage_table[defender.unit_type] ?? 0;
   if (baseDamage <= 0) return { damage: 0, luckRoll: 0 };
 
-  // ── Official AW damage formula ──────────────────────────────────────────
-  // damage% = B × (Ahp / 10) × (100 − Dhp × Dts) / 100 + luck
-  // HP_damage = floor(damage% / 10)
+  // ── AW2 / AWDS damage formula ──────────────────────────────────────────
   //
-  //   B   = base damage from damage chart
-  //   Ahp = attacker HP (1–10)
-  //   Dhp = defender HP (1–10)
-  //   Dts = defender terrain stars (0 for air units; ground & sea get stars)
-  //   luck = additive, random 0 to (Ahp − 1)
+  //   a = 10 · matchupMultiplier · (1 + atkBoost)
+  //       + 10 · Rand(0, goodLuck − 0.01)
+  //       − 10 · Rand(0, badLuck  − 0.01)
+  //
+  //   b = 1 − defBoost − terrainStars · defenderHP / 100
+  //
+  //   damage = Round(attackerHP / 10 · a · b)
+  //
+  // matchupMultiplier = baseDamage / 100 (e.g. 75 → 0.75)
+  // Round() = half-up rounding (0.5 → 1)
+  // Special: Black Bomb = 5 HP flat, Oozium = 10 HP flat (bypass formula)
 
-  // Step 1: Base damage scaled by attacker HP
-  let damagePercent = baseDamage * (attacker.hp / 10.0);
+  const matchupMultiplier = baseDamage / 100;
 
-  // Step 2: Terrain defense — air units NEVER get terrain defense;
-  // ground and sea units benefit from terrain stars.
+  const commsTowers = countCommsTowers(state, attacker.owner_id);
+  const atkBoost = commsTowers * 0.1;
+
+  let a = 10 * matchupMultiplier * (1 + atkBoost);
+
+  // Luck — two independent deterministic rolls (good luck and bad luck)
+  const goodLuck = state.luck_max; // default 0.10
+  const badLuck = Math.max(0, -state.luck_min); // default 0 (luck_min = 0)
+
+  const goodLuckUpper = Math.max(0, goodLuck - 0.01);
+  const badLuckUpper = Math.max(0, badLuck - 0.01);
+
+  const goodLuckRoll = 10 * deterministicRand(state, attacker.id, defender.id, 1) * goodLuckUpper;
+  const badLuckRoll = 10 * deterministicRand(state, attacker.id, defender.id, 2) * badLuckUpper;
+  const netLuck = goodLuckRoll - badLuckRoll;
+  a += netLuck;
+
+  // Defense factor — air units never benefit from terrain stars
   const defenderData = getUnitData(defender.unit_type);
-  let totalDefenseStars = 0;
+  const defBoost = 0; // no CO system yet; future CO powers plug in here
+  let terrainStars = 0;
 
   if (defenderData && defenderData.domain !== "air") {
     const defenderTile = getTile(state, defender.x, defender.y);
     if (defenderTile) {
-      const terrainType = defenderTile.has_fob ? "temporary_fob" : defenderTile.terrain_type;
-      const terrainData = getTerrainData(terrainType);
-      totalDefenseStars = terrainData?.defense_stars ?? 0;
-
-      // Trench bonus — infantry only
-      if (defenderTile.has_trench && defenderData.tags.includes("infantry_class")) {
-        totalDefenseStars += 2;
-      }
+      const terrainData = getTerrainData(defenderTile.terrain_type);
+      terrainStars = terrainData?.defense_stars ?? 0;
     }
   }
 
-  // Official: defense scales with defender HP. A 1HP unit on 3★ terrain
-  // only gets 3% reduction; a 10HP unit gets 30%.
-  damagePercent = (damagePercent * (100 - defender.hp * totalDefenseStars)) / 100;
+  const b = 1 - defBoost - (terrainStars * defender.hp) / 100;
 
-  // Step 3: Luck — additive, 0 to (Ahp − 1) in official AW.
-  // We use the deterministic RNG, normalize to [0, 1], then scale.
-  const luckRoll = rollLuck(
-    state.match_seed,
-    state.turn_number,
-    state.attack_counter,
-    attacker.id,
-    defender.id,
-    state.luck_min,
-    state.luck_max
-  );
-  const luckRange = state.luck_max - state.luck_min;
-  const luckNormalized = luckRange > 0 ? (luckRoll - state.luck_min) / luckRange : 0;
-  const luckValue = Math.floor(luckNormalized * attacker.hp);
-  damagePercent += luckValue;
-
-  // Step 4: Convert to HP units — floor, not round (per official AW)
-  let finalDamage = Math.floor(damagePercent / 10.0);
+  const rawDamage = (attacker.hp / 10) * a * b;
+  let finalDamage = Math.round(rawDamage);
   finalDamage = Math.max(0, Math.min(finalDamage, defender.hp));
-  return { damage: finalDamage, luckRoll };
+
+  return { damage: finalDamage, luckRoll: netLuck };
 }
 
 /** Whether the defender could counter-attack the attacker at current positions (range, ammo, damage > 0). */
@@ -242,65 +274,34 @@ export function executeSelfDestruct(
   target: UnitState,
   stateIn: GameState
 ): { damage: number; state: GameState } {
+  const state = incrementAttackCounter(stateIn);
+
+  // Black Bomb: flat 5 HP damage, ignoring formula and all stats
+  if (uav.unit_type === "black_bomb") {
+    return { damage: Math.min(5, target.hp), state };
+  }
+
+  // Generic self-destruct for other units
   const uavData = getUnitData(uav.unit_type);
   const baseDamage = uavData?.self_destruct_damage ?? 40;
 
-  // Terrain defense — air units don't benefit
   const targetData = getUnitData(target.unit_type);
   let defenseStars = 0;
   if (targetData && targetData.domain !== "air") {
     const targetTile = getTile(stateIn, target.x, target.y);
     if (targetTile) {
-      const terrainType = targetTile.has_fob ? "temporary_fob" : targetTile.terrain_type;
-      defenseStars = getTerrainData(terrainType)?.defense_stars ?? 0;
+      defenseStars = getTerrainData(targetTile.terrain_type)?.defense_stars ?? 0;
     }
   }
 
-  // Use HP-scaled defense like the main formula
   let scaledDamage = (baseDamage * (100 - target.hp * defenseStars)) / 100;
 
-  let state = incrementAttackCounter(stateIn);
-  const luckRoll = rollLuck(
-    state.match_seed,
-    state.turn_number,
-    state.attack_counter,
-    uav.id,
-    target.id,
-    state.luck_min,
-    state.luck_max
-  );
-  scaledDamage = scaledDamage * (1.0 + luckRoll);
+  const goodLuck = state.luck_max;
+  const goodLuckUpper = Math.max(0, goodLuck - 0.01);
+  const luckValue = deterministicRand(state, uav.id, target.id, 1) * goodLuckUpper;
+  scaledDamage = scaledDamage * (1.0 + luckValue);
 
   let finalDamage = Math.round(scaledDamage / 10.0);
   finalDamage = Math.max(0, Math.min(finalDamage, target.hp));
-  return { damage: finalDamage, state };
-}
-
-export function damageFob(
-  attacker: UnitState,
-  tile: TileState,
-  stateIn: GameState
-): { damage: number; state: GameState } {
-  const attackerData = getUnitData(attacker.unit_type);
-  if (!attackerData || attackerData.weapons.length === 0) return { damage: 0, state: stateIn };
-
-  const baseDamage = 50;
-  const hpModifier = attacker.hp / 10.0;
-  let scaledDamage = baseDamage * hpModifier;
-
-  let state = incrementAttackCounter(stateIn);
-  const luckRoll = rollLuck(
-    state.match_seed,
-    state.turn_number,
-    state.attack_counter,
-    attacker.id,
-    0,
-    state.luck_min,
-    state.luck_max
-  );
-  scaledDamage = scaledDamage * (1.0 + luckRoll);
-
-  let finalDamage = Math.round(scaledDamage / 10.0);
-  finalDamage = Math.max(0, Math.min(finalDamage, tile.fob_hp));
   return { damage: finalDamage, state };
 }

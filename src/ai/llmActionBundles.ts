@@ -87,6 +87,10 @@ function nearestDistanceToAnyTile(
 
 function threatPressureWeight(unitType: string): number {
   switch (unitType) {
+    case "mega_tank":
+      return 8;
+    case "neo_tank":
+      return 7;
     case "md_tank":
       return 6;
     case "tank":
@@ -330,9 +334,17 @@ function addBuyBundles(
         ["b_copter", "fighter", "bomber", "stealth"].includes(unit.unit_type)
       );
       const localGroundPressure = localThreats.some((unit) =>
-        ["anti_air", "tank", "md_tank", "artillery", "rocket", "recon", "mech"].includes(
-          unit.unit_type
-        )
+        [
+          "anti_air",
+          "tank",
+          "md_tank",
+          "neo_tank",
+          "mega_tank",
+          "artillery",
+          "rocket",
+          "recon",
+          "mech",
+        ].includes(unit.unit_type)
       );
 
       const picks: string[] = [];
@@ -492,8 +504,9 @@ function addBuyBundles(
         }
         const closeGroundArmor = localThreats.filter(
           (u) =>
-            ["anti_air", "tank", "md_tank", "recon"].includes(u.unit_type) &&
-            manhattanDistance(u.x, u.y, x, y) <= 3
+            ["anti_air", "tank", "md_tank", "neo_tank", "mega_tank", "recon"].includes(
+              u.unit_type
+            ) && manhattanDistance(u.x, u.y, x, y) <= 3
         );
         if (closeGroundArmor.length > 0) {
           if (["tank", "md_tank"].includes(unitType)) {
@@ -904,7 +917,14 @@ function scoreAttackBundle(params: {
     score -= 90;
     tags.push("bad_trade");
   }
-  if (unitData?.can_capture && estimateUnitValue(enemy) >= 6000 && !finishOff && !denial) {
+  if (
+    unitData?.can_capture &&
+    estimateUnitValue(enemy) >= 6000 &&
+    !finishOff &&
+    !denial &&
+    !freeHit &&
+    !dominantMatchup
+  ) {
     return { score, tags, skip: true };
   }
   if (
@@ -1182,7 +1202,14 @@ export function buildActionBundleCatalog(
               score -= 90;
               tags.push("bad_trade");
             }
-            if (unitData.can_capture && estimateUnitValue(enemy) >= 6000 && !finishOff && !denial) {
+            if (
+              unitData.can_capture &&
+              estimateUnitValue(enemy) >= 6000 &&
+              !finishOff &&
+              !denial &&
+              !freeHit &&
+              !dominantMatchup
+            ) {
               continue;
             }
             if (

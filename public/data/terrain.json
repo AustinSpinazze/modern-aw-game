@@ -305,15 +305,31 @@
       }
     },
     {
-      "id": "temporary_fob",
-      "name": "Temporary FOB",
-      "defense_stars": 2,
-      "is_property": false,
-      "can_capture": false,
+      "id": "comms_tower",
+      "name": "Comm Tower",
+      "defense_stars": 3,
+      "is_property": true,
+      "can_capture": true,
       "income": 0,
       "can_produce": [],
-      "is_destructible": true,
-      "default_hp": 10,
+      "movement_costs": {
+        "foot": 1,
+        "mech": 1,
+        "tires": 1,
+        "tread": 1,
+        "air": 1,
+        "ship": -1,
+        "trans": -1
+      }
+    },
+    {
+      "id": "lab",
+      "name": "Lab",
+      "defense_stars": 3,
+      "is_property": true,
+      "can_capture": true,
+      "income": 0,
+      "can_produce": [],
       "movement_costs": {
         "foot": 1,
         "mech": 1,
@@ -325,15 +341,6 @@
       }
     }
   ],
-  "trench_config": {
-    "defense_bonus": 2,
-    "applies_to_tags": ["infantry_class"]
-  },
-  "fob_config": {
-    "build_cost": 5000,
-    "default_hp": 10,
-    "neutral_access": true
-  },
   "capture_config": {
     "default_capture_points": 20
   }

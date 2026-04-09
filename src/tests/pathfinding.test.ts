@@ -19,8 +19,6 @@ const plainsTerrain = {
   movement_costs: { foot: 1, mech: 1, tires: 2, tread: 1, air: 1, ship: -1, trans: -1, pipe: -1 },
   can_capture: false,
   can_produce: [],
-  can_build_trench: false,
-  can_build_fob: false,
 };
 
 const seaTerrain = {

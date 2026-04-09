@@ -497,8 +497,6 @@ export const MOCK_TERRAIN: Record<string, TerrainData> = {
     can_capture: false,
     income: 0,
     can_produce: [],
-    can_build_trench: true,
-    can_build_fob: true,
     movement_costs: { foot: 1, mech: 1, tires: 2, tread: 1, air: 1, ship: -1, trans: -1 },
   },
   city: {
@@ -509,8 +507,6 @@ export const MOCK_TERRAIN: Record<string, TerrainData> = {
     can_capture: true,
     income: 1000,
     can_produce: [],
-    can_build_trench: false,
-    can_build_fob: false,
     movement_costs: { foot: 1, mech: 1, tires: 1, tread: 1, air: 1, ship: -1, trans: -1 },
   },
   factory: {
@@ -532,8 +528,7 @@ export const MOCK_TERRAIN: Record<string, TerrainData> = {
       "neo_tank",
       "mega_tank",
     ],
-    can_build_trench: false,
-    can_build_fob: false,
+
     movement_costs: { foot: 1, mech: 1, tires: 1, tread: 1, air: 1, ship: -1, trans: -1 },
   },
   hq: {
@@ -544,8 +539,7 @@ export const MOCK_TERRAIN: Record<string, TerrainData> = {
     can_capture: true,
     income: 1000,
     can_produce: [],
-    can_build_trench: false,
-    can_build_fob: false,
+
     movement_costs: { foot: 1, mech: 1, tires: 1, tread: 1, air: 1, ship: -1, trans: -1 },
   },
   mountain: {
@@ -556,8 +550,7 @@ export const MOCK_TERRAIN: Record<string, TerrainData> = {
     can_capture: false,
     income: 0,
     can_produce: [],
-    can_build_trench: false,
-    can_build_fob: false,
+
     movement_costs: { foot: 2, mech: 1, tires: -1, tread: -1, air: 1, ship: -1, trans: -1 },
   },
   sea: {
@@ -568,8 +561,7 @@ export const MOCK_TERRAIN: Record<string, TerrainData> = {
     can_capture: false,
     income: 0,
     can_produce: [],
-    can_build_trench: false,
-    can_build_fob: false,
+
     movement_costs: { foot: -1, mech: -1, tires: -1, tread: -1, air: 1, ship: 1, trans: 1 },
   },
   airport: {
@@ -580,8 +572,7 @@ export const MOCK_TERRAIN: Record<string, TerrainData> = {
     can_capture: true,
     income: 1000,
     can_produce: ["t_copter", "b_copter", "fighter", "bomber", "stealth", "black_bomb"],
-    can_build_trench: false,
-    can_build_fob: false,
+
     movement_costs: { foot: 1, mech: 1, tires: 1, tread: 1, air: 1, ship: -1, trans: -1 },
   },
   port: {
@@ -592,8 +583,7 @@ export const MOCK_TERRAIN: Record<string, TerrainData> = {
     can_capture: true,
     income: 1000,
     can_produce: ["lander", "cruiser", "submarine"],
-    can_build_trench: false,
-    can_build_fob: false,
+
     movement_costs: { foot: 1, mech: 1, tires: 1, tread: 1, air: 1, ship: 1, trans: 1 },
   },
   forest: {
@@ -604,20 +594,7 @@ export const MOCK_TERRAIN: Record<string, TerrainData> = {
     can_capture: false,
     income: 0,
     can_produce: [],
-    can_build_trench: true,
-    can_build_fob: true,
+
     movement_costs: { foot: 1, mech: 1, tires: 3, tread: 2, air: 1, ship: -1, trans: -1 },
-  },
-  temporary_fob: {
-    id: "temporary_fob",
-    name: "FOB",
-    defense_stars: 3,
-    is_property: false,
-    can_capture: false,
-    income: 0,
-    can_produce: [],
-    can_build_trench: false,
-    can_build_fob: false,
-    movement_costs: { foot: 1, mech: 1, tires: 1, tread: 1, air: 1, ship: -1, trans: -1 },
   },
 };

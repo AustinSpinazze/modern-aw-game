@@ -489,9 +489,7 @@ function AppContent() {
   // Bottom bar — hovered tile info
   const hoveredTileData =
     hoveredTile && gameState ? getTile(gameState, hoveredTile.x, hoveredTile.y) : null;
-  const hoveredTerrainType = hoveredTileData?.has_fob
-    ? "temporary_fob"
-    : hoveredTileData?.terrain_type;
+  const hoveredTerrainType = hoveredTileData?.terrain_type;
   const hoveredTerrainData = hoveredTerrainType ? getTerrainData(hoveredTerrainType) : null;
 
   // Faction header uses headerBg from shared team colors

@@ -203,31 +203,31 @@ const AWBW_TILE_MAP: Record<number, TileResult> = {
   125: { terrain: "hq", owner: 9 },
   126: { terrain: "port", owner: 9 },
 
-  // Comm towers (not in our simplified terrain, treat as city)
-  127: { terrain: "city", owner: 8 },
-  128: { terrain: "city", owner: 6 }, // Black Hole
-  129: { terrain: "city", owner: 1 }, // Blue Moon
-  130: { terrain: "city", owner: 7 }, // Brown Desert
-  131: { terrain: "city", owner: 2 }, // Green Earth
-  132: { terrain: "city", owner: 9 },
-  133: { terrain: "city", owner: -1 }, // Neutral
-  134: { terrain: "city", owner: 0 }, // Orange Star
-  135: { terrain: "city", owner: 4 }, // Red Fire
-  136: { terrain: "city", owner: 3 }, // Yellow Comet
-  137: { terrain: "city", owner: 5 }, // Grey Sky
+  // Comm towers
+  127: { terrain: "comms_tower", owner: 8 },
+  128: { terrain: "comms_tower", owner: 6 }, // Black Hole
+  129: { terrain: "comms_tower", owner: 1 }, // Blue Moon
+  130: { terrain: "comms_tower", owner: 7 }, // Brown Desert
+  131: { terrain: "comms_tower", owner: 2 }, // Green Earth
+  132: { terrain: "comms_tower", owner: 9 },
+  133: { terrain: "comms_tower", owner: -1 }, // Neutral
+  134: { terrain: "comms_tower", owner: 0 }, // Orange Star
+  135: { terrain: "comms_tower", owner: 4 }, // Red Fire
+  136: { terrain: "comms_tower", owner: 3 }, // Yellow Comet
+  137: { terrain: "comms_tower", owner: 5 }, // Grey Sky
 
-  // Labs (not in our simplified terrain, treat as city)
-  138: { terrain: "city", owner: 8 },
-  139: { terrain: "city", owner: 6 },
-  140: { terrain: "city", owner: 1 },
-  141: { terrain: "city", owner: 7 },
-  142: { terrain: "city", owner: 2 },
-  143: { terrain: "city", owner: 5 },
-  144: { terrain: "city", owner: 9 },
-  145: { terrain: "city", owner: -1 }, // Neutral
-  146: { terrain: "city", owner: 0 },
-  147: { terrain: "city", owner: 4 },
-  148: { terrain: "city", owner: 3 },
+  // Labs
+  138: { terrain: "lab", owner: 8 },
+  139: { terrain: "lab", owner: 6 },
+  140: { terrain: "lab", owner: 1 },
+  141: { terrain: "lab", owner: 7 },
+  142: { terrain: "lab", owner: 2 },
+  143: { terrain: "lab", owner: 5 },
+  144: { terrain: "lab", owner: 9 },
+  145: { terrain: "lab", owner: -1 }, // Neutral
+  146: { terrain: "lab", owner: 0 },
+  147: { terrain: "lab", owner: 4 },
+  148: { terrain: "lab", owner: 3 },
 };
 
 // Map an AWBW tile ID to our terrain type + owner

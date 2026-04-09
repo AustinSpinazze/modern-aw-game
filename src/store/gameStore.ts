@@ -490,8 +490,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
       "CAPTURE",
       "WAIT",
       "END_TURN",
-      "DIG_TRENCH",
-      "BUILD_FOB",
       "SELF_DESTRUCT",
       "BUY_UNIT",
       "MOVE",

@@ -64,24 +64,6 @@ export function commandFromDict(data: CommandDict): GameCommand | null {
         dest_x: data.dest_x as number,
         dest_y: data.dest_y as number,
       };
-    case "DIG_TRENCH":
-      return {
-        type: "DIG_TRENCH",
-        player_id,
-        sequence,
-        unit_id: data.unit_id as number,
-        target_x: data.target_x as number,
-        target_y: data.target_y as number,
-      };
-    case "BUILD_FOB":
-      return {
-        type: "BUILD_FOB",
-        player_id,
-        sequence,
-        unit_id: data.unit_id as number,
-        target_x: data.target_x as number,
-        target_y: data.target_y as number,
-      };
     case "SELF_DESTRUCT":
       return {
         type: "SELF_DESTRUCT",

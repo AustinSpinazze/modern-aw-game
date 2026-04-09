@@ -44,9 +44,6 @@ export interface TileState {
   terrain_type: string;
   owner_id: number; // -1 = neutral
   capture_points: number;
-  has_trench: boolean;
-  has_fob: boolean;
-  fob_hp: number;
 }
 
 export interface GameState {
@@ -81,8 +78,6 @@ export type CommandType =
   | "BUY_UNIT"
   | "LOAD"
   | "UNLOAD"
-  | "DIG_TRENCH"
-  | "BUILD_FOB"
   | "SELF_DESTRUCT"
   | "WAIT"
   | "END_TURN"
@@ -139,20 +134,6 @@ export interface CmdUnload extends CmdBase {
   dest_y: number;
 }
 
-export interface CmdDigTrench extends CmdBase {
-  type: "DIG_TRENCH";
-  unit_id: number;
-  target_x: number;
-  target_y: number;
-}
-
-export interface CmdBuildFOB extends CmdBase {
-  type: "BUILD_FOB";
-  unit_id: number;
-  target_x: number;
-  target_y: number;
-}
-
 export interface CmdSelfDestruct extends CmdBase {
   type: "SELF_DESTRUCT";
   unit_id: number;
@@ -207,8 +188,6 @@ export type GameCommand =
   | CmdBuyUnit
   | CmdLoad
   | CmdUnload
-  | CmdDigTrench
-  | CmdBuildFOB
   | CmdSelfDestruct
   | CmdWait
   | CmdEndTurn
@@ -231,11 +210,7 @@ export interface TerrainData {
   can_capture: boolean;
   income: number;
   can_produce: string[];
-  can_build_trench: boolean;
-  can_build_fob: boolean;
   allows_cargo_operations?: boolean;
-  is_destructible?: boolean;
-  default_hp?: number;
   movement_costs: Record<string, number>;
 }
 
@@ -254,7 +229,6 @@ export interface TransportData {
   vehicle_capacity?: number;
   allowed_tags: string[];
   allowed_vehicle_tags?: string[];
-  requires_airport_or_fob?: boolean;
 }
 
 export interface UnitData {

@@ -24,7 +24,6 @@ import {
 import { getUnitData } from "./dataLoader";
 import { executeCombat, executeSelfDestruct, getCounterWeaponIndex } from "./combat";
 import { applyIncome, calculateHealCost, calculateMergeRefund, deductFunds } from "./economy";
-import { FOB_COST } from "./economy";
 import { findPath } from "./pathfinding";
 
 /** Reset capture progress on the tile a unit occupied when it's destroyed. */
@@ -238,24 +237,6 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
       break;
     }
 
-    case "DIG_TRENCH": {
-      state = updateTile(state, cmd.target_x, cmd.target_y, { has_trench: true });
-      state = updateUnit(state, cmd.unit_id, { has_acted: true, has_moved: true });
-      break;
-    }
-
-    case "BUILD_FOB": {
-      const defaultHp = 10;
-      state = updateTile(state, cmd.target_x, cmd.target_y, {
-        has_fob: true,
-        fob_hp: defaultHp,
-      });
-      state = updateUnit(state, cmd.unit_id, { has_acted: true, has_moved: true });
-      const player = getPlayer(state, cmd.player_id)!;
-      state = updatePlayer(state, cmd.player_id, { funds: player.funds - FOB_COST });
-      break;
-    }
-
     case "SELF_DESTRUCT": {
       const uav = getUnit(state, cmd.unit_id)!;
       const target = getUnit(state, cmd.target_id)!;
@@ -420,7 +401,10 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
       const NAVAL_HEALING = new Set(["port"]);
       const GROUND_HEALING = new Set(["city", "factory", "hq"]);
 
-      let playerFunds = state.players[nextIndex].funds;
+      // AWBW order: Income → Repairs → Fuel → APC resupply
+      // Apply income FIRST so repair costs can be covered by this turn's income
+      state = applyIncome(state, newPlayerId);
+      let playerFunds = state.players.find((p) => p.id === newPlayerId)!.funds;
       const updatedUnits = { ...state.units };
 
       for (const uid in updatedUnits) {
@@ -446,9 +430,6 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
               domain !== "naval" &&
               GROUND_HEALING.has(standingTile.terrain_type)
             )
-              canHealHere = true;
-            // FOB heals ground units
-            if (standingTile.has_fob && domain !== "air" && domain !== "sea" && domain !== "naval")
               canHealHere = true;
 
             if (canHealHere) {
@@ -536,8 +517,49 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
       // Apply healing cost deduction
       state = updatePlayer(state, newPlayerId, { funds: playerFunds });
 
-      // Reset capture points to 20 for any tile where the new player is capturing
-      // (capture points only tick during active action, reset means they persist)
+      // APC auto-resupply: at start of turn, every friendly APC (and Black Boat)
+      // automatically resupplies all adjacent friendly units (AWBW rule).
+      // APCs resupply ground units; Black Boats resupply naval units.
+      for (const uid in updatedUnits) {
+        const supportUnit = updatedUnits[uid];
+        if (supportUnit.owner_id !== newPlayerId) continue;
+        const supportData = getUnitData(supportUnit.unit_type);
+        if (!supportData?.special_actions.includes("resupply")) continue;
+
+        const isBlackBoat = supportUnit.unit_type === "black_boat";
+
+        for (const adjUid in updatedUnits) {
+          if (adjUid === uid) continue;
+          const adjUnit = updatedUnits[adjUid];
+          if (adjUnit.owner_id !== newPlayerId) continue;
+          const dist = Math.abs(adjUnit.x - supportUnit.x) + Math.abs(adjUnit.y - supportUnit.y);
+          if (dist !== 1) continue;
+
+          const adjData = getUnitData(adjUnit.unit_type);
+          if (!adjData) continue;
+
+          if (isBlackBoat) {
+            // Black Boat auto-resupply: refill ammo/fuel for adjacent naval units
+            if (adjData.domain !== "sea") continue;
+          } else {
+            // APC auto-resupply: refill ammo/fuel for adjacent ground units only
+            if (adjData.domain === "air" || adjData.domain === "sea") continue;
+          }
+
+          const fullAmmo: Record<string, number> = {};
+          for (const w of adjData.weapons) {
+            if (w.ammo > 0) fullAmmo[w.id] = w.ammo;
+          }
+          const resuppliedAmmo = { ...adjUnit.ammo, ...fullAmmo };
+          const resuppliedFuel =
+            adjUnit.fuel !== undefined && adjData.fuel !== undefined ? adjData.fuel : adjUnit.fuel;
+          updatedUnits[adjUid] = {
+            ...updatedUnits[adjUid],
+            ammo: resuppliedAmmo,
+            ...(resuppliedFuel !== undefined ? { fuel: resuppliedFuel } : {}),
+          };
+        }
+      }
 
       state = {
         ...state,
@@ -545,7 +567,6 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
         turn_number: newTurn,
         units: updatedUnits,
       };
-      state = applyIncome(state, newPlayerId);
 
       // Check turn limit — end in a draw (or winner by property count) when exceeded
       if (state.max_turns > 0 && newTurn > state.max_turns) {

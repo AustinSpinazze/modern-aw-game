@@ -14,8 +14,6 @@ import type {
   CmdBuyUnit,
   CmdLoad,
   CmdUnload,
-  CmdDigTrench,
-  CmdBuildFOB,
   CmdSelfDestruct,
   CmdWait,
   CmdResupply,
@@ -29,7 +27,7 @@ import { getCurrentPlayer, getUnit, getUnitAt, getPlayer, getTile } from "./game
 import { getUnitData, getTerrainData } from "./dataLoader";
 import { canAttack } from "./combat";
 import { isDestinationReachable, isPassable, manhattanDistance } from "./pathfinding";
-import { FOB_COST, calculateHealCost } from "./economy";
+import { calculateHealCost } from "./economy";
 
 function ok(): ValidationResult {
   return { valid: true, error: "" };
@@ -58,10 +56,6 @@ export function validateCommand(cmd: GameCommand, state: GameState): ValidationR
       return validateLoad(cmd, state);
     case "UNLOAD":
       return validateUnload(cmd, state);
-    case "DIG_TRENCH":
-      return validateDigTrench(cmd, state);
-    case "BUILD_FOB":
-      return validateBuildFOB(cmd, state);
     case "SELF_DESTRUCT":
       return validateSelfDestruct(cmd, state);
     case "WAIT":
@@ -203,15 +197,6 @@ function validateLoad(cmd: CmdLoad, state: GameState): ValidationResult {
   const dist = manhattanDistance(transport.x, transport.y, unit.x, unit.y);
   if (dist > 1) return fail("Unit not adjacent to transport");
 
-  // Airport/FOB requirement
-  if (transportInfo.requires_airport_or_fob) {
-    const tile = getTile(state, transport.x, transport.y);
-    const terrainData = tile ? getTerrainData(tile.terrain_type) : null;
-    if (!terrainData?.allows_cargo_operations && !tile?.has_fob) {
-      return fail("Heavy cargo plane must be at airport or FOB to load");
-    }
-  }
-
   const unitData = getUnitData(unit.unit_type);
   const unitTags = unitData?.tags ?? [];
   const allowedTags = transportInfo.allowed_tags ?? [];
@@ -238,17 +223,6 @@ function validateUnload(cmd: CmdUnload, state: GameState): ValidationResult {
     return fail("Invalid cargo index");
   }
 
-  const transportData = getUnitData(transport.unit_type);
-  const transportInfo = transportData?.transport;
-
-  if (transportInfo?.requires_airport_or_fob) {
-    const tile = getTile(state, transport.x, transport.y);
-    const terrainData = tile ? getTerrainData(tile.terrain_type) : null;
-    if (!terrainData?.allows_cargo_operations && !tile?.has_fob) {
-      return fail("Heavy cargo plane must be at airport or FOB to unload");
-    }
-  }
-
   if (cmd.dest_x < 0 || cmd.dest_x >= state.map_width) return fail("Destination out of bounds");
   if (cmd.dest_y < 0 || cmd.dest_y >= state.map_height) return fail("Destination out of bounds");
 
@@ -267,67 +241,15 @@ function validateUnload(cmd: CmdUnload, state: GameState): ValidationResult {
 
   const transportTile = getTile(state, transport.x, transport.y);
   if (!transportTile) return fail("Invalid transport position");
-  const transportTerrain = transportTile.has_fob ? "temporary_fob" : transportTile.terrain_type;
-  if (!isPassable(transportTerrain, moveType)) {
+  if (!isPassable(transportTile.terrain_type, moveType)) {
     return fail("Transport must be on suitable terrain to unload");
   }
 
   const destTile = getTile(state, cmd.dest_x, cmd.dest_y);
   if (!destTile) return fail("Invalid destination tile");
-  const terrainType = destTile.has_fob ? "temporary_fob" : destTile.terrain_type;
 
-  if (!isPassable(terrainType, moveType)) return fail("Cargo cannot be unloaded to this terrain");
-
-  return ok();
-}
-
-function validateDigTrench(cmd: CmdDigTrench, state: GameState): ValidationResult {
-  const unit = getUnit(state, cmd.unit_id);
-  if (!unit) return fail("Unit not found");
-  if (unit.owner_id !== cmd.player_id) return fail("Unit does not belong to player");
-  if (unit.has_acted) return fail("Unit has already acted");
-  if (unit.is_loaded) return fail("Unit is loaded in transport");
-
-  const unitData = getUnitData(unit.unit_type);
-  if (!unitData?.special_actions.includes("dig_trench")) return fail("Unit cannot dig trenches");
-
-  const dist = manhattanDistance(unit.x, unit.y, cmd.target_x, cmd.target_y);
-  if (dist > 1) return fail("Target tile not adjacent");
-
-  const tile = getTile(state, cmd.target_x, cmd.target_y);
-  if (!tile) return fail("Invalid target tile");
-
-  const terrainData = getTerrainData(tile.terrain_type);
-  if (!terrainData?.can_build_trench) return fail("Cannot build trench on this terrain");
-  if (tile.has_trench) return fail("Tile already has trench");
-  if (tile.has_fob) return fail("Cannot build trench on FOB");
-
-  return ok();
-}
-
-function validateBuildFOB(cmd: CmdBuildFOB, state: GameState): ValidationResult {
-  const unit = getUnit(state, cmd.unit_id);
-  if (!unit) return fail("Unit not found");
-  if (unit.owner_id !== cmd.player_id) return fail("Unit does not belong to player");
-  if (unit.has_acted) return fail("Unit has already acted");
-  if (unit.is_loaded) return fail("Unit is loaded in transport");
-
-  const unitData = getUnitData(unit.unit_type);
-  if (!unitData?.special_actions.includes("build_fob")) return fail("Unit cannot build FOBs");
-
-  const player = getPlayer(state, cmd.player_id);
-  if (!player || player.funds < FOB_COST) return fail("Insufficient funds for FOB");
-
-  const dist = manhattanDistance(unit.x, unit.y, cmd.target_x, cmd.target_y);
-  if (dist > 1) return fail("Target tile not adjacent");
-
-  const tile = getTile(state, cmd.target_x, cmd.target_y);
-  if (!tile) return fail("Invalid target tile");
-
-  const terrainData = getTerrainData(tile.terrain_type);
-  if (!terrainData?.can_build_fob) return fail("Cannot build FOB on this terrain");
-  if (tile.has_fob) return fail("Tile already has FOB");
-  if (tile.has_trench) return fail("Cannot build FOB on trench");
+  if (!isPassable(destTile.terrain_type, moveType))
+    return fail("Cargo cannot be unloaded to this terrain");
 
   return ok();
 }

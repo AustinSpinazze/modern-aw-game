@@ -45,9 +45,6 @@ export function createTile(partial?: Partial<TileState>): TileState {
     terrain_type: "plains",
     owner_id: -1,
     capture_points: 20,
-    has_trench: false,
-    has_fob: false,
-    fob_hp: 0,
     ...partial,
   };
 }

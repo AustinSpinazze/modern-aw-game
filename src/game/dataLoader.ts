@@ -69,8 +69,3 @@ export function loadGameDataSync(terrainJson: unknown, unitsJson: unknown): void
     unitsCache[u.id] = u;
   }
 }
-
-// FOB build cost from terrain config
-export function getFobCost(terrainJson?: { fob_config?: { build_cost?: number } }): number {
-  return terrainJson?.fob_config?.build_cost ?? 5000;
-}

@@ -88,6 +88,8 @@ export const BUILDING_ANIMATIONS: Record<string, string> = {
   factory: "base", // WarsWorld calls factory "base"
   airport: "airport",
   port: "port",
+  comms_tower: "city", // fallback to city sprite until dedicated sprites exist
+  lab: "city", // fallback to city sprite until dedicated sprites exist
 };
 
 // Static frame names for buildings (used for neutral sheet which has no animations)
@@ -97,6 +99,8 @@ export const BUILDING_STATIC_FRAMES: Record<string, string> = {
   factory: "base-0.png",
   airport: "airport-0.png",
   port: "port-0.png",
+  comms_tower: "city-0.png",
+  lab: "city-0.png",
 };
 
 // Animation speed for buildings (frames per tick)
@@ -165,4 +169,6 @@ export const FALLBACK_COLORS: Record<string, number> = {
   hq: 0xccaa44,
   pipe: 0x666666,
   pipe_seam: 0x888888,
+  comms_tower: 0xcc8844,
+  lab: 0x8844cc,
 };

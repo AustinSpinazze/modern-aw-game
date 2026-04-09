@@ -1,5 +1,5 @@
 /**
- * @file Vitest: advanced mechanics (merge, ammo, repair, trenches, FOB, stealth, etc.).
+ * @file Vitest: advanced mechanics (merge, ammo, repair, stealth, etc.).
  */
 
 // 3. Repair/Healing (domain-aware, costs funds)
@@ -391,29 +391,50 @@ describe("domain-aware healing on END_TURN", () => {
     expect(getUnit(s, 2)!.hp).toBe(5); // NOT healed on city (naval unit)
   });
 
-  it("does not heal when player has no funds", () => {
+  it("does not heal when player has no funds and no income properties", () => {
+    let s = makeState(5, 5);
+    // Use a city owned by someone else so no income for player 1
+    s = setTerrain(s, 0, 0, "city", { owner_id: 1 });
+    s = setTerrain(s, 1, 0, "plains"); // no income property
+    s = updatePlayer(s, 1, { funds: 0 });
+    // Place unit on a neutral property — cannot heal there anyway
+    s = addTestUnit(s, { id: 1, unit_type: "infantry", owner_id: 1, x: 1, y: 0, hp: 6 });
+    s = applyCommand(s, { type: "END_TURN", player_id: 0 });
+    expect(getUnit(s, 1)!.hp).toBe(6); // no heal — not on a friendly property
+  });
+
+  it("heals using income collected at start of turn (AWBW order: income → repairs)", () => {
     let s = makeState(5, 5);
     s = setTerrain(s, 0, 0, "city", { owner_id: 1 });
+    // Player 1 has 0 funds but owns a city (1000 income).
+    // AWBW: income first → 1000 funds → heal 2 HP costs 200 → 800 remaining
     s = updatePlayer(s, 1, { funds: 0 });
     s = addTestUnit(s, { id: 1, unit_type: "infantry", owner_id: 1, x: 0, y: 0, hp: 6 });
     s = applyCommand(s, { type: "END_TURN", player_id: 0 });
-    expect(getUnit(s, 1)!.hp).toBe(6); // no heal
-    // Income is applied, so funds = 0 + 1000 (city income) - 0 (no heal) = 1000
-    // But wait: healing happens before income? Let me check...
-    // Actually in our code, healing happens during unit iteration, then income is applied after.
-    // The heal uses the player's funds BEFORE income. So 0 funds = no heal.
+    expect(getUnit(s, 1)!.hp).toBe(8); // healed 2 HP (income covered it)
+    expect(getPlayer(s, 1)!.funds).toBe(800); // 1000 income - 200 heal
   });
 
   it("heals only 1 HP when funds only cover partial heal", () => {
     let s = makeState(5, 5);
-    s = setTerrain(s, 0, 0, "city", { owner_id: 1 });
-    // Infantry cost 1000, heal cost per HP = 100. Set funds to 150 (covers 1 HP, not 2)
-    s = updatePlayer(s, 1, { funds: 150 });
-    s = addTestUnit(s, { id: 1, unit_type: "infantry", owner_id: 1, x: 0, y: 0, hp: 6 });
+    // Use a factory so we know income (1000) + starting funds (150) = 1150 available
+    // But we want to test partial heal, so use an expensive unit
+    // Md.Tank cost 16000, heal 2 HP = 3200, heal 1 HP = 1600
+    // With only 150 funds + 0 income (no properties), can't heal at all
+    // Instead: set funds so that after income, only 1 HP is affordable
+    s = setTerrain(s, 0, 0, "city", { owner_id: 1 }); // 1000 income
+    // Infantry cost 1000, heal cost per HP = 100. Set funds to 0.
+    // After income: 1000. Enough for 2 HP (200). That's full heal.
+    // Use md_tank instead: cost 16000, 1 HP = 1600, 2 HP = 3200
+    // After income: 1000. Can't afford even 1 HP of md_tank.
+    // Use tank: cost 7000, 1 HP = 700, 2 HP = 1400
+    // After income: 1000. Covers 1 HP (700) but not 2 (1400).
+    s = updatePlayer(s, 1, { funds: 0 });
+    s = addTestUnit(s, { id: 1, unit_type: "tank", owner_id: 1, x: 0, y: 0, hp: 6 });
     s = applyCommand(s, { type: "END_TURN", player_id: 0 });
     expect(getUnit(s, 1)!.hp).toBe(7); // partial heal: 1 HP
-    // Funds: 150 - 100 (1 HP heal) + 1000 (city income) = 1050
-    expect(getPlayer(s, 1)!.funds).toBe(1050);
+    // Funds: 0 + 1000 (income) - 700 (1 HP heal) = 300
+    expect(getPlayer(s, 1)!.funds).toBe(300);
   });
 
   it("does not heal on enemy property", () => {

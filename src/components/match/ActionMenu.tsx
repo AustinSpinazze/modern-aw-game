@@ -67,13 +67,6 @@ export default function ActionMenu() {
       unitData.special_actions.includes("surface")) &&
     selectedUnit.is_submerged;
 
-  const canDigTrench =
-    unitData.special_actions.includes("dig_trench") &&
-    terrainData?.can_build_trench &&
-    !tile?.has_trench;
-  const canBuildFob =
-    unitData.special_actions.includes("build_fob") && terrainData?.can_build_fob && !tile?.has_fob;
-
   // Transport: find loadable adjacent units and cargo units for unloading
   const transportInfo = unitData.transport;
   const loadableUnits: Array<{ unitId: number; unitName: string }> = [];
@@ -145,8 +138,7 @@ export default function ActionMenu() {
 
     const transportTile = getTile(gameState, pendingMove.x, pendingMove.y);
     if (!transportTile) return [];
-    const transportTerrain = transportTile.has_fob ? "temporary_fob" : transportTile.terrain_type;
-    if (!isPassable(transportTerrain, moveType)) return [];
+    if (!isPassable(transportTile.terrain_type, moveType)) return [];
 
     const tiles: Vec2[] = [];
     for (const [dx, dy] of [
@@ -160,8 +152,7 @@ export default function ActionMenu() {
       if (tx < 0 || tx >= gameState.map_width || ty < 0 || ty >= gameState.map_height) continue;
       const destTile = getTile(gameState, tx, ty);
       if (!destTile) continue;
-      const terrainType = destTile.has_fob ? "temporary_fob" : destTile.terrain_type;
-      if (!isPassable(terrainType, moveType)) continue;
+      if (!isPassable(destTile.terrain_type, moveType)) continue;
       const unitOnTile = getUnitAt(gameState, tx, ty);
       if (unitOnTile) continue;
       tiles.push({ x: tx, y: ty });
@@ -244,26 +235,6 @@ export default function ActionMenu() {
 
   const handleWait = () => {
     startMoveAnimation({ type: "WAIT", player_id: currentPlayer.id, unit_id: selectedUnit.id });
-  };
-
-  const handleDigTrench = () => {
-    startMoveAnimation({
-      type: "DIG_TRENCH",
-      player_id: currentPlayer.id,
-      unit_id: selectedUnit.id,
-      target_x: pendingMove.x,
-      target_y: pendingMove.y,
-    });
-  };
-
-  const handleBuildFob = () => {
-    startMoveAnimation({
-      type: "BUILD_FOB",
-      player_id: currentPlayer.id,
-      unit_id: selectedUnit.id,
-      target_x: pendingMove.x,
-      target_y: pendingMove.y,
-    });
   };
 
   const handleMerge = (targetId: number) => {
@@ -407,24 +378,6 @@ export default function ActionMenu() {
           className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors text-amber-600 border-b border-gray-100"
         >
           🏳 Capture
-        </button>
-      )}
-
-      {canDigTrench && (
-        <button
-          onClick={handleDigTrench}
-          className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors text-orange-500 border-b border-gray-100"
-        >
-          ⛏ Dig Trench
-        </button>
-      )}
-
-      {canBuildFob && (
-        <button
-          onClick={handleBuildFob}
-          className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors text-orange-500 border-b border-gray-100"
-        >
-          🏗 Build FOB (¥5,000)
         </button>
       )}
 

@@ -326,9 +326,8 @@ function getTerrainDefenseAt(state: GameState, x: number, y: number, unit: UnitS
   if (!tile) return 0;
   const unitData = getUnitData(unit.unit_type);
   if (!unitData || unitData.domain === "air") return 0;
-  const terrain = getTerrainData(tile.has_fob ? "temporary_fob" : tile.terrain_type);
-  let stars = terrain?.defense_stars ?? 0;
-  if (tile.has_trench && unitData.tags.includes("infantry_class")) stars += 2;
+  const terrain = getTerrainData(tile.terrain_type);
+  const stars = terrain?.defense_stars ?? 0;
   return stars;
 }
 
@@ -340,7 +339,7 @@ function addThreat(threatTiles: Record<string, number>, x: number, y: number, am
 function isProductionTile(state: GameState, x: number, y: number, playerId: number): boolean {
   const tile = getTile(state, x, y);
   if (!tile || tile.owner_id !== playerId) return false;
-  const terrain = getTerrainData(tile.has_fob ? "temporary_fob" : tile.terrain_type);
+  const terrain = getTerrainData(tile.terrain_type);
   return (terrain?.can_produce?.length ?? 0) > 0;
 }
 
@@ -354,7 +353,7 @@ function getOwnProductionTiles(
     for (let x = 0; x < state.map_width; x++) {
       const tile = getTile(state, x, y);
       if (!tile || tile.owner_id !== playerId) continue;
-      const terrain = getTerrainData(tile.has_fob ? "temporary_fob" : tile.terrain_type);
+      const terrain = getTerrainData(tile.terrain_type);
       if ((terrain?.can_produce?.length ?? 0) === 0) continue;
       result.push({
         x,
@@ -384,7 +383,7 @@ function getExpandableProperties(
     for (let x = 0; x < state.map_width; x++) {
       const tile = getTile(state, x, y);
       if (!tile) continue;
-      const terrain = getTerrainData(tile.has_fob ? "temporary_fob" : tile.terrain_type);
+      const terrain = getTerrainData(tile.terrain_type);
       if (!terrain?.can_capture) continue;
       if (isAllyOrSelf(state, playerId, tile.owner_id)) continue;
       result.push({ x, y, propertyType: tile.terrain_type, ownerId: tile.owner_id });
@@ -447,7 +446,7 @@ function countNavalExits(state: GameState, x: number, y: number): number {
   for (const [dx, dy] of dirs) {
     const tile = getTile(state, x + dx, y + dy);
     if (!tile) continue;
-    const terrain = getTerrainData(tile.has_fob ? "temporary_fob" : tile.terrain_type);
+    const terrain = getTerrainData(tile.terrain_type);
     if (!terrain) continue;
     if ((terrain.movement_costs.ship ?? -1) >= 0 || (terrain.movement_costs.trans ?? -1) >= 0) {
       exits++;
@@ -900,7 +899,7 @@ export function analyzeTacticalState(
     for (let px = 0; px < state.map_width; px++) {
       const tile = getTile(state, px, py);
       if (tile && tile.owner_id === playerId) {
-        const terrain = getTerrainData(tile.has_fob ? "temporary_fob" : tile.terrain_type);
+        const terrain = getTerrainData(tile.terrain_type);
         if (terrain?.is_property) ownPropertyCount++;
       }
     }
@@ -1001,7 +1000,7 @@ export function analyzeTacticalState(
     for (let x = 0; x < state.map_width; x++) {
       const tile = getTile(state, x, y);
       if (!tile) continue;
-      const terrain = getTerrainData(tile.has_fob ? "temporary_fob" : tile.terrain_type);
+      const terrain = getTerrainData(tile.terrain_type);
       if (!terrain) continue;
       const passableTypes = ["infantry", "mech", "tires", "treads"].filter(
         (moveType) =>
@@ -1017,7 +1016,7 @@ export function analyzeTacticalState(
       ].filter(([dx, dy]) => {
         const nTile = getTile(state, x + dx, y + dy);
         if (!nTile) return false;
-        const nTerrain = getTerrainData(nTile.has_fob ? "temporary_fob" : nTile.terrain_type);
+        const nTerrain = getTerrainData(nTile.terrain_type);
         if (!nTerrain) return false;
         return passableTypes.some(
           (moveType) => ((nTerrain.movement_costs as Record<string, number>)[moveType] ?? -1) >= 0

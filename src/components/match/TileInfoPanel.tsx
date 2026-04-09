@@ -72,9 +72,7 @@ function UnitStatBlock({ unit, gameState }: { unit: UnitState; gameState: GameSt
   const currentFuel = hasFuel ? (unit.fuel ?? unitData.fuel!) : null;
 
   const unitTile = gameState.tiles[unit.y]?.[unit.x];
-  const unitTerrainData = unitTile
-    ? getTerrainData(unitTile.has_fob ? "temporary_fob" : unitTile.terrain_type)
-    : null;
+  const unitTerrainData = unitTile ? getTerrainData(unitTile.terrain_type) : null;
 
   // Show row 3 (Fuel + Range) only when at least one is relevant
   const showFuelRange = hasFuel || !!primaryWeapon;
@@ -276,8 +274,7 @@ export default function TileInfoPanel() {
   const tile = getTile(gameState, hoveredTile.x, hoveredTile.y);
   if (!tile) return null;
 
-  const terrainType = tile.has_fob ? "temporary_fob" : tile.terrain_type;
-  const terrainData = getTerrainData(terrainType);
+  const terrainData = getTerrainData(tile.terrain_type);
   const unitAtTile = getUnitAt(gameState, hoveredTile.x, hoveredTile.y);
 
   // If there's a unit on the hovered tile, show the full stat block for it
@@ -312,12 +309,6 @@ export default function TileInfoPanel() {
             ))}
             <span className="text-gray-400 text-sm ml-1">Def</span>
           </div>
-          {tile.has_trench && (
-            <div className="text-amber-500 text-sm mt-1.5">⛏ Trench (+2 def)</div>
-          )}
-          {tile.has_fob && (
-            <div className="text-orange-500 text-sm mt-1.5">🏗 FOB (HP: {tile.fob_hp})</div>
-          )}
           {terrainData.is_property && (
             <div className="text-sm mt-2">
               Owner:{" "}

@@ -1288,7 +1288,6 @@ function buildDefaultGameState(playerConfigs: PlayerConfig[], startingFunds: num
   state = updateTile(state, 9, 2, { terrain_type: "city", owner_id: -1 });
   state = updateTile(state, 5, 9, { terrain_type: "city", owner_id: -1 });
   state = updateTile(state, 10, 10, { terrain_type: "factory", owner_id: -1 });
-  state = updateTile(state, 4, 5, { has_fob: true, fob_hp: 15 });
 
   const startingUnits: Array<{ unitType: string; ownerId: number; x: number; y: number }> = [
     { unitType: "infantry", ownerId: 0, x: 1, y: 3 },
