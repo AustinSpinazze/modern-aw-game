@@ -22,7 +22,13 @@ import {
   getNextUnitId,
 } from "./gameState";
 import { getUnitData } from "./dataLoader";
-import { executeCombat, executeSelfDestruct, getCounterWeaponIndex } from "./combat";
+import {
+  executeCombat,
+  executeSelfDestruct,
+  getCounterWeaponIndex,
+  applyBlackBombExplosion,
+  applySiloMissileStrike,
+} from "./combat";
 import { applyIncome, calculateHealCost, calculateMergeRefund, deductFunds } from "./economy";
 import { findPath } from "./pathfinding";
 
@@ -239,8 +245,12 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
 
     case "SELF_DESTRUCT": {
       const uav = getUnit(state, cmd.unit_id)!;
-      const target = getUnit(state, cmd.target_id)!;
+      if (uav.unit_type === "black_bomb") {
+        state = applyBlackBombExplosion(state, uav.id);
+        break;
+      }
 
+      const target = getUnit(state, cmd.target_id)!;
       const { damage, state: newState } = executeSelfDestruct(uav, target, state);
       state = newState;
 
@@ -254,6 +264,18 @@ export function applyCommand(stateIn: GameState, cmd: GameCommand): GameState {
       } else {
         state = updateUnit(state, target.id, { hp: newHp });
       }
+      break;
+    }
+
+    case "FIRE_SILO": {
+      state = applySiloMissileStrike(
+        state,
+        cmd.unit_id,
+        cmd.silo_x,
+        cmd.silo_y,
+        cmd.target_x,
+        cmd.target_y
+      );
       break;
     }
 

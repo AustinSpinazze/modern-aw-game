@@ -78,7 +78,12 @@ export function applyPlanWeights(
     for (const bundle of adjusted) {
       switch (directive.type) {
         case "attack": {
-          const isAttackKind = bundle.kind === "attack" || bundle.kind === "move_attack";
+          const isAttackKind =
+            bundle.kind === "attack" ||
+            bundle.kind === "move_attack" ||
+            bundle.kind === "detonate_bomb" ||
+            bundle.kind === "move_detonate_bomb" ||
+            bundle.kind === "fire_silo";
           if (isAttackKind) {
             const targetIds = getBundleTargetIds(bundle);
             if (directive.target_ids && directive.target_ids.length > 0) {
@@ -139,7 +144,13 @@ export function applyPlanWeights(
                   bundle.score += 60 * weight;
                 }
               }
-              if (bundle.kind === "attack" || bundle.kind === "move_attack") {
+              if (
+                bundle.kind === "attack" ||
+                bundle.kind === "move_attack" ||
+                bundle.kind === "detonate_bomb" ||
+                bundle.kind === "move_detonate_bomb" ||
+                bundle.kind === "fire_silo"
+              ) {
                 bundle.score -= 80 * weight;
               }
             }

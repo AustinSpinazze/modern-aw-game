@@ -327,6 +327,9 @@ export async function callOllama(
     body: JSON.stringify({
       model,
       messages,
+      // Keep thinking-capable local models focused on returning a final answer
+      // in `message.content`, which is what the harness currently parses.
+      reasoning_effort: "none",
       max_tokens: options?.maxTokens ?? 1024,
       stream: false,
     }),

@@ -72,6 +72,26 @@ export const RIVER_SPRITE_MAP: Record<number, string> = {
   15: "river-top-right-bottom-left.png",
 };
 
+// Pipe auto-tiling (same bitmask convention as roads; Piperunner-only tiles)
+export const PIPE_SPRITE_MAP: Record<number, string> = {
+  0: "pipe-top-bottom.png",
+  1: "pipe-top-bottom.png",
+  2: "pipe-right-left.png",
+  3: "pipe-top-right.png",
+  4: "pipe-top-bottom.png",
+  5: "pipe-top-bottom.png",
+  6: "pipe-right-bottom.png",
+  7: "pipe-top-right-bottom.png",
+  8: "pipe-right-left.png",
+  9: "pipe-top-left.png",
+  10: "pipe-right-left.png",
+  11: "pipe-top-right-left.png",
+  12: "pipe-bottom-left.png",
+  13: "pipe-top-bottom-left.png",
+  14: "pipe-right-bottom-left.png",
+  15: "pipe-top-right-bottom-left.png",
+};
+
 // ─── Bridge sprites ─────────────────────────────────────────────────────────
 export const BRIDGE_SPRITES = {
   horizontal: "bridge-right-left.png",
@@ -88,8 +108,8 @@ export const BUILDING_ANIMATIONS: Record<string, string> = {
   factory: "base", // WarsWorld calls factory "base"
   airport: "airport",
   port: "port",
-  comms_tower: "city", // fallback to city sprite until dedicated sprites exist
-  lab: "city", // fallback to city sprite until dedicated sprites exist
+  comms_tower: "commtower",
+  lab: "lab",
 };
 
 // Static frame names for buildings (used for neutral sheet which has no animations)
@@ -99,8 +119,8 @@ export const BUILDING_STATIC_FRAMES: Record<string, string> = {
   factory: "base-0.png",
   airport: "airport-0.png",
   port: "port-0.png",
-  comms_tower: "city-0.png",
-  lab: "city-0.png",
+  comms_tower: "commtower-0.png",
+  lab: "lab-0.png",
 };
 
 // Animation speed for buildings (frames per tick)
@@ -169,6 +189,15 @@ export const FALLBACK_COLORS: Record<string, number> = {
   hq: 0xccaa44,
   pipe: 0x666666,
   pipe_seam: 0x888888,
+  broken_pipe_seam: 0x99aa66,
   comms_tower: 0xcc8844,
   lab: 0x8844cc,
+  missile_silo: 0xaa5555,
+  empty_silo: 0x777777,
+};
+
+/** Neutral-sheet frames for AW-style silos (no army-colored variant). */
+export const SILO_SPRITE_FRAMES: Record<string, string> = {
+  missile_silo: "silo-neutral-neutral-0.png",
+  empty_silo: "siloempty-neutral-neutral-0.png",
 };

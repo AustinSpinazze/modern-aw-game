@@ -12,6 +12,8 @@ const CATEGORY_MAP: Record<string, FilterCategory> = {
   WAIT: "MOVE",
   RESUPPLY: "MOVE",
   ATTACK: "ATTACK",
+  SELF_DESTRUCT: "ATTACK",
+  FIRE_SILO: "ATTACK",
   CAPTURE: "CAPTURE",
   BUY_UNIT: "BUILD",
   END_TURN: "SYSTEM",
@@ -78,6 +80,14 @@ function formatEntry(cmd: CommandDict, playerName: string): string {
       return dmg !== undefined
         ? `${playerName} attacked — ${dmg} HP damage`
         : `${playerName} attacked`;
+    }
+    case "SELF_DESTRUCT":
+      return `${playerName} self-destructed`;
+    case "FIRE_SILO": {
+      const tx = cmd.target_x as number | undefined;
+      const ty = cmd.target_y as number | undefined;
+      const at = tx !== undefined && ty !== undefined ? ` at (${tx},${ty})` : "";
+      return `${playerName} fired missile silo${at}`;
     }
     case "CAPTURE":
       return `${playerName} capturing${coord}`;

@@ -200,6 +200,7 @@ export function buildStrategicSystemPrompt(playerId: number): string {
   return [
     `You are a strategic commander for player ${playerId} in a turn-based tactics game (Advance Wars style).`,
     "Analyze the situation briefing and produce a turn plan.",
+    "Special weapons (same rules as Advance Wars: Dual Strike): Missile silo — infantry/mech adjacent to an armed silo can strike any map tile; blast is Chebyshev radius 2 (5×5), 3 HP to each unit, cannot destroy (units stay at 1 HP minimum), hits friend and foe. Black Bomb — SELF_DESTRUCT with area 3×3, 5 HP each, same 1 HP floor and friendly fire; bomb is lost.",
     'Return ONLY JSON matching the schema: { "strategy": "...", "reasoning": "...", "directives": [...] }',
     "Strategy must be one of: aggressive_push, consolidate_and_counter, economic_expansion, defensive_retreat, capture_rush, tempo_trade",
     'Each directive: { "priority": 1-10, "type": "attack|capture|retreat|produce|screen|advance|hold|transport|merge|deny_capture", "reason": "...", optional fields: "unit_ids", "target_ids", "unit_type", "region", "protect_ids" }',

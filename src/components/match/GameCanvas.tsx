@@ -32,7 +32,12 @@ import { getTerrainData, getUnitData } from "../../game/dataLoader";
 import { applyCommand } from "../../game/applyCommand";
 import { validateCommand } from "../../game/validators";
 import { getAttackableTiles } from "../../game/pathfinding";
-import { canAttack } from "../../game/combat";
+import {
+  canAttack,
+  tilesInChebyshevDisk,
+  SILO_MISSILE_CHEBYSHEV,
+  BLACK_BOMB_BLAST_CHEBYSHEV,
+} from "../../game/combat";
 
 /** Props for the GameCanvas component. */
 interface GameCanvasProps {
@@ -138,6 +143,7 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     processingQueue,
     processNextCommand,
     onQueuedAnimationComplete,
+    siloLaunch,
   } = useGameStore();
 
   // Init Pixi once on mount
@@ -201,6 +207,22 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
           const handleTileClick = (pos: Vec2) => {
             const state = useGameStore.getState().gameState;
             if (!state) return;
+
+            const sl = useGameStore.getState().siloLaunch;
+            if (sl) {
+              const cp = state.players[state.current_player_index];
+              if (!cp) return;
+              useGameStore.getState().submitCommand({
+                type: "FIRE_SILO",
+                player_id: cp.id,
+                unit_id: sl.unitId,
+                silo_x: sl.siloX,
+                silo_y: sl.siloY,
+                target_x: pos.x,
+                target_y: pos.y,
+              });
+              return;
+            }
 
             // Block clicks while preview animation is playing
             if (useGameStore.getState().previewAnimating) return;
@@ -374,6 +396,11 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
           };
 
           const handleTileRightClick = (pos: Vec2 | null) => {
+            if (useGameStore.getState().siloLaunch) {
+              useGameStore.getState().cancelSiloLaunch();
+              useGameStore.getState().setPreviewUnit(null);
+              return;
+            }
             if (!pos) {
               // Right mouse button released — clear preview
               useGameStore.getState().setPreviewUnit(null);
@@ -732,6 +759,19 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     pathOverlay.clear();
     cursorOverlay.clear();
 
+    if (siloLaunch && hoveredTile) {
+      highlights.drawBlastReticle(
+        tilesInChebyshevDisk(
+          hoveredTile.x,
+          hoveredTile.y,
+          SILO_MISSILE_CHEBYSHEV,
+          gameState.map_width,
+          gameState.map_height
+        ),
+        0xffff00
+      );
+    }
+
     if (previewUnit) {
       // Range preview (right-click) — always draws on top, even while a unit is selected.
       // In AW you can inspect enemy range while planning your own move.
@@ -746,6 +786,21 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
       if (reachableTiles.length > 0) highlights.drawReachable(reachableTiles);
       if (attackableTiles.length > 0) highlights.drawAttackable(attackableTiles);
       if (unloadTiles.length > 0) highlights.drawUnloadable(unloadTiles);
+      if (pendingMove && selectedUnit.unit_type === "black_bomb") {
+        const bombData = getUnitData(selectedUnit.unit_type);
+        if (bombData?.special_actions.includes("self_destruct")) {
+          highlights.drawBlastReticle(
+            tilesInChebyshevDisk(
+              pendingMove.x,
+              pendingMove.y,
+              BLACK_BOMB_BLAST_CHEBYSHEV,
+              gameState.map_width,
+              gameState.map_height
+            ),
+            0xffff00
+          );
+        }
+      }
     }
 
     // Draw path arrow — only during hover/path-drawing phase (no pendingMove yet).
@@ -757,8 +812,8 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
       }
     }
 
-    // Always draw targeting cursor at hovered tile
-    if (hoveredTile) {
+    // Targeting brackets on hover (silo strike uses a large AoE reticle instead)
+    if (hoveredTile && !siloLaunch) {
       cursorOverlay.drawTargetCursor(hoveredTile.x, hoveredTile.y);
     }
   }, [
@@ -779,6 +834,7 @@ export default function GameCanvas({ onFacilityClick }: GameCanvasProps = {}) {
     previewUnit,
     previewReachableTiles,
     previewAttackableTiles,
+    siloLaunch,
   ]);
 
   return <canvas ref={canvasRef} className="block w-full h-full" />;

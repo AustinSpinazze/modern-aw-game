@@ -181,15 +181,15 @@ const AWBW_TILE_MAP: Record<number, TileResult> = {
   109: { terrain: "pipe", owner: -1 },
   110: { terrain: "pipe", owner: -1 },
 
-  // Silos (not modeled — neutral plains)
-  111: { terrain: "plains", owner: -1 },
-  112: { terrain: "plains", owner: -1 },
+  // Missile silo (111) and empty silo after launch (112)
+  111: { terrain: "missile_silo", owner: -1 },
+  112: { terrain: "empty_silo", owner: -1 },
 
-  // Pipe seams (113–114); broken pipes (115–116) behave as open ground in AW — use plains
+  // Pipe seams (113–114); broken pipes (115–116) — passable ground, distinct tile for editor / sprites
   113: { terrain: "pipe_seam", owner: -1 },
   114: { terrain: "pipe_seam", owner: -1 },
-  115: { terrain: "plains", owner: -1 },
-  116: { terrain: "plains", owner: -1 },
+  115: { terrain: "broken_pipe_seam", owner: -1 },
+  116: { terrain: "broken_pipe_seam", owner: -1 },
 
   // More player buildings (117-126)
   117: { terrain: "factory", owner: 8 },

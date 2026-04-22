@@ -4,11 +4,158 @@
  * data from {@link ./dataLoader}.
  */
 
-import type { GameState, UnitState, CombatResult } from "./types";
-import { getTile, incrementAttackCounter } from "./gameState";
+import type { GameState, UnitState, CombatResult, Vec2 } from "./types";
+import {
+  getTile,
+  incrementAttackCounter,
+  getUnit,
+  getUnitAt,
+  removeUnit,
+  updateUnit,
+  updateTile,
+} from "./gameState";
 import { getUnitData, getTerrainData } from "./dataLoader";
 import { hashCombine } from "./rng";
 import { manhattanDistance } from "./pathfinding";
+
+/** AWDS-style Black Bomb: Chebyshev radius 1 → 3×3, 5 HP flat per unit (friendly fire). */
+export const BLACK_BOMB_BLAST_CHEBYSHEV = 1;
+export const BLACK_BOMB_TILE_DAMAGE = 5;
+
+/** AWDS-style silo missile: Chebyshev radius 2 → 5×5, 3 HP flat per unit (friendly fire). */
+export const SILO_MISSILE_CHEBYSHEV = 2;
+export const SILO_MISSILE_TILE_DAMAGE = 3;
+
+/**
+ * Advance Wars rule for silo missiles and Black Bomb: these strikes **cannot destroy** units;
+ * HP is reduced but never below 1.
+ */
+export function hpAfterFlatAreaDamage(currentHp: number, flatDamage: number): number {
+  return Math.max(1, currentHp - flatDamage);
+}
+
+/** HP points actually lost (for scoring / AI), respecting the 1 HP floor. */
+export function flatAreaHpLoss(currentHp: number, flatDamage: number): number {
+  return currentHp - hpAfterFlatAreaDamage(currentHp, flatDamage);
+}
+
+function resetCaptureOnTile(state: GameState, ux: number, uy: number): GameState {
+  const tile = getTile(state, ux, uy);
+  if (tile && tile.capture_points < 20) {
+    return updateTile(state, ux, uy, { capture_points: 20 });
+  }
+  return state;
+}
+
+/** All tiles within Chebyshev distance ≤ `radius` of (cx, cy), clipped to map. */
+export function tilesInChebyshevDisk(
+  cx: number,
+  cy: number,
+  radius: number,
+  mapW: number,
+  mapH: number
+): Vec2[] {
+  const out: Vec2[] = [];
+  const x0 = Math.max(0, cx - radius);
+  const x1 = Math.min(mapW - 1, cx + radius);
+  const y0 = Math.max(0, cy - radius);
+  const y1 = Math.min(mapH - 1, cy + radius);
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      if (Math.max(Math.abs(x - cx), Math.abs(y - cy)) <= radius) {
+        out.push({ x, y });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Detonates a Black Bomb: removes it, then deals {@link BLACK_BOMB_TILE_DAMAGE} HP to every unit
+ * in a 3×3 (including friendlies). One RNG counter tick for the whole salvo.
+ */
+export function applyBlackBombExplosion(stateIn: GameState, bombUnitId: number): GameState {
+  const bomb = getUnit(stateIn, bombUnitId);
+  if (!bomb || bomb.unit_type !== "black_bomb") return stateIn;
+
+  let state = incrementAttackCounter(stateIn);
+  const cx = bomb.x;
+  const cy = bomb.y;
+
+  state = resetCaptureOnTile(state, cx, cy);
+  state = removeUnit(state, bombUnitId);
+
+  const disk = tilesInChebyshevDisk(
+    cx,
+    cy,
+    BLACK_BOMB_BLAST_CHEBYSHEV,
+    state.map_width,
+    state.map_height
+  );
+  const hitIds = new Set<number>();
+  for (const t of disk) {
+    const u = getUnitAt(state, t.x, t.y);
+    if (u) hitIds.add(u.id);
+  }
+
+  const sorted = [...hitIds].sort((a, b) => a - b);
+  for (const id of sorted) {
+    const u = getUnit(state, id);
+    if (!u) continue;
+    const newHp = hpAfterFlatAreaDamage(u.hp, BLACK_BOMB_TILE_DAMAGE);
+    if (newHp < u.hp) {
+      state = updateUnit(state, id, { hp: newHp });
+    }
+  }
+
+  return state;
+}
+
+/**
+ * Silo launch: damages units in a 5×5 around the target, empties the silo tile, marks launcher acted.
+ */
+export function applySiloMissileStrike(
+  stateIn: GameState,
+  launcherId: number,
+  siloX: number,
+  siloY: number,
+  targetX: number,
+  targetY: number
+): GameState {
+  let state = incrementAttackCounter(stateIn);
+
+  const disk = tilesInChebyshevDisk(
+    targetX,
+    targetY,
+    SILO_MISSILE_CHEBYSHEV,
+    state.map_width,
+    state.map_height
+  );
+  const hitIds = new Set<number>();
+  for (const t of disk) {
+    const u = getUnitAt(state, t.x, t.y);
+    if (u) hitIds.add(u.id);
+  }
+
+  const sorted = [...hitIds].sort((a, b) => a - b);
+  for (const id of sorted) {
+    const u = getUnit(state, id);
+    if (!u) continue;
+    const newHp = hpAfterFlatAreaDamage(u.hp, SILO_MISSILE_TILE_DAMAGE);
+    if (newHp < u.hp) {
+      state = updateUnit(state, id, { hp: newHp });
+    }
+  }
+
+  const siloTile = getTile(state, siloX, siloY);
+  if (siloTile?.terrain_type === "missile_silo") {
+    state = updateTile(state, siloX, siloY, { terrain_type: "empty_silo" });
+  }
+
+  state = updateUnit(state, launcherId, { has_acted: true, has_moved: true });
+
+  return state;
+}
 
 /** Count comms towers owned by a player — each gives +10% attack. */
 function countCommsTowers(state: GameState, playerId: number): number {
@@ -276,12 +423,7 @@ export function executeSelfDestruct(
 ): { damage: number; state: GameState } {
   const state = incrementAttackCounter(stateIn);
 
-  // Black Bomb: flat 5 HP damage, ignoring formula and all stats
-  if (uav.unit_type === "black_bomb") {
-    return { damage: Math.min(5, target.hp), state };
-  }
-
-  // Generic self-destruct for other units
+  // Generic self-destruct for other units (Black Bomb uses area explosion in applyCommand)
   const uavData = getUnitData(uav.unit_type);
   const baseDamage = uavData?.self_destruct_damage ?? 40;
 

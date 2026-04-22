@@ -305,6 +305,25 @@
       }
     },
     {
+      "id": "broken_pipe_seam",
+      "name": "Broken Pipe Seam",
+      "defense_stars": 1,
+      "is_property": false,
+      "can_capture": false,
+      "income": 0,
+      "can_produce": [],
+      "movement_costs": {
+        "foot": 1,
+        "mech": 1,
+        "tires": 2,
+        "tread": 1,
+        "air": 1,
+        "ship": -1,
+        "trans": -1,
+        "pipe": -1
+      }
+    },
+    {
       "id": "comms_tower",
       "name": "Comm Tower",
       "defense_stars": 3,
@@ -328,6 +347,42 @@
       "defense_stars": 3,
       "is_property": true,
       "can_capture": true,
+      "income": 0,
+      "can_produce": [],
+      "movement_costs": {
+        "foot": 1,
+        "mech": 1,
+        "tires": 1,
+        "tread": 1,
+        "air": 1,
+        "ship": -1,
+        "trans": -1
+      }
+    },
+    {
+      "id": "missile_silo",
+      "name": "Missile Silo",
+      "defense_stars": 3,
+      "is_property": false,
+      "can_capture": false,
+      "income": 0,
+      "can_produce": [],
+      "movement_costs": {
+        "foot": 1,
+        "mech": 1,
+        "tires": 1,
+        "tread": 1,
+        "air": 1,
+        "ship": -1,
+        "trans": -1
+      }
+    },
+    {
+      "id": "empty_silo",
+      "name": "Empty Silo",
+      "defense_stars": 3,
+      "is_property": false,
+      "can_capture": false,
       "income": 0,
       "can_produce": [],
       "movement_costs": {

@@ -30,6 +30,7 @@ export const MOCK_UNITS: Record<string, UnitData> = {
           tank: 5,
           md_tank: 1,
           artillery: 15,
+          anti_air: 5,
           t_copter: 30,
           b_copter: 7,
           stealth: 15,
@@ -486,6 +487,21 @@ export const MOCK_UNITS: Record<string, UnitData> = {
     ],
     special_actions: [],
   },
+  black_bomb: {
+    id: "black_bomb",
+    name: "Black Bomb",
+    domain: "air",
+    move_type: "air",
+    move_points: 6,
+    vision: 2,
+    cost: 25000,
+    fuel: 99,
+    fuel_per_turn: 5,
+    can_capture: false,
+    tags: [],
+    weapons: [],
+    special_actions: ["self_destruct"],
+  },
 };
 
 export const MOCK_TERRAIN: Record<string, TerrainData> = {
@@ -596,5 +612,25 @@ export const MOCK_TERRAIN: Record<string, TerrainData> = {
     can_produce: [],
 
     movement_costs: { foot: 1, mech: 1, tires: 3, tread: 2, air: 1, ship: -1, trans: -1 },
+  },
+  missile_silo: {
+    id: "missile_silo",
+    name: "Missile Silo",
+    defense_stars: 0,
+    is_property: false,
+    can_capture: false,
+    income: 0,
+    can_produce: [],
+    movement_costs: { foot: 1, mech: 1, tires: 1, tread: 1, air: 1, ship: -1, trans: -1 },
+  },
+  empty_silo: {
+    id: "empty_silo",
+    name: "Empty Silo",
+    defense_stars: 0,
+    is_property: false,
+    can_capture: false,
+    income: 0,
+    can_produce: [],
+    movement_costs: { foot: 1, mech: 1, tires: 1, tread: 1, air: 1, ship: -1, trans: -1 },
   },
 };

@@ -24,6 +24,7 @@ export default function ActionMenu() {
   const unloadingCargoIndex = useGameStore((s) => s.unloadingCargoIndex);
   const unloadTiles = useGameStore((s) => s.unloadTiles);
   const setUnloadMode = useGameStore((s) => s.setUnloadMode);
+  const beginSiloLaunch = useGameStore((s) => s.beginSiloLaunch);
 
   if (!gameState || !selectedUnit) return null;
   if (!pendingMove) return null;
@@ -66,6 +67,26 @@ export default function ActionMenu() {
     (unitData.special_actions.includes("submerge") ||
       unitData.special_actions.includes("surface")) &&
     selectedUnit.is_submerged;
+
+  const siloAdjacent = (() => {
+    for (const [dx, dy] of [
+      [-1, 0],
+      [1, 0],
+      [0, -1],
+      [0, 1],
+    ] as [number, number][]) {
+      const tx = pendingMove.x + dx;
+      const ty = pendingMove.y + dy;
+      const t = getTile(gameState, tx, ty);
+      if (t?.terrain_type === "missile_silo") return { siloX: tx, siloY: ty };
+    }
+    return null;
+  })();
+
+  const canFireSilo = (unitData.tags ?? []).includes("infantry_class") && siloAdjacent !== null;
+
+  const canDetonateBomb =
+    selectedUnit.unit_type === "black_bomb" && unitData.special_actions.includes("self_destruct");
 
   // Transport: find loadable adjacent units and cargo units for unloading
   const transportInfo = unitData.transport;
@@ -307,6 +328,20 @@ export default function ActionMenu() {
     });
   };
 
+  const handleDetonateBomb = () => {
+    startMoveAnimation({
+      type: "SELF_DESTRUCT",
+      player_id: currentPlayer.id,
+      unit_id: selectedUnit.id,
+      target_id: 0,
+    });
+  };
+
+  const handleLaunchSilo = () => {
+    if (!siloAdjacent) return;
+    beginSiloLaunch(selectedUnit.id, siloAdjacent.siloX, siloAdjacent.siloY);
+  };
+
   // Position near the pending move tile, accounting for stage pan/zoom.
   const { x: stageX, y: stageY, scale } = getStageTransform();
   const tileScreenX = stageX + pendingMove.x * DISPLAY * scale;
@@ -378,6 +413,24 @@ export default function ActionMenu() {
           className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors text-amber-600 border-b border-gray-100"
         >
           🏳 Capture
+        </button>
+      )}
+
+      {canDetonateBomb && (
+        <button
+          onClick={handleDetonateBomb}
+          className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors text-fuchsia-700 border-b border-gray-100 font-semibold"
+        >
+          ☢ Detonate (3×3)
+        </button>
+      )}
+
+      {canFireSilo && (
+        <button
+          onClick={handleLaunchSilo}
+          className="w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors text-rose-700 border-b border-gray-100 font-semibold"
+        >
+          🚀 Launch silo — click map (5×5)
         </button>
       )}
 

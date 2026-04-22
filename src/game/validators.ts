@@ -15,6 +15,7 @@ import type {
   CmdLoad,
   CmdUnload,
   CmdSelfDestruct,
+  CmdFireSilo,
   CmdWait,
   CmdResupply,
   CmdSubmerge,
@@ -58,6 +59,8 @@ export function validateCommand(cmd: GameCommand, state: GameState): ValidationR
       return validateUnload(cmd, state);
     case "SELF_DESTRUCT":
       return validateSelfDestruct(cmd, state);
+    case "FIRE_SILO":
+      return validateFireSilo(cmd, state);
     case "WAIT":
       return validateWait(cmd, state);
     case "END_TURN":
@@ -265,6 +268,12 @@ function validateSelfDestruct(cmd: CmdSelfDestruct, state: GameState): Validatio
   if (!unitData?.special_actions.includes("self_destruct"))
     return fail("Unit cannot self-destruct");
 
+  // Black Bomb: 3×3 area detonation at the bomb’s tile — no adjacent-enemy target
+  if (unit.unit_type === "black_bomb") {
+    if (cmd.target_id !== 0) return fail("Black Bomb detonation uses target_id 0");
+    return ok();
+  }
+
   const target = getUnit(state, cmd.target_id);
   if (!target) return fail("Target not found");
   if (target.owner_id === unit.owner_id) return fail("Cannot target friendly unit");
@@ -272,6 +281,29 @@ function validateSelfDestruct(cmd: CmdSelfDestruct, state: GameState): Validatio
 
   const dist = manhattanDistance(unit.x, unit.y, target.x, target.y);
   if (dist > 1) return fail("Target not adjacent");
+
+  return ok();
+}
+
+function validateFireSilo(cmd: CmdFireSilo, state: GameState): ValidationResult {
+  const unit = getUnit(state, cmd.unit_id);
+  if (!unit) return fail("Unit not found");
+  if (unit.owner_id !== cmd.player_id) return fail("Unit does not belong to player");
+  if (unit.has_acted) return fail("Unit has already acted");
+  if (unit.is_loaded) return fail("Unit is loaded in transport");
+
+  const unitData = getUnitData(unit.unit_type);
+  if (!unitData?.tags.includes("infantry_class")) return fail("Only infantry can launch silos");
+
+  if (cmd.target_x < 0 || cmd.target_x >= state.map_width) return fail("Target out of bounds");
+  if (cmd.target_y < 0 || cmd.target_y >= state.map_height) return fail("Target out of bounds");
+
+  const siloTile = getTile(state, cmd.silo_x, cmd.silo_y);
+  if (!siloTile || siloTile.terrain_type !== "missile_silo")
+    return fail("No missile silo at given tile");
+
+  const distSilo = manhattanDistance(unit.x, unit.y, cmd.silo_x, cmd.silo_y);
+  if (distSilo !== 1) return fail("Unit must be adjacent to the silo");
 
   return ok();
 }

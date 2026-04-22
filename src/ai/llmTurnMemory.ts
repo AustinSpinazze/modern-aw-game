@@ -62,7 +62,9 @@ export function summarizeCommand(c: GameCommand): string {
     case "MERGE":
       return `MERGE unit ${c.unit_id} into ${c.target_id}`;
     case "SELF_DESTRUCT":
-      return `SELF_DESTRUCT unit ${c.unit_id}`;
+      return `SELF_DESTRUCT unit ${c.unit_id}${c.target_id === 0 ? " (black bomb AoE)" : ""}`;
+    case "FIRE_SILO":
+      return `FIRE_SILO launcher ${c.unit_id} silo (${c.silo_x},${c.silo_y}) → (${c.target_x},${c.target_y})`;
     case "RESUPPLY":
       return `RESUPPLY support ${c.unit_id} → target ${c.target_id}`;
     case "SUBMERGE":

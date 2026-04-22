@@ -11,11 +11,13 @@ import {
   TERRAIN_SPRITES,
   ROAD_SPRITE_MAP,
   RIVER_SPRITE_MAP,
+  PIPE_SPRITE_MAP,
   BRIDGE_SPRITES,
   BUILDING_ANIMATIONS,
   BUILDING_STATIC_FRAMES,
   BUILDING_ANIMATION_SPEED,
   FALLBACK_COLORS,
+  SILO_SPRITE_FRAMES,
   getArmySheet,
 } from "./spriteMapping";
 
@@ -67,6 +69,11 @@ function isRoadLike(t: TileState): boolean {
 // River tiles connect to river, sea, port (outlets to water)
 function isRiverLike(t: TileState): boolean {
   return t.terrain_type === "river" || t.terrain_type === "sea" || t.terrain_type === "port";
+}
+
+// Intact pipe network (Piperunner tiles + seams). Broken seams are passable ground, not pipe.
+function isPipeNetwork(t: TileState): boolean {
+  return t.terrain_type === "pipe" || t.terrain_type === "pipe_seam";
 }
 
 // AWBW base-3 shoal encoding: each cardinal neighbor gets a value
@@ -126,6 +133,25 @@ function getBridgeSprite(state: GameState, x: number, y: number): string {
   const nb = neighbors(state, x, y);
   const vConn = (nb.n && isRoadLike(nb.n)) || (nb.s && isRoadLike(nb.s));
   return vConn ? BRIDGE_SPRITES.vertical : BRIDGE_SPRITES.horizontal;
+}
+
+function getPipeSprite(state: GameState, x: number, y: number): string {
+  const nb = neighbors(state, x, y);
+  const mask = bitmask(nb, isPipeNetwork);
+  return PIPE_SPRITE_MAP[mask] ?? "pipe-top-bottom.png";
+}
+
+/** Vertical seam if N/S neighbor is pipe network; else horizontal (E/W). */
+function getPipeSeamSprite(state: GameState, x: number, y: number): string {
+  const nb = neighbors(state, x, y);
+  const vConn = (nb.n && isPipeNetwork(nb.n)) || (nb.s && isPipeNetwork(nb.s));
+  return vConn ? "pipeseam-top-bottom.png" : "pipeseam-right-left.png";
+}
+
+function getBrokenPipeSeamSprite(state: GameState, x: number, y: number): string {
+  const nb = neighbors(state, x, y);
+  const vConn = (nb.n && isPipeNetwork(nb.n)) || (nb.s && isPipeNetwork(nb.s));
+  return vConn ? "plain-broken-pipe-top-bottom.png" : "plain-broken-pipe-right-left.png";
 }
 
 // ─── Shoal tile renderer ────────────────────────────────────────────────────
@@ -234,6 +260,13 @@ export class TerrainRenderer {
     } else if (terrainType === "reef") {
       this.drawSeaTile(state, x, y, px, py);
       this.drawTerrainSprite("reef", px, py, "reef.png");
+    } else if (terrainType === "missile_silo" || terrainType === "empty_silo") {
+      const frame = SILO_SPRITE_FRAMES[terrainType];
+      if (frame) {
+        this.drawTerrainSprite(terrainType, px, py, frame);
+      } else {
+        this.drawTerrainSprite("plains", px, py);
+      }
     } else if (TRANSPARENT_TERRAIN.has(terrainType)) {
       // Mountains/forests have transparency - draw plains first
       this.drawTerrainSprite("plains", px, py);
@@ -294,6 +327,12 @@ export class TerrainRenderer {
         return getRiverSprite(state, x, y);
       case "bridge":
         return getBridgeSprite(state, x, y);
+      case "pipe":
+        return getPipeSprite(state, x, y);
+      case "pipe_seam":
+        return getPipeSeamSprite(state, x, y);
+      case "broken_pipe_seam":
+        return getBrokenPipeSeamSprite(state, x, y);
       case "plains":
         return TERRAIN_SPRITES.plains;
       case "forest":

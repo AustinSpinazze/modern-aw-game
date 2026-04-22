@@ -251,11 +251,18 @@ const GS_TERRAIN_COLORS: Record<string, string> = {
   sea: "#1a5276",
   shoal: "#76d7c4",
   reef: "#0e6655",
+  pipe: "#5d6d7e",
+  pipe_seam: "#85929e",
+  broken_pipe_seam: "#a3bf7a",
   city: "#8e44ad",
   factory: "#8e44ad",
   airport: "#8e44ad",
   port: "#8e44ad",
   hq: "#8e44ad",
+  comms_tower: "#d35400",
+  lab: "#6c3483",
+  missile_silo: "#922b21",
+  empty_silo: "#566573",
 };
 
 function GameStateMinimap({ state }: { state: GameState }) {
@@ -279,7 +286,15 @@ function GameStateMinimap({ state }: { state: GameState }) {
       for (let x = 0; x < state.map_width; x++) {
         const tile = state.tiles[y]?.[x];
         if (!tile) continue;
-        const isBuilding = ["city", "factory", "airport", "port", "hq"].includes(tile.terrain_type);
+        const isBuilding = [
+          "city",
+          "factory",
+          "airport",
+          "port",
+          "hq",
+          "comms_tower",
+          "lab",
+        ].includes(tile.terrain_type);
         if (isBuilding && tile.owner_id >= 0 && tile.owner_id < FACTION_COLORS.length) {
           ctx.fillStyle = FACTION_COLORS[tile.owner_id];
         } else {

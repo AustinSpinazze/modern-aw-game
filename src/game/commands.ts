@@ -72,6 +72,17 @@ export function commandFromDict(data: CommandDict): GameCommand | null {
         unit_id: data.unit_id as number,
         target_id: data.target_id as number,
       };
+    case "FIRE_SILO":
+      return {
+        type: "FIRE_SILO",
+        player_id,
+        sequence,
+        unit_id: data.unit_id as number,
+        silo_x: data.silo_x as number,
+        silo_y: data.silo_y as number,
+        target_x: data.target_x as number,
+        target_y: data.target_y as number,
+      };
     case "WAIT":
       return {
         type: "WAIT",

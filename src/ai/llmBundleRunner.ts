@@ -12,7 +12,16 @@ import { analyzeTacticalState } from "./tacticalAnalysis";
 import { useConfigStore } from "../store/configStore";
 import { useGameStore } from "../store/gameStore";
 import { useUsageStore } from "../store/usageStore";
-import type { GameCommand } from "../game/types";
+import type { GameCommand, GameState } from "../game/types";
+import { getUnit, getUnitAt } from "../game/gameState";
+import {
+  tilesInChebyshevDisk,
+  BLACK_BOMB_BLAST_CHEBYSHEV,
+  BLACK_BOMB_TILE_DAMAGE,
+  SILO_MISSILE_CHEBYSHEV,
+  SILO_MISSILE_TILE_DAMAGE,
+  flatAreaHpLoss,
+} from "../game/combat";
 import {
   validatePlan,
   type TurnPlan,
@@ -113,7 +122,45 @@ function buildSystemPrompt(playerId: number): string {
     "You do not write raw commands. You must choose exactly one bundle_id from the menu provided.",
     'Return only JSON like {"bundle_id":"B7"}.',
     "No prose. No markdown. No explanations.",
+    "Menu may include area strikes: FIRE_SILO (5×5, 3 HP/ unit, min 1 HP, friendly fire) and Black Bomb DETONATE (3×3, 5 HP/ unit, min 1 HP). Prefer them when they cripple enemy clusters without unacceptable friendly damage.",
   ].join("\n");
+}
+
+function getMaxTotalCalls(
+  provider: "anthropic" | "openai" | "gemini" | "local_http",
+  readyUnitCount: number
+): number {
+  const base = provider === "local_http" ? 40 : 28;
+  return Math.max(base, readyUnitCount + 12);
+}
+
+function getPromptBundleLimit(
+  provider: "anthropic" | "openai" | "gemini" | "local_http",
+  attempt: number
+): number {
+  if (provider === "local_http") return attempt > 1 ? 12 : 18;
+  return attempt > 1 ? 24 : 32;
+}
+
+function summarizeBundleForPrompt(bundle: ActionBundle): string {
+  const tags = bundle.tags.slice(0, 3).join(",");
+  return `${bundle.id} score=${Math.round(bundle.score)}${tags ? ` tags=${tags}` : ""}: ${bundle.label}`;
+}
+
+function selectBundlesForPrompt(
+  bundles: ActionBundle[],
+  provider: "anthropic" | "openai" | "gemini" | "local_http",
+  attempt: number
+): ActionBundle[] {
+  const limit = getPromptBundleLimit(provider, attempt);
+  if (bundles.length <= limit) return bundles;
+
+  const selected = bundles.slice(0, limit);
+  if (selected.some((bundle) => bundle.kind === "end_turn")) return selected;
+
+  const endTurn = bundles.find((bundle) => bundle.kind === "end_turn");
+  if (!endTurn) return selected;
+  return [...selected.slice(0, Math.max(0, limit - 1)), endTurn];
 }
 
 function buildSelectionPrompt(
@@ -122,6 +169,7 @@ function buildSelectionPrompt(
   route: string,
   routeSummary: string[],
   bundles: ActionBundle[],
+  totalBundles: number,
   retryMessage?: string | null
 ): string {
   const lines: string[] = [];
@@ -133,11 +181,14 @@ function buildSelectionPrompt(
   }
   lines.push("");
   lines.push("Choose exactly one bundle_id from this legal action menu:");
+  if (bundles.length < totalBundles) {
+    lines.push(
+      `Showing ${bundles.length} highest-priority legal bundles out of ${totalBundles} total options.`
+    );
+  }
   lines.push("Prefer attacking high-value targets over low-value ones when both are available.");
   for (const bundle of bundles) {
-    lines.push(
-      `- ${bundle.id} score=${Math.round(bundle.score)} tags=${bundle.tags.join(",")}: ${bundle.label}`
-    );
+    lines.push(`- ${summarizeBundleForPrompt(bundle)}`);
   }
   lines.push("");
   lines.push('Return only {"bundle_id":"..."}');
@@ -235,24 +286,101 @@ function getModelForProvider(provider: "anthropic" | "openai" | "gemini" | "loca
   return config.ollamaModel || "llama3.2";
 }
 
+function enemyUnitIdsInFlatAoE(
+  state: GameState,
+  actingPlayerId: number,
+  cx: number,
+  cy: number,
+  cheb: number,
+  flatDmg: number
+): number[] {
+  const disk = tilesInChebyshevDisk(cx, cy, cheb, state.map_width, state.map_height);
+  const ids: number[] = [];
+  const me = state.players.find((p) => p.id === actingPlayerId);
+  for (const t of disk) {
+    const u = getUnitAt(state, t.x, t.y);
+    if (!u || flatAreaHpLoss(u.hp, flatDmg) <= 0) continue;
+    if (u.owner_id === actingPlayerId) continue;
+    const them = state.players.find((p) => p.id === u.owner_id);
+    if (me && them && me.team === them.team) continue;
+    ids.push(u.id);
+  }
+  return ids;
+}
+
 function matchBundleToDirective(
   bundle: ActionBundle,
-  plan: TurnPlan
+  plan: TurnPlan,
+  state: GameState | null
 ): { priority: number; type: DirectiveType } | null {
+  const actingPlayerId = bundle.commands[0]?.player_id ?? 0;
+
   for (const directive of plan.directives) {
-    if (
-      directive.type === "attack" &&
-      (bundle.kind === "attack" || bundle.kind === "move_attack")
-    ) {
-      if (!directive.target_ids?.length)
-        return { priority: directive.priority, type: directive.type };
-      const targetIds = bundle.commands
-        .filter(
-          (c): c is GameCommand & { type: "ATTACK"; target_id: number } => c.type === "ATTACK"
-        )
-        .map((c) => c.target_id);
-      if (targetIds.some((tid) => directive.target_ids!.includes(tid)))
-        return { priority: directive.priority, type: directive.type };
+    if (directive.type === "attack") {
+      const isDirect = bundle.kind === "attack" || bundle.kind === "move_attack";
+      const isAoe =
+        bundle.kind === "detonate_bomb" ||
+        bundle.kind === "move_detonate_bomb" ||
+        bundle.kind === "fire_silo";
+
+      if (isDirect) {
+        if (!directive.target_ids?.length)
+          return { priority: directive.priority, type: directive.type };
+        const targetIds = bundle.commands
+          .filter(
+            (c): c is GameCommand & { type: "ATTACK"; target_id: number } => c.type === "ATTACK"
+          )
+          .map((c) => c.target_id);
+        if (targetIds.some((tid) => directive.target_ids!.includes(tid)))
+          return { priority: directive.priority, type: directive.type };
+      } else if (isAoe && state) {
+        if (!directive.target_ids?.length)
+          return { priority: directive.priority, type: directive.type };
+        let hitEnemyIds: number[] = [];
+        if (bundle.kind === "fire_silo") {
+          const cmd = bundle.commands.find(
+            (c): c is GameCommand & { type: "FIRE_SILO" } => c.type === "FIRE_SILO"
+          );
+          if (cmd) {
+            hitEnemyIds = enemyUnitIdsInFlatAoE(
+              state,
+              actingPlayerId,
+              cmd.target_x,
+              cmd.target_y,
+              SILO_MISSILE_CHEBYSHEV,
+              SILO_MISSILE_TILE_DAMAGE
+            );
+          }
+        } else if (bundle.kind === "detonate_bomb" && bundle.unitId !== undefined) {
+          const u = getUnit(state, bundle.unitId);
+          if (u?.unit_type === "black_bomb") {
+            hitEnemyIds = enemyUnitIdsInFlatAoE(
+              state,
+              actingPlayerId,
+              u.x,
+              u.y,
+              BLACK_BOMB_BLAST_CHEBYSHEV,
+              BLACK_BOMB_TILE_DAMAGE
+            );
+          }
+        } else if (bundle.kind === "move_detonate_bomb") {
+          const move = bundle.commands.find(
+            (c): c is GameCommand & { type: "MOVE" } => c.type === "MOVE"
+          );
+          if (move) {
+            hitEnemyIds = enemyUnitIdsInFlatAoE(
+              state,
+              actingPlayerId,
+              move.dest_x,
+              move.dest_y,
+              BLACK_BOMB_BLAST_CHEBYSHEV,
+              BLACK_BOMB_TILE_DAMAGE
+            );
+          }
+        }
+        if (hitEnemyIds.some((id) => directive.target_ids!.includes(id)))
+          return { priority: directive.priority, type: directive.type };
+      }
     }
     if (
       directive.type === "capture" &&
@@ -480,7 +608,7 @@ export async function runStrategicPlannerTurn(
     if (!topBundle) break;
 
     // Match bundle to directive
-    const matched = matchBundleToDirective(topBundle, plan);
+    const matched = matchBundleToDirective(topBundle, plan, loopState);
 
     // Record execution
     executedBundles.push({
@@ -566,7 +694,6 @@ export async function runBundleBasedLLMTurn(
   const failurePolicy = config.llmFailurePolicy ?? "pause_on_failure";
   const model = getModelForProvider(provider);
   const CALL_TIMEOUT_MS = 45_000;
-  const MAX_TOTAL_CALLS = 24;
   const MAX_RETRIES_PER_STEP = 3;
   let totalCalls = 0;
   let lastFailureMessage = "LLM bundle runner failed before finishing the turn.";
@@ -597,7 +724,7 @@ export async function runBundleBasedLLMTurn(
     });
   };
 
-  while (totalCalls < MAX_TOTAL_CALLS) {
+  while (true) {
     if (signal?.aborted) return;
     const state = useGameStore.getState().gameState;
     if (!state || state.phase !== "action") return;
@@ -610,6 +737,8 @@ export async function runBundleBasedLLMTurn(
 
     const analysis = analyzeTacticalState(state, playerId);
     const catalog = buildActionBundleCatalog(state, playerId, analysis);
+    const MAX_TOTAL_CALLS = getMaxTotalCalls(provider, readyUnits.length);
+    if (totalCalls >= MAX_TOTAL_CALLS) break;
 
     if (readyUnits.length === 0 && !catalog.bundles.some((b) => b.kind === "buy")) {
       appendLlmDebugLog({
@@ -666,12 +795,14 @@ export async function runBundleBasedLLMTurn(
     for (let attempt = 1; attempt <= MAX_RETRIES_PER_STEP; attempt++) {
       if (signal?.aborted) return;
       totalCalls++;
+      const promptBundles = selectBundlesForPrompt(bundles, provider, attempt);
       const prompt = buildSelectionPrompt(
         playerId,
         state.turn_number,
         catalog.route,
         catalog.routeSummary,
-        bundles,
+        promptBundles,
+        bundles.length,
         retryMessage
       );
       const messages: ChatMessage[] = [
@@ -701,6 +832,13 @@ export async function runBundleBasedLLMTurn(
           skippedCount: 0,
           errorSample: lastFailureMessage,
           bundleDecision: buildBundleDecisionLog(catalog.route, bundles, null),
+          metrics: {
+            prompt_bundle_count: promptBundles.length,
+            total_bundle_count: bundles.length,
+            prompt_char_count: prompt.length,
+            total_calls_used: totalCalls,
+            max_total_calls: MAX_TOTAL_CALLS,
+          },
         });
         if (failurePolicy === "heuristic_fallback") {
           const commands = runHeuristicTurn(state, playerId);
@@ -731,6 +869,13 @@ export async function runBundleBasedLLMTurn(
           skippedCount: 0,
           errorSample: retryMessage,
           bundleDecision: buildBundleDecisionLog(catalog.route, bundles, null),
+          metrics: {
+            prompt_bundle_count: promptBundles.length,
+            total_bundle_count: bundles.length,
+            prompt_char_count: prompt.length,
+            total_calls_used: totalCalls,
+            max_total_calls: MAX_TOTAL_CALLS,
+          },
         });
         continue;
       }
@@ -753,6 +898,13 @@ export async function runBundleBasedLLMTurn(
           skippedCount: 0,
           errorSample: retryMessage,
           bundleDecision: buildBundleDecisionLog(catalog.route, bundles, null),
+          metrics: {
+            prompt_bundle_count: promptBundles.length,
+            total_bundle_count: bundles.length,
+            prompt_char_count: prompt.length,
+            total_calls_used: totalCalls,
+            max_total_calls: MAX_TOTAL_CALLS,
+          },
         });
         continue;
       }
@@ -775,6 +927,13 @@ export async function runBundleBasedLLMTurn(
           skippedCount: 0,
           errorSample: routeIssue,
           bundleDecision: buildBundleDecisionLog(catalog.route, bundles, chosen),
+          metrics: {
+            prompt_bundle_count: promptBundles.length,
+            total_bundle_count: bundles.length,
+            prompt_char_count: prompt.length,
+            total_calls_used: totalCalls,
+            max_total_calls: MAX_TOTAL_CALLS,
+          },
         });
         continue;
       }
@@ -806,6 +965,11 @@ export async function runBundleBasedLLMTurn(
           bundle_top_score: Math.round(topBundleScore),
           bundle_score_gap: scoreGap,
           bundle_skipped_better_options: skippedBetterOptions,
+          prompt_bundle_count: promptBundles.length,
+          total_bundle_count: bundles.length,
+          prompt_char_count: prompt.length,
+          total_calls_used: totalCalls,
+          max_total_calls: MAX_TOTAL_CALLS,
         },
         policyViolations: [],
         bundleDecision,

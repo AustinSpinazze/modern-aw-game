@@ -81,6 +81,11 @@ interface GameStore {
   previewReachableTiles: Vec2[];
   previewAttackableTiles: Vec2[];
 
+  /** Missile silo: after "Launch", next click on the map confirms strike (5×5 AoE). */
+  siloLaunch: { unitId: number; siloX: number; siloY: number } | null;
+  beginSiloLaunch: (unitId: number, siloX: number, siloY: number) => void;
+  cancelSiloLaunch: () => void;
+
   // Command queue for external commands (AI/enemy)
   commandQueue: QueuedCommand[];
   processingQueue: boolean;
@@ -148,6 +153,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   previewUnit: null,
   previewReachableTiles: [],
   previewAttackableTiles: [],
+  siloLaunch: null,
   commandQueue: [],
   processingQueue: false,
   currentQueueExecution: null,
@@ -223,6 +229,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       previewUnit: null,
       previewReachableTiles: [],
       previewAttackableTiles: [],
+      siloLaunch: null,
       commandQueue: [],
       processingQueue: false,
       currentQueueExecution: null,
@@ -244,6 +251,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         pendingMove: null,
         pendingPath: [],
         hoverPath: [],
+        siloLaunch: null,
       });
       return;
     }
@@ -266,6 +274,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       previewUnit: null,
       previewReachableTiles: [],
       previewAttackableTiles: [],
+      siloLaunch: null,
     });
   },
 
@@ -357,6 +366,37 @@ export const useGameStore = create<GameStore>((set, get) => ({
       reachableTiles: [],
       unloadTiles: [],
       unloadingCargoIndex: null,
+      siloLaunch: null,
+    });
+  },
+
+  beginSiloLaunch: (unitId, siloX, siloY) => {
+    set({
+      siloLaunch: { unitId, siloX, siloY },
+      pendingMove: null,
+      pendingPath: [],
+      hoverPath: [],
+      previewAnimating: false,
+      unloadTiles: [],
+      unloadingCargoIndex: null,
+      attackableTiles: [],
+      reachableTiles: [],
+    });
+  },
+
+  cancelSiloLaunch: () => {
+    const { selectedUnit, gameState, visibilityMap } = get();
+    if (!selectedUnit || !gameState) {
+      set({ siloLaunch: null });
+      return;
+    }
+    const reachable = selectedUnit.has_moved
+      ? []
+      : getReachableTiles(gameState, selectedUnit, visibilityMap ?? undefined);
+    set({
+      siloLaunch: null,
+      reachableTiles: reachable,
+      attackableTiles: [],
     });
   },
 
@@ -449,6 +489,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       previewAnimating: false,
       unloadTiles: [],
       unloadingCargoIndex: null,
+      siloLaunch: null,
     });
 
     return { success: true };
@@ -499,6 +540,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       "SUBMERGE",
       "SURFACE",
       "RESUPPLY",
+      "FIRE_SILO",
     ];
     if (clearTypes.includes(cmd.type)) {
       set({
@@ -510,6 +552,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         hoverPath: [],
         unloadTiles: [],
         unloadingCargoIndex: null,
+        siloLaunch: null,
       });
     }
 
@@ -544,12 +587,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
       previewUnit: null,
       previewReachableTiles: [],
       previewAttackableTiles: [],
+      siloLaunch: null,
     }),
 
   cancelPendingMove: () => {
     const { selectedUnit, gameState } = get();
     if (!selectedUnit || !gameState) {
-      set({ pendingMove: null, pendingPath: [], hoverPath: [], previewAnimating: false });
+      set({
+        pendingMove: null,
+        pendingPath: [],
+        hoverPath: [],
+        previewAnimating: false,
+        siloLaunch: null,
+      });
       return;
     }
     // Restore reachable tiles when canceling, but don't show attack squares
@@ -566,6 +616,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       unloadTiles: [],
       unloadingCargoIndex: null,
       previewAnimating: false,
+      siloLaunch: null,
     });
   },
 
@@ -700,6 +751,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       hoverPath: [],
       unloadTiles: [],
       unloadingCargoIndex: null,
+      siloLaunch: null,
     });
   },
 

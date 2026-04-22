@@ -51,6 +51,75 @@ export class HighlightRenderer {
     this.drawOverlay(tiles, 0xff8800, 0.35); // orange (distinct from attack-mode red)
   }
 
+  /**
+   * Advance Wars–style AoE frame: L-brackets on the bounding box of affected tiles
+   * plus a center crosshair (no filled tile wash).
+   */
+  drawBlastReticle(tiles: Vec2[], color = 0xffff00): void {
+    if (tiles.length === 0) return;
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const t of tiles) {
+      minX = Math.min(minX, t.x);
+      minY = Math.min(minY, t.y);
+      maxX = Math.max(maxX, t.x);
+      maxY = Math.max(maxY, t.y);
+    }
+
+    const left = minX * DISPLAY;
+    const top = minY * DISPLAY;
+    const wPx = (maxX - minX + 1) * DISPLAY;
+    const hPx = (maxY - minY + 1) * DISPLAY;
+    const inset = 3;
+    const cornerLen = Math.min(
+      12 * TILE_SCALE,
+      Math.max(8 * TILE_SCALE, Math.floor(Math.min(wPx, hPx) * 0.2))
+    );
+    const lineWidth = 2;
+    const cx = left + wPx / 2;
+    const cy = top + hPx / 2;
+    const crossArm = Math.min(10 * TILE_SCALE, Math.floor(Math.min(wPx, hPx) * 0.18));
+
+    const g = new Graphics();
+
+    // Top-left
+    g.moveTo(left + inset, top + inset + cornerLen);
+    g.lineTo(left + inset, top + inset);
+    g.lineTo(left + inset + cornerLen, top + inset);
+
+    // Top-right
+    g.moveTo(left + wPx - inset - cornerLen, top + inset);
+    g.lineTo(left + wPx - inset, top + inset);
+    g.lineTo(left + wPx - inset, top + inset + cornerLen);
+
+    // Bottom-left
+    g.moveTo(left + inset, top + hPx - inset - cornerLen);
+    g.lineTo(left + inset, top + hPx - inset);
+    g.lineTo(left + inset + cornerLen, top + hPx - inset);
+
+    // Bottom-right
+    g.moveTo(left + wPx - inset - cornerLen, top + hPx - inset);
+    g.lineTo(left + wPx - inset, top + hPx - inset);
+    g.lineTo(left + wPx - inset, top + hPx - inset - cornerLen);
+
+    // Center crosshair (interrupted slightly like a scope reticle)
+    const gap = Math.max(3, 2 * TILE_SCALE);
+    g.moveTo(cx - crossArm, cy);
+    g.lineTo(cx - gap, cy);
+    g.moveTo(cx + gap, cy);
+    g.lineTo(cx + crossArm, cy);
+    g.moveTo(cx, cy - crossArm);
+    g.lineTo(cx, cy - gap);
+    g.moveTo(cx, cy + gap);
+    g.lineTo(cx, cy + crossArm);
+
+    g.stroke({ width: lineWidth, color });
+    this.container.addChild(g);
+  }
+
   // Draw AWBW-style targeting cursor (corner brackets)
   drawTargetCursor(x: number, y: number): void {
     const px = x * DISPLAY;

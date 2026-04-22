@@ -514,3 +514,73 @@ describe("END_TURN command", () => {
     expect(s.winner_id).toBe(0); // player 0 owns 2 cities vs player 1's 1
   });
 });
+
+describe("Black Bomb detonation and missile silo", () => {
+  it("SELF_DESTRUCT with target_id 0 removes bomb and deals AoE damage", () => {
+    let s = deterministicState(12, 12);
+    s = addTestUnit(s, { id: 1, unit_type: "black_bomb", owner_id: 0, x: 5, y: 5 });
+    s = addTestUnit(s, { id: 2, unit_type: "infantry", owner_id: 0, x: 5, y: 4 });
+    s = addTestUnit(s, { id: 3, unit_type: "infantry", owner_id: 1, x: 6, y: 5 });
+    s = applyCommand(s, {
+      type: "SELF_DESTRUCT",
+      player_id: 0,
+      unit_id: 1,
+      target_id: 0,
+    });
+    expect(getUnit(s, 1)).toBeNull();
+    expect(getUnit(s, 2)!.hp).toBe(5);
+    expect(getUnit(s, 3)!.hp).toBe(5);
+  });
+
+  it("FIRE_SILO damages 5×5, empties silo, marks launcher acted", () => {
+    let s = deterministicState(16, 16);
+    s = setTerrain(s, 5, 5, "missile_silo");
+    s = addTestUnit(s, { id: 10, unit_type: "infantry", owner_id: 0, x: 5, y: 4 });
+    s = addTestUnit(s, { id: 11, unit_type: "infantry", owner_id: 1, x: 8, y: 8 });
+    s = applyCommand(s, {
+      type: "FIRE_SILO",
+      player_id: 0,
+      unit_id: 10,
+      silo_x: 5,
+      silo_y: 5,
+      target_x: 8,
+      target_y: 8,
+    });
+    expect(getTile(s, 5, 5)!.terrain_type).toBe("empty_silo");
+    expect(getUnit(s, 11)!.hp).toBe(7);
+    expect(getUnit(s, 10)!.has_acted).toBe(true);
+    expect(getUnit(s, 10)!.has_moved).toBe(true);
+  });
+
+  it("FIRE_SILO cannot destroy units (AW 1 HP floor)", () => {
+    let s = deterministicState(16, 16);
+    s = setTerrain(s, 5, 5, "missile_silo");
+    s = addTestUnit(s, { id: 10, unit_type: "infantry", owner_id: 0, x: 5, y: 4 });
+    s = addTestUnit(s, { id: 11, unit_type: "infantry", owner_id: 1, x: 8, y: 8, hp: 2 });
+    s = applyCommand(s, {
+      type: "FIRE_SILO",
+      player_id: 0,
+      unit_id: 10,
+      silo_x: 5,
+      silo_y: 5,
+      target_x: 8,
+      target_y: 8,
+    });
+    expect(getUnit(s, 11)).not.toBeNull();
+    expect(getUnit(s, 11)!.hp).toBe(1);
+  });
+
+  it("Black Bomb detonation cannot destroy units (AW 1 HP floor)", () => {
+    let s = deterministicState(12, 12);
+    s = addTestUnit(s, { id: 1, unit_type: "black_bomb", owner_id: 0, x: 5, y: 5 });
+    s = addTestUnit(s, { id: 2, unit_type: "infantry", owner_id: 1, x: 5, y: 4, hp: 3 });
+    s = applyCommand(s, {
+      type: "SELF_DESTRUCT",
+      player_id: 0,
+      unit_id: 1,
+      target_id: 0,
+    });
+    expect(getUnit(s, 2)).not.toBeNull();
+    expect(getUnit(s, 2)!.hp).toBe(1);
+  });
+});

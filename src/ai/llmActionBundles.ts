@@ -1,5 +1,15 @@
 import { applyCommand } from "../game/applyCommand";
-import { calculateDamage, canAttack, canCounterattack } from "../game/combat";
+import {
+  calculateDamage,
+  canAttack,
+  canCounterattack,
+  tilesInChebyshevDisk,
+  BLACK_BOMB_BLAST_CHEBYSHEV,
+  BLACK_BOMB_TILE_DAMAGE,
+  SILO_MISSILE_CHEBYSHEV,
+  SILO_MISSILE_TILE_DAMAGE,
+  flatAreaHpLoss,
+} from "../game/combat";
 import { getTerrainData, getUnitData } from "../game/dataLoader";
 import { getTile, getUnitAt } from "../game/gameState";
 import type { GameCommand, GameState, UnitState } from "../game/types";
@@ -20,7 +30,10 @@ export interface ActionBundle {
     | "move_capture"
     | "move_wait"
     | "wait"
-    | "end_turn";
+    | "end_turn"
+    | "detonate_bomb"
+    | "move_detonate_bomb"
+    | "fire_silo";
   label: string;
   score: number;
   tags: string[];
@@ -58,6 +71,56 @@ function validateCommandList(state: GameState, commands: GameCommand[]): GameSta
     simulated = applyCommand(simulated, command);
   }
   return simulated;
+}
+
+function playersAllied(state: GameState, ownerA: number, ownerB: number): boolean {
+  if (ownerA === ownerB) return true;
+  const pa = state.players.find((p) => p.id === ownerA);
+  const pb = state.players.find((p) => p.id === ownerB);
+  return !!(pa && pb && pa.team === pb.team);
+}
+
+/** Heuristic value for prioritizing AoE bundles (higher = better for acting player). */
+function scoreFlatAoEPreview(
+  state: GameState,
+  actingPlayerId: number,
+  centerX: number,
+  centerY: number,
+  chebR: number,
+  flatDmg: number
+): number {
+  const disk = tilesInChebyshevDisk(centerX, centerY, chebR, state.map_width, state.map_height);
+  let score = 0;
+  for (const t of disk) {
+    const u = getUnitAt(state, t.x, t.y);
+    if (!u) continue;
+    const loss = flatAreaHpLoss(u.hp, flatDmg);
+    if (loss <= 0) continue;
+    const val = estimateUnitValue(u);
+    if (playersAllied(state, actingPlayerId, u.owner_id)) {
+      score -= loss * 38 + Math.round(val / 600);
+    } else {
+      score += loss * 42 + Math.round(val / 400);
+    }
+  }
+  return score;
+}
+
+function missileSiloTouching(
+  state: GameState,
+  ux: number,
+  uy: number
+): { siloX: number; siloY: number } | null {
+  for (const [dx, dy] of [
+    [-1, 0],
+    [1, 0],
+    [0, -1],
+    [0, 1],
+  ] as [number, number][]) {
+    const tile = getTile(state, ux + dx, uy + dy);
+    if (tile?.terrain_type === "missile_silo") return { siloX: ux + dx, siloY: uy + dy };
+  }
+  return null;
 }
 
 function getOwnedProductionTiles(
@@ -1028,6 +1091,121 @@ export function buildActionBundleCatalog(
           commands: [captureCommand],
           unitId: unit.id,
         });
+      }
+    }
+
+    // Black Bomb — AWDS 3×3, 5 HP/ unit, cannot destroy (min 1 HP), friendly fire
+    if (unit.unit_type === "black_bomb" && unitData.special_actions.includes("self_destruct")) {
+      const detonateCmd: GameCommand = {
+        type: "SELF_DESTRUCT",
+        player_id: playerId,
+        unit_id: unit.id,
+        target_id: 0,
+      };
+      if (validateCommandList(state, [detonateCmd])) {
+        const preview = scoreFlatAoEPreview(
+          state,
+          playerId,
+          unit.x,
+          unit.y,
+          BLACK_BOMB_BLAST_CHEBYSHEV,
+          BLACK_BOMB_TILE_DAMAGE
+        );
+        if (preview >= 12) {
+          addActionBundle(bundles, nextId, {
+            kind: "detonate_bomb",
+            label: `DETONATE Black Bomb unit ${unit.id} at (${unit.x},${unit.y}) — 3×3, 5 HP/ unit (min 1 HP), friendly fire`,
+            score: Math.round(100 + preview),
+            tags: ["aoe", "black_bomb", "combat"],
+            commands: [detonateCmd],
+            unitId: unit.id,
+          });
+        }
+      }
+
+      const bombMoveOpts = moveCatalog.byUnit.get(unit.id);
+      if (bombMoveOpts) {
+        for (const [, dest] of [...bombMoveOpts.entries()].slice(0, 10)) {
+          const moveBomb: GameCommand = {
+            type: "MOVE",
+            player_id: playerId,
+            unit_id: unit.id,
+            dest_x: dest.dest_x,
+            dest_y: dest.dest_y,
+          };
+          const afterMove = validateCommandList(state, [moveBomb]);
+          if (!afterMove) continue;
+          const detAfter: GameCommand = {
+            type: "SELF_DESTRUCT",
+            player_id: playerId,
+            unit_id: unit.id,
+            target_id: 0,
+          };
+          if (!validateCommandList(afterMove, [detAfter])) continue;
+          const previewMove = scoreFlatAoEPreview(
+            afterMove,
+            playerId,
+            dest.dest_x,
+            dest.dest_y,
+            BLACK_BOMB_BLAST_CHEBYSHEV,
+            BLACK_BOMB_TILE_DAMAGE
+          );
+          if (previewMove < 8) continue;
+          addActionBundle(bundles, nextId, {
+            kind: "move_detonate_bomb",
+            label: `MOVE Black Bomb ${unit.id} to (${dest.dest_x},${dest.dest_y}) then DETONATE — 3×3, 5 HP/ unit (min 1 HP)`,
+            score: Math.round(95 + previewMove),
+            tags: ["aoe", "black_bomb", "combat"],
+            commands: [moveBomb, detAfter],
+            unitId: unit.id,
+          });
+        }
+      }
+    }
+
+    // Missile silo — infantry/mech adjacent; 5×5, 3 HP/ unit, cannot destroy (min 1 HP)
+    if ((unitData.tags ?? []).includes("infantry_class")) {
+      const siloPos = missileSiloTouching(state, unit.x, unit.y);
+      if (siloPos) {
+        const siloTargets: { x: number; y: number; sc: number }[] = [];
+        for (const other of Object.values(state.units)) {
+          if (other.is_loaded || playersAllied(state, playerId, other.owner_id)) continue;
+          const sc = scoreFlatAoEPreview(
+            state,
+            playerId,
+            other.x,
+            other.y,
+            SILO_MISSILE_CHEBYSHEV,
+            SILO_MISSILE_TILE_DAMAGE
+          );
+          siloTargets.push({ x: other.x, y: other.y, sc });
+        }
+        siloTargets.sort((a, b) => b.sc - a.sc);
+        const used = new Set<string>();
+        for (const st of siloTargets.slice(0, 14)) {
+          const key = `${st.x},${st.y}`;
+          if (used.has(key)) continue;
+          used.add(key);
+          if (st.sc < 10) continue;
+          const siloCmd: GameCommand = {
+            type: "FIRE_SILO",
+            player_id: playerId,
+            unit_id: unit.id,
+            silo_x: siloPos.siloX,
+            silo_y: siloPos.siloY,
+            target_x: st.x,
+            target_y: st.y,
+          };
+          if (!validateCommandList(state, [siloCmd])) continue;
+          addActionBundle(bundles, nextId, {
+            kind: "fire_silo",
+            label: `FIRE_SILO unit ${unit.id} from silo (${siloPos.siloX},${siloPos.siloY}) → (${st.x},${st.y}) — 5×5, 3 HP/ unit (min 1 HP)`,
+            score: Math.round(110 + st.sc),
+            tags: ["aoe", "silo", "combat"],
+            commands: [siloCmd],
+            unitId: unit.id,
+          });
+        }
       }
     }
 

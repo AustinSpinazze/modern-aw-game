@@ -79,6 +79,7 @@ export type CommandType =
   | "LOAD"
   | "UNLOAD"
   | "SELF_DESTRUCT"
+  | "FIRE_SILO"
   | "WAIT"
   | "END_TURN"
   | "RESUPPLY"
@@ -137,7 +138,18 @@ export interface CmdUnload extends CmdBase {
 export interface CmdSelfDestruct extends CmdBase {
   type: "SELF_DESTRUCT";
   unit_id: number;
+  /** Adjacent enemy unit for non–Black Bomb self-destruct. Black Bomb area detonation uses `0`. */
   target_id: number;
+}
+
+/** Infantry/mech launches an adjacent loaded missile silo (AWDS-style 5×5 blast at any map tile). */
+export interface CmdFireSilo extends CmdBase {
+  type: "FIRE_SILO";
+  unit_id: number;
+  silo_x: number;
+  silo_y: number;
+  target_x: number;
+  target_y: number;
 }
 
 export interface CmdWait extends CmdBase {
@@ -189,6 +201,7 @@ export type GameCommand =
   | CmdLoad
   | CmdUnload
   | CmdSelfDestruct
+  | CmdFireSilo
   | CmdWait
   | CmdEndTurn
   | CmdResupply

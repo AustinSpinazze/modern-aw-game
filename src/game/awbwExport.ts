@@ -18,6 +18,11 @@ const TERRAIN_TO_AWBW: Record<string, number> = {
   sea: 28,
   shoal: 29,
   reef: 33,
+  pipe: 101, // AWBW has 101–110 for pipe shapes; 101 is a valid pipe cell for round-trip
+  pipe_seam: 113,
+  broken_pipe_seam: 115,
+  missile_silo: 111,
+  empty_silo: 112,
 };
 
 // Building type → base AWBW tile IDs per owner
@@ -47,7 +52,31 @@ const BUILDING_OFFSET: Record<string, number> = {
 const OWNER_BASE = 38; // OS city starts at 38
 const BUILDINGS_PER_OWNER = 5;
 
+/** AWBW comm tower / lab IDs per owner (see {@link ./awbwImport.AWBW_TILE_MAP}). */
+const COMMS_TOWER_AWBW: Record<number, number> = {
+  [-1]: 133,
+  0: 134,
+  1: 129,
+  2: 131,
+  3: 136,
+};
+
+const LAB_AWBW: Record<number, number> = {
+  [-1]: 145,
+  0: 146,
+  1: 140,
+  2: 142,
+  3: 148,
+};
+
 function getBuildingAwbwId(buildingType: string, ownerId: number): number {
+  if (buildingType === "comms_tower") {
+    return COMMS_TOWER_AWBW[ownerId] ?? COMMS_TOWER_AWBW[-1];
+  }
+  if (buildingType === "lab") {
+    return LAB_AWBW[ownerId] ?? LAB_AWBW[-1];
+  }
+
   if (ownerId < 0) {
     // Neutral — no HQ for neutral
     return NEUTRAL_BUILDING_IDS[buildingType] ?? 34;
@@ -135,7 +164,15 @@ export function exportToAwbwCsv(state: GameState): string {
       const terrainType = tile.terrain_type;
 
       // Check if this is a building
-      const isBuilding = ["city", "factory", "airport", "port", "hq"].includes(terrainType);
+      const isBuilding = [
+        "city",
+        "factory",
+        "airport",
+        "port",
+        "hq",
+        "comms_tower",
+        "lab",
+      ].includes(terrainType);
 
       if (isBuilding) {
         ids.push(getBuildingAwbwId(terrainType, tile.owner_id));

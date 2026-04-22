@@ -14,7 +14,16 @@ import {
 } from "../game/gameState";
 import { getUnitData, getTerrainData } from "../game/dataLoader";
 import { getReachableTiles, getAttackableTiles, manhattanDistance } from "../game/pathfinding";
-import { canAttack, calculateDamage } from "../game/combat";
+import {
+  canAttack,
+  calculateDamage,
+  tilesInChebyshevDisk,
+  BLACK_BOMB_BLAST_CHEBYSHEV,
+  BLACK_BOMB_TILE_DAMAGE,
+  SILO_MISSILE_CHEBYSHEV,
+  SILO_MISSILE_TILE_DAMAGE,
+  flatAreaHpLoss,
+} from "../game/combat";
 import { applyCommand } from "../game/applyCommand";
 import { validateCommand } from "../game/validators";
 import { analyzeTacticalState } from "./tacticalAnalysis";
@@ -425,6 +434,37 @@ function findKillShot(unit: UnitState, state: GameState, playerId: number): Game
   return bestCmd;
 }
 
+function estimateUnitValueForHeuristic(unit: UnitState): number {
+  const data = getUnitData(unit.unit_type);
+  return Math.round(((data?.cost ?? 0) * unit.hp) / 10);
+}
+
+/** Preview value of a flat AoE (silo / Black Bomb) for heuristic choices. */
+function heuristicFlatAoEScore(
+  state: GameState,
+  actingPlayerId: number,
+  cx: number,
+  cy: number,
+  chebR: number,
+  flatDmg: number
+): number {
+  const disk = tilesInChebyshevDisk(cx, cy, chebR, state.map_width, state.map_height);
+  let score = 0;
+  for (const t of disk) {
+    const u = getUnitAt(state, t.x, t.y);
+    if (!u) continue;
+    const loss = flatAreaHpLoss(u.hp, flatDmg);
+    if (loss <= 0) continue;
+    const val = estimateUnitValueForHeuristic(u);
+    if (isAllyOrSelf(state, actingPlayerId, u.owner_id)) {
+      score -= loss * 38 + Math.round(val / 600);
+    } else {
+      score += loss * 42 + Math.round(val / 400);
+    }
+  }
+  return score;
+}
+
 function decideUnitActions(
   unit: UnitState,
   state: GameState,
@@ -436,6 +476,75 @@ function decideUnitActions(
 
   const cap = unitData.can_capture;
   const hasWeapons = unitData.weapons.length > 0;
+
+  // 0a. Missile silo (AWDS: 5×5, 3 HP, min 1 HP — cannot destroy)
+  if ((unitData.tags ?? []).includes("infantry_class") && !unit.has_acted) {
+    for (const [dx, dy] of [
+      [-1, 0],
+      [1, 0],
+      [0, -1],
+      [0, 1],
+    ] as [number, number][]) {
+      const sx = unit.x + dx;
+      const sy = unit.y + dy;
+      const siloTile = getTile(state, sx, sy);
+      if (siloTile?.terrain_type !== "missile_silo") continue;
+      let bestCmd: GameCommand | null = null;
+      let bestSc = 16;
+      for (const other of Object.values(state.units)) {
+        if (other.is_loaded || isAllyOrSelf(state, playerId, other.owner_id)) continue;
+        const cmd: GameCommand = {
+          type: "FIRE_SILO",
+          player_id: playerId,
+          unit_id: unit.id,
+          silo_x: sx,
+          silo_y: sy,
+          target_x: other.x,
+          target_y: other.y,
+        };
+        if (!validateCommand(cmd, state).valid) continue;
+        const sc = heuristicFlatAoEScore(
+          state,
+          playerId,
+          other.x,
+          other.y,
+          SILO_MISSILE_CHEBYSHEV,
+          SILO_MISSILE_TILE_DAMAGE
+        );
+        if (sc > bestSc) {
+          bestSc = sc;
+          bestCmd = cmd;
+        }
+      }
+      if (bestCmd) return [bestCmd];
+      break;
+    }
+  }
+
+  // 0b. Black Bomb in-place detonation (3×3, 5 HP, min 1 HP)
+  if (
+    unit.unit_type === "black_bomb" &&
+    unitData.special_actions.includes("self_destruct") &&
+    !unit.has_acted
+  ) {
+    const detonate: GameCommand = {
+      type: "SELF_DESTRUCT",
+      player_id: playerId,
+      unit_id: unit.id,
+      target_id: 0,
+    };
+    if (validateCommand(detonate, state).valid) {
+      const sc = heuristicFlatAoEScore(
+        state,
+        playerId,
+        unit.x,
+        unit.y,
+        BLACK_BOMB_BLAST_CHEBYSHEV,
+        BLACK_BOMB_TILE_DAMAGE
+      );
+      if (sc >= 18) return [detonate];
+    }
+  }
 
   // 1. Non-capturers: attack if in range (any profitable attack)
   if (hasWeapons && !unit.has_acted && !cap) {
@@ -467,6 +576,34 @@ function decideUnitActions(
       const stateAfterMove = applyCommand(state, moveCmd);
       const movedUnit = getUnit(stateAfterMove, unit.id);
       if (!movedUnit) return cmds;
+
+      const movedBombData = getUnitData(movedUnit.unit_type);
+      if (
+        movedUnit.unit_type === "black_bomb" &&
+        movedBombData?.special_actions.includes("self_destruct") &&
+        !movedUnit.has_acted
+      ) {
+        const detAfterMove: GameCommand = {
+          type: "SELF_DESTRUCT",
+          player_id: playerId,
+          unit_id: movedUnit.id,
+          target_id: 0,
+        };
+        if (validateCommand(detAfterMove, stateAfterMove).valid) {
+          const sc = heuristicFlatAoEScore(
+            stateAfterMove,
+            playerId,
+            movedUnit.x,
+            movedUnit.y,
+            BLACK_BOMB_BLAST_CHEBYSHEV,
+            BLACK_BOMB_TILE_DAMAGE
+          );
+          if (sc >= 14) {
+            cmds.push(detAfterMove);
+            return cmds;
+          }
+        }
+      }
 
       // After moving: kill shots first, then capture, then any other attack
       if (cap && hasWeapons) {

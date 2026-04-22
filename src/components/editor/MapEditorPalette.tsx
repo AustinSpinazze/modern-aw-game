@@ -19,6 +19,11 @@ const TERRAIN_TYPES = [
   { id: "sea", label: "Sea" },
   { id: "shoal", label: "Shoal" },
   { id: "reef", label: "Reef" },
+  { id: "pipe", label: "Pipe" },
+  { id: "pipe_seam", label: "Pipe seam" },
+  { id: "broken_pipe_seam", label: "Broken pipe" },
+  { id: "missile_silo", label: "Missile silo" },
+  { id: "empty_silo", label: "Empty silo" },
 ];
 
 const BUILDING_TYPES = [
@@ -27,6 +32,8 @@ const BUILDING_TYPES = [
   { id: "airport", label: "Airport" },
   { id: "port", label: "Port" },
   { id: "hq", label: "HQ" },
+  { id: "comms_tower", label: "Comm tower" },
+  { id: "lab", label: "Lab" },
 ];
 
 const UNIT_TYPES = [
@@ -81,6 +88,11 @@ const TERRAIN_FRAME_NAMES: Record<string, string> = {
   sea: "sea.png",
   shoal: "shoal-top.png",
   reef: "reef.png",
+  pipe: "pipe-top-bottom.png",
+  pipe_seam: "pipeseam-top-bottom.png",
+  broken_pipe_seam: "plain-broken-pipe-top-bottom.png",
+  missile_silo: "silo-neutral-neutral-0.png",
+  empty_silo: "siloempty-neutral-neutral-0.png",
 };
 
 // Building sprites (per-army sheet, frame 0)
@@ -90,6 +102,8 @@ const BUILDING_FRAME_NAMES: Record<string, string> = {
   airport: "airport-0.png",
   port: "port-0.png",
   hq: "hq-0.png",
+  comms_tower: "commtower-0.png",
+  lab: "lab-0.png",
 };
 
 // Unit sprites (per-army sheet, frame 0)
@@ -132,6 +146,11 @@ const TERRAIN_COLORS: Record<string, string> = {
   sea: "bg-blue-700",
   shoal: "bg-amber-300",
   reef: "bg-teal-600",
+  pipe: "bg-zinc-500",
+  pipe_seam: "bg-zinc-400",
+  broken_pipe_seam: "bg-lime-500",
+  missile_silo: "bg-red-800",
+  empty_silo: "bg-zinc-600",
 };
 
 const BUILDING_COLORS: Record<string, string> = {
@@ -140,6 +159,8 @@ const BUILDING_COLORS: Record<string, string> = {
   airport: "bg-purple-300",
   port: "bg-cyan-500",
   hq: "bg-amber-400",
+  comms_tower: "bg-orange-500",
+  lab: "bg-violet-500",
 };
 
 const PLAYER_ICON_BG: Record<number, string> = {

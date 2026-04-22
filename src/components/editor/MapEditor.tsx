@@ -1258,9 +1258,15 @@ export default function MapEditor({ onClose, onPlay }: MapEditorProps) {
                 { id: "mountain", label: "Mountain" },
                 { id: "road", label: "Road" },
                 { id: "river", label: "River" },
+                { id: "bridge", label: "Bridge" },
                 { id: "sea", label: "Sea" },
                 { id: "shoal", label: "Shoal" },
                 { id: "reef", label: "Reef" },
+                { id: "pipe", label: "Pipe" },
+                { id: "pipe_seam", label: "Pipe seam" },
+                { id: "broken_pipe_seam", label: "Broken pipe" },
+                { id: "missile_silo", label: "Missile silo" },
+                { id: "empty_silo", label: "Empty silo" },
               ].map((t) => (
                 <button
                   key={t.id}
